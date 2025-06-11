@@ -13,6 +13,9 @@ from PySide6.QtWidgets import (
     QFileSystemModel,
     QListWidget,
     QListWidgetItem,
+    QDialog,
+    QDialogButtonBox,
+    QPlainTextEdit,
     QMainWindow,
     QMessageBox,
     QPlainTextEdit,
@@ -23,11 +26,16 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QAbstractItemView,
+    QSizePolicy,
+    QMenu,
+    QToolButton,
+    QTextEdit,
 )
 
 from application.copy_context import CopyContextUseCase
 from application.ports import ClipboardPort, DirectoryRepositoryPort
-from domain.result import Err
+from application.rules_service import RulesService
+from domain.result import Err, Result
 from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
 from domain.directory_tree import should_ignore, get_ignore_tokens
 
@@ -42,9 +50,24 @@ class _FileListWidget(QListWidget):
         self.setAcceptDrops(True)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)  # type: ignore[attr-defined]
         self._root_path = root_path
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
 
     def set_root_path(self, root_path: Path):
         self._root_path = root_path
+
+    # ----------------------------------------------------------- context menu
+    def _show_context_menu(self, pos) -> None:
+        menu = QMenu(self)
+        delete_action = QAction("Delete Selected", self)
+        delete_action.triggered.connect(self.delete_selected)  # type: ignore[arg-type]
+        menu.addAction(delete_action)
+        menu.exec_(self.mapToGlobal(pos))
+
+    def delete_selected(self) -> None:
+        for item in self.selectedItems():
+            row = self.row(item)
+            self.takeItem(row)
 
     def _add_files_from_directory(self, directory: Path):
         """Recursively add all non-ignored files from the directory."""
@@ -97,6 +120,34 @@ class _FileListWidget(QListWidget):
             super().dragMoveEvent(event)
 
 
+class RulesDialog(QDialog):
+    """Simple dialog to edit rules."""
+
+    __slots__ = ("_edit",)
+
+    def __init__(self, current_rules: str, rules_service: RulesService) -> None:
+        super().__init__()
+        self.setWindowTitle("Edit Rules")
+        layout = QVBoxLayout(self)
+        self._edit = QPlainTextEdit()
+        self._edit.setPlainText(current_rules)
+        layout.addWidget(self._edit)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)  # type: ignore[arg-type]
+        buttons.rejected.connect(self.reject)  # type: ignore[arg-type]
+        layout.addWidget(buttons)
+        self._rules_service = rules_service
+
+    def text(self) -> str:
+        return self._edit.toPlainText()
+
+    def accept(self) -> None:
+        self._rules_service.save_rules(self._edit.toPlainText())
+        return super().accept()
+
+
 class MainWindow(QMainWindow):
     """Qt main window binding infrastructure to application layer."""
 
@@ -107,7 +158,8 @@ class MainWindow(QMainWindow):
         "_repo",
         "_clipboard",
         "_copy_context_use_case",
-        "_text_edit",
+        "user_request_text_edit",
+        "_rules",
     )
 
     def __init__(
@@ -115,6 +167,7 @@ class MainWindow(QMainWindow):
         repo: DirectoryRepositoryPort,
         clipboard: ClipboardPort,
         initial_root: Path,
+        rules_service: RulesService,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
@@ -123,6 +176,14 @@ class MainWindow(QMainWindow):
         self._repo: Final = repo
         self._clipboard: Final = clipboard
         self._copy_context_use_case: Final = CopyContextUseCase(repo, clipboard)
+        self._rules_service = rules_service
+
+        # Load persisted rules if available
+        rules_result = self._rules_service.load_rules()
+        if rules_result.is_ok():
+            self.rules = rules_result.ok()  # type: ignore[arg-type]
+        else:
+            self.rules = ""
 
         splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -145,10 +206,10 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QVBoxLayout(central)
         layout.addWidget(splitter)
-        self._text_edit = QPlainTextEdit()
-        self._text_edit.setPlaceholderText("Describe your need or the bug here...")
-        self._text_edit.setFixedHeight(100)
-        layout.addWidget(self._text_edit)
+        self.user_request_text_edit = QPlainTextEdit()
+        self.user_request_text_edit.setPlaceholderText("Describe your need or the bug here...")
+        self.user_request_text_edit.setFixedHeight(100)
+        layout.addWidget(self.user_request_text_edit)
         self.setCentralWidget(central)
 
         # --------------------------- toolbar
@@ -170,7 +231,28 @@ class MainWindow(QMainWindow):
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
         toolbar.addWidget(delete_btn)
 
+        # Add spacer to push settings cog to the right
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
+
+        # Settings dropdown with cog icon
+        settings_icon = self.style().standardIcon(
+            self.style().StandardPixmap.SP_FileDialogDetailedView
+        )
+        settings_menu = QMenu(self)
+        edit_rules_action = QAction("Edit Rules", self)
+        edit_rules_action.triggered.connect(self._open_settings)  # type: ignore[arg-type]
+        settings_menu.addAction(edit_rules_action)
+        settings_button = QToolButton(self)
+        settings_button.setIcon(settings_icon)
+        settings_button.setMenu(settings_menu)
+        settings_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        settings_button.setToolTip("Settings")
+        toolbar.addWidget(settings_button)
+
     # ──────────────────────────────────────────────────────────────────
+
     def _choose_directory(self):  # noqa: D401 (simple verb)
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
         if directory:
@@ -188,12 +270,21 @@ class MainWindow(QMainWindow):
             Path(item.text())
             for item in self._file_list.findItems("*", Qt.MatchFlag.MatchWildcard)
         ]
-        user_text = self._text_edit.toPlainText().strip()
-        result = self._copy_context_use_case.execute(files, user_text or None)
+        user_text = self.user_request_text_edit.toPlainText().strip()
+        result = self._copy_context_use_case.execute(files, self.rules, user_text)
+
         if result.is_err():
             QMessageBox.critical(self, "Copy\u00A0Context\u00A0Error", result.err())
 
     def _delete_selected(self) -> None:
-        for item in self._file_list.selectedItems():
-            row = self._file_list.row(item)
-            self._file_list.takeItem(row)
+
+        self._file_list.delete_selected()
+
+    def _open_settings(self) -> None:
+        result_load_rules: Result[str, str] = self._rules_service.load_rules()
+        if result_load_rules.is_ok():
+            dialog = RulesDialog(result_load_rules.ok() or "", self._rules_service)
+        else:
+            dialog = RulesDialog("", self._rules_service)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._rules = dialog.text()

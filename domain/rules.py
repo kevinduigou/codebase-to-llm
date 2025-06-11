@@ -22,9 +22,7 @@ class Rules(ValueObject):
     @staticmethod
     def try_create(text: str) -> Result["Rules", str]:
         trimmed = text.strip()
-        return (
-            Err("Rules text cannot be empty.") if not trimmed else Ok(Rules(trimmed))
-        )
+        return Err("Rules text cannot be empty.") if not trimmed else Ok(Rules(trimmed))
 
     # ----------------------------------------------------------------- ctor (kept private – do not call directly)
     def __init__(self, text: str):

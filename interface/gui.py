@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QMenu,
     QToolButton,
-    QTextEdit
+    QTextEdit,
 )
 
 from application.copy_context import CopyContextUseCase
@@ -117,8 +117,7 @@ class RulesDialog(QDialog):
         self._edit.setPlainText(current_rules)
         layout.addWidget(self._edit)
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok
-            | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self.accept)  # type: ignore[arg-type]
         buttons.rejected.connect(self.reject)  # type: ignore[arg-type]
@@ -217,7 +216,9 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(spacer)
 
         # Settings dropdown with cog icon
-        settings_icon = self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView)
+        settings_icon = self.style().standardIcon(
+            self.style().StandardPixmap.SP_FileDialogDetailedView
+        )
         settings_menu = QMenu(self)
         edit_rules_action = QAction("Edit Rules", self)
         edit_rules_action.triggered.connect(self._open_settings)  # type: ignore[arg-type]
@@ -258,10 +259,10 @@ class MainWindow(QMainWindow):
             self._file_list.takeItem(row)
 
     def _open_settings(self) -> None:
-        result_load_rules: Result[str,str] = self._rules_service.load_rules()
+        result_load_rules: Result[str, str] = self._rules_service.load_rules()
         if result_load_rules.is_ok():
-            dialog = RulesDialog(result_load_rules.ok() or "",self._rules_service)
+            dialog = RulesDialog(result_load_rules.ok() or "", self._rules_service)
         else:
-            dialog = RulesDialog("",self._rules_service)
+            dialog = RulesDialog("", self._rules_service)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._rules = dialog.text()

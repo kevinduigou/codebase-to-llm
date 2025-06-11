@@ -22,7 +22,7 @@ def main() -> None:  # noqa: D401 (simple verb)
     rules_service = RulesService(rules_repo)
     clipboard: ClipboardPort = QtClipboardService()
 
-    window = MainWindow(repo, clipboard, root,rules_service)
+    window = MainWindow(repo, clipboard, root, rules_service)
     window.show()
     sys.exit(app.exec())
 

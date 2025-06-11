@@ -31,11 +31,13 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
         ]  # type: ignore[list-item]
 
         if rules and rules.strip():
-            parts.extend([
-                "<rules_to_follow>",
-                rules.strip(),
-                "</rules_to_follow>",
-            ])
+            parts.extend(
+                [
+                    "<rules_to_follow>",
+                    rules.strip(),
+                    "</rules_to_follow>",
+                ]
+            )
 
         for file_ in files:
             content_result = self._repo.read_file(file_)

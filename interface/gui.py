@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import Final, List
 
-from PySide6.QtCore import Qt, QMimeData, QUrl
+from PySide6.QtCore import Qt, QMimeData, QUrl, QDir
 from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QDragMoveEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -97,6 +97,7 @@ class MainWindow(QMainWindow):
 
         # --------------------------- left — directory tree
         self._model = QFileSystemModel()
+        self._model.setFilter(QDir.Dirs | QDir.Files | QDir.Hidden)
         self._model.setRootPath(str(initial_root))
         self._tree_view = QTreeView()
         self._tree_view.setModel(self._model)

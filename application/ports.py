@@ -22,6 +22,8 @@ class DirectoryRepositoryPort(Protocol):
         self, relative_path: Path
     ) -> Result[str, str]: ...  # pragma: no cover
 
+    def set_ignore_tokens(self, tokens: list[str]) -> None: ...  # pragma: no cover
+
 
 class RulesRepositoryPort(Protocol):
     """Pure port for persisting / loading the user’s custom rules."""
@@ -37,3 +39,10 @@ class RecentRepositoryPort(Protocol):
     def save_paths(
         self, paths: list[Path]
     ) -> Result[None, str]: ...  # pragma: no cover
+
+
+class IgnoreRepositoryPort(Protocol):
+    """Port for persisting user ignore tokens."""
+
+    def load_tokens(self) -> Result[list[str], str]: ...  # pragma: no cover
+    def save_tokens(self, tokens: list[str]) -> Result[None, str]: ...  # pragma: no cover

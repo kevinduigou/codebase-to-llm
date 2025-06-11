@@ -41,23 +41,34 @@ from application.ports import (
 )
 from application.rules_service import RulesService
 from application.recent_repository_service import RecentRepositoryService
+from application.ignore_service import IgnoreService
 from infrastructure.filesystem_recent_repository import FileSystemRecentRepository
 from domain.result import Err, Result
 from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
-from domain.directory_tree import should_ignore, get_ignore_tokens
+from domain.directory_tree import (
+    should_ignore,
+    get_ignore_tokens,
+    default_ignore_tokens,
+)
 
 
 class _FileListWidget(QListWidget):
     """Right‑panel list accepting drops from the tree view."""
 
-    __slots__ = ("_root_path", "_copy_context")
+    __slots__ = ("_root_path", "_copy_context", "_get_tokens")
 
-    def __init__(self, root_path: Path, copy_context: Callable[[], None]):
+    def __init__(
+        self,
+        root_path: Path,
+        copy_context: Callable[[], None],
+        get_tokens: Callable[[Path], set[str]],
+    ):
         super().__init__()
         self.setAcceptDrops(True)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)  # type: ignore[attr-defined]
         self._root_path = root_path
         self._copy_context = copy_context
+        self._get_tokens = get_tokens
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
@@ -82,7 +93,7 @@ class _FileListWidget(QListWidget):
 
     def _add_files_from_directory(self, directory: Path):
         """Recursively add all non-ignored files from the directory."""
-        ignore_tokens = get_ignore_tokens(directory)
+        ignore_tokens = self._get_tokens(directory)
         for root, dirs, files in os.walk(directory):
             root_path = Path(root)
             # Filter out ignored directories in-place
@@ -111,7 +122,7 @@ class _FileListWidget(QListWidget):
         for url in event.mimeData().urls():
             path = Path(url.toLocalFile())
             if path.is_file():
-                ignore_tokens = get_ignore_tokens(self._root_path)
+                ignore_tokens = self._get_tokens(self._root_path)
                 if not should_ignore(path, ignore_tokens):
                     try:
                         rel_path = path.relative_to(self._root_path)
@@ -159,6 +170,34 @@ class RulesDialog(QDialog):
         return super().accept()
 
 
+class IgnoresDialog(QDialog):
+    """Dialog to edit default ignore tokens."""
+
+    __slots__ = ("_edit", "_service")
+
+    def __init__(self, tokens: list[str], service: IgnoreService) -> None:
+        super().__init__()
+        self.setWindowTitle("Edit Ignores")
+        layout = QVBoxLayout(self)
+        self._edit = QPlainTextEdit()
+        self._edit.setPlainText("\n".join(tokens))
+        layout.addWidget(self._edit)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)  # type: ignore[arg-type]
+        buttons.rejected.connect(self.reject)  # type: ignore[arg-type]
+        layout.addWidget(buttons)
+        self._service = service
+
+    def tokens(self) -> list[str]:
+        return [t for t in (line.strip() for line in self._edit.toPlainText().splitlines()) if t]
+
+    def accept(self) -> None:
+        self._service.save_tokens(self.tokens())
+        return super().accept()
+
+
 class MainWindow(QMainWindow):
     """Qt main window binding infrastructure to application layer."""
 
@@ -173,6 +212,8 @@ class MainWindow(QMainWindow):
         "_recent_menu",
         "user_request_text_edit",
         "_rules",
+        "_ignore_tokens",
+        "_ignore_service",
         "_include_rules_checkbox",
         "_include_tree_checkbox",
     )
@@ -184,6 +225,7 @@ class MainWindow(QMainWindow):
         initial_root: Path,
         rules_service: RulesService,
         recent_service: RecentRepositoryService,
+        ignore_service: IgnoreService,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
@@ -194,6 +236,15 @@ class MainWindow(QMainWindow):
         self._copy_context_use_case = CopyContextUseCase(repo, clipboard)
         self._rules_service = rules_service
         self._recent_service = recent_service
+        self._ignore_service = ignore_service
+
+        ignore_result = self._ignore_service.load_tokens()
+        self._ignore_tokens = (
+            ignore_result.ok() if ignore_result.is_ok() else []
+        )
+        repo.set_ignore_tokens(
+            self._ignore_tokens or list(default_ignore_tokens())
+        )
 
         # Load persisted rules if available
         self._rules = ""
@@ -215,7 +266,11 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self._tree_view)
 
         # --------------------------- right — dropped files list
-        self._file_list = _FileListWidget(initial_root, self._copy_context)
+        self._file_list = _FileListWidget(
+            initial_root,
+            self._copy_context,
+            self._get_ignore_tokens,
+        )
         splitter.addWidget(self._file_list)
 
         # --------------------------- central widget
@@ -261,6 +316,9 @@ class MainWindow(QMainWindow):
         edit_rules_action = QAction("Edit Rules", self)
         edit_rules_action.triggered.connect(self._open_settings)  # type: ignore[arg-type]
         settings_menu.addAction(edit_rules_action)
+        edit_ignores_action = QAction("Edit Ignores", self)
+        edit_ignores_action.triggered.connect(self._open_ignore_settings)  # type: ignore[arg-type]
+        settings_menu.addAction(edit_ignores_action)
         settings_button = QToolButton(self)
         settings_button.setIcon(settings_icon)
         settings_button.setMenu(settings_menu)
@@ -296,6 +354,14 @@ class MainWindow(QMainWindow):
             self._show_user_request_context_menu
         )
 
+    def _get_ignore_tokens(self, root: Path) -> set[str]:
+        return set(
+            get_ignore_tokens(
+                root,
+                self._ignore_tokens or list(default_ignore_tokens()),
+            )
+        )
+
     # ──────────────────────────────────────────────────────────────────
 
     def _choose_directory(self):  # noqa: D401 (simple verb)
@@ -305,7 +371,10 @@ class MainWindow(QMainWindow):
             self._model.setRootPath(str(path))
             self._tree_view.setRootIndex(self._model.index(str(path)))
             # Re‑initialise repository for new root
-            self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
+            self._repo = FileSystemDirectoryRepository(
+                path,
+                self._ignore_tokens or list(default_ignore_tokens()),
+            )  # type: ignore[assignment]
             self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
             self._file_list.clear()
             self._file_list.set_root_path(path)
@@ -315,7 +384,10 @@ class MainWindow(QMainWindow):
     def _open_recent(self, path: Path) -> None:
         self._model.setRootPath(str(path))
         self._tree_view.setRootIndex(self._model.index(str(path)))
-        self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
+        self._repo = FileSystemDirectoryRepository(
+            path,
+            self._ignore_tokens or list(default_ignore_tokens()),
+        )  # type: ignore[assignment]
         self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
         self._file_list.clear()
         self._file_list.set_root_path(path)
@@ -361,6 +433,15 @@ class MainWindow(QMainWindow):
             dialog = RulesDialog("", self._rules_service)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._rules = dialog.text()
+
+    def _open_ignore_settings(self) -> None:
+        result_tokens: Result[List[str], str] = self._ignore_service.load_tokens()
+        dialog = IgnoresDialog(result_tokens.ok() or [], self._ignore_service)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._ignore_tokens = dialog.tokens()
+            self._repo.set_ignore_tokens(
+                self._ignore_tokens or list(default_ignore_tokens())
+            )
 
     def _show_user_request_context_menu(self, pos) -> None:
         menu = QMenu(self)

@@ -14,7 +14,10 @@ _DEFAULT_IGNORES: Final[Set[str]] = {
     "__pycache__",
 }
 
-DEFAULT_IGNORES: Final[Set[str]] = _DEFAULT_IGNORES
+
+def default_ignore_tokens() -> Set[str]:
+    """Return a mutable copy of the built‑in ignore tokens."""
+    return set(_DEFAULT_IGNORES)
 
 
 def _gitignore_paths(root: Path) -> Set[str]:
@@ -34,12 +37,14 @@ def _gitignore_paths(root: Path) -> Set[str]:
     return patterns
 
 
-def get_ignore_tokens(root: Path) -> Set[str]:
-    """Return the set of ignore tokens for a given root directory (default + .gitignore)."""
-    return DEFAULT_IGNORES.union(_gitignore_paths(root))
+def get_ignore_tokens(root: Path, base_tokens: Iterable[str] | None = None) -> Set[str]:
+    """Return the ignore tokens combining the provided list and `.gitignore`."""
+    tokens = set(base_tokens or _DEFAULT_IGNORES)
+    tokens.update(_gitignore_paths(root))
+    return tokens
 
 
-def should_ignore(path: Path, ignore_tokens: Set[str]) -> bool:
+def should_ignore(path: Path, ignore_tokens: Iterable[str]) -> bool:
     """Return True if the path should be ignored according to the ignore tokens."""
     for token in ignore_tokens:
         if token and token in path.parts:
@@ -50,7 +55,7 @@ def should_ignore(path: Path, ignore_tokens: Set[str]) -> bool:
     return False
 
 
-def _ascii_tree(root: Path, ignore_tokens: Set[str]) -> str:
+def _ascii_tree(root: Path, ignore_tokens: Iterable[str]) -> str:
     """Return an ASCII‑art directory tree similar to the `tree` command."""
 
     lines: List[str] = []
@@ -76,9 +81,9 @@ def _ascii_tree(root: Path, ignore_tokens: Set[str]) -> str:
 # The port‑friendly façade
 
 
-def build_tree(root: Path) -> Result[str, str]:
+def build_tree(root: Path, ignore_tokens: Iterable[str] | None = None) -> Result[str, str]:
     if not root.exists():
         return Err(f"Directory not found: {root}")
-    ignore_tokens = get_ignore_tokens(root)
-    tree_repr = _ascii_tree(root, ignore_tokens)
+    tokens = get_ignore_tokens(root, ignore_tokens)
+    tree_repr = _ascii_tree(root, tokens)
     return Ok(tree_repr)

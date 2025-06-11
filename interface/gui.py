@@ -51,7 +51,9 @@ class _FileListWidget(QListWidget):
         for root, dirs, files in os.walk(directory):
             root_path = Path(root)
             # Filter out ignored directories in-place
-            dirs[:] = [d for d in dirs if not should_ignore(root_path / d, ignore_tokens)]
+            dirs[:] = [
+                d for d in dirs if not should_ignore(root_path / d, ignore_tokens)
+            ]
             for file in files:
                 file_path = root_path / file
                 if not should_ignore(file_path, ignore_tokens):

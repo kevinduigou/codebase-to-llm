@@ -22,16 +22,22 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
         files: List[Path],
         rules: str | None = None,
         user_request: str | None = None,
+        include_tree: bool = True,
     ) -> Result[None, str]:  # noqa: D401 (simple verb)
-        tree_result = self._repo.build_tree()
-        if tree_result.is_err():
-            return Err(tree_result.err())  # type: ignore[arg-type]
+        parts: List[str] = []
 
-        parts: List[str] = [
-            "<tree_structure>",
-            tree_result.ok() or "",
-            "</tree_structure>",
-        ]  # type: ignore[list-item]
+        if include_tree:
+            tree_result = self._repo.build_tree()
+            if tree_result.is_err():
+                return Err(tree_result.err())  # type: ignore[arg-type]
+
+            parts.extend(
+                [
+                    "<tree_structure>",
+                    tree_result.ok() or "",
+                    "</tree_structure>",
+                ]
+            )
 
         for file_ in files:
             content_result = self._repo.read_file(file_)

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QTreeView,
     QWidget,
     QVBoxLayout,
+    QAbstractItemView,
 )
 
 from application.copy_context import CopyContextUseCase
@@ -38,6 +39,7 @@ class _FileListWidget(QListWidget):
     def __init__(self, root_path: Path):
         super().__init__()
         self.setAcceptDrops(True)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)  # type: ignore[attr-defined]
         self._root_path = root_path
 
     def set_root_path(self, root_path: Path):
@@ -49,7 +51,9 @@ class _FileListWidget(QListWidget):
         for root, dirs, files in os.walk(directory):
             root_path = Path(root)
             # Filter out ignored directories in-place
-            dirs[:] = [d for d in dirs if not should_ignore(root_path / d, ignore_tokens)]
+            dirs[:] = [
+                d for d in dirs if not should_ignore(root_path / d, ignore_tokens)
+            ]
             for file in files:
                 file_path = root_path / file
                 if not should_ignore(file_path, ignore_tokens):
@@ -57,7 +61,9 @@ class _FileListWidget(QListWidget):
                         rel_path = file_path.relative_to(self._root_path)
                     except ValueError:
                         rel_path = file_path
-                    self.addItem(str(rel_path))
+                    # Prevent duplicates
+                    if not self.findItems(str(rel_path), Qt.MatchFlag.MatchExactly):
+                        self.addItem(str(rel_path))
 
     # -------------------------------------------------------------- DnD
     def dragEnterEvent(self, event: QDragEnterEvent):  # noqa: N802
@@ -76,7 +82,9 @@ class _FileListWidget(QListWidget):
                         rel_path = path.relative_to(self._root_path)
                     except ValueError:
                         rel_path = path
-                    self.addItem(str(rel_path))
+                    # Prevent duplicates
+                    if not self.findItems(str(rel_path), Qt.MatchFlag.MatchExactly):
+                        self.addItem(str(rel_path))
             elif path.is_dir():
                 self._add_files_from_directory(path)
         event.acceptProposedAction()
@@ -114,12 +122,12 @@ class MainWindow(QMainWindow):
         self._clipboard: Final = clipboard
         self._copy_context_use_case: Final = CopyContextUseCase(repo, clipboard)
 
-        splitter = QSplitter(Qt.Horizontal, self)
+        splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
 
         # --------------------------- left — directory tree
         self._model = QFileSystemModel()
-        self._model.setFilter(QDir.Dirs | QDir.Files | QDir.Hidden)
+        self._model.setFilter(QDir.Dirs | QDir.Files | QDir.Hidden)  # type: ignore[attr-defined]
         self._model.setRootPath(str(initial_root))
         self._tree_view = QTreeView()
         self._tree_view.setModel(self._model)
@@ -151,6 +159,11 @@ class MainWindow(QMainWindow):
         copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
         toolbar.addWidget(copy_btn)
 
+        # Delete selected button
+        delete_btn = QPushButton("Delete Selected")
+        delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
+        toolbar.addWidget(delete_btn)
+
     # ──────────────────────────────────────────────────────────────────
     def _choose_directory(self):  # noqa: D401 (simple verb)
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
@@ -167,8 +180,13 @@ class MainWindow(QMainWindow):
     def _copy_context(self):  # noqa: D401 (simple verb)
         files: List[Path] = [
             Path(item.text())
-            for item in self._file_list.findItems("*", Qt.MatchWildcard)
+            for item in self._file_list.findItems("*", Qt.MatchFlag.MatchWildcard)
         ]
         result = self._copy_context_use_case.execute(files)
         if result.is_err():
             QMessageBox.critical(self, "Copy Context Error", result.err())
+
+    def _delete_selected(self) -> None:
+        for item in self._file_list.selectedItems():
+            row = self._file_list.row(item)
+            self._file_list.takeItem(row)

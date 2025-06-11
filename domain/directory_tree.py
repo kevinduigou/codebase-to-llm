@@ -6,7 +6,13 @@ from typing import Final, Iterable, List, Set
 
 from .result import Err, Ok, Result
 
-_DEFAULT_IGNORES: Final[Set[str]] = {".git", ".venv", "venv",".mypy_cache","__pycache__"}
+_DEFAULT_IGNORES: Final[Set[str]] = {
+    ".git",
+    ".venv",
+    "venv",
+    ".mypy_cache",
+    "__pycache__",
+}
 
 DEFAULT_IGNORES: Final[Set[str]] = _DEFAULT_IGNORES
 

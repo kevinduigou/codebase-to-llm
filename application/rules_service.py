@@ -24,4 +24,7 @@ class RulesService:  # noqa: D101
         if rules_result.is_err():
             # Propagate the domain-level validation error
             return Err(rules_result.err())  # type: ignore[arg-type]
-        return self._repo.save_rules(rules_result.ok().text())
+        rules = rules_result.ok()
+        if rules is None:
+            return Err("Failed to create rules object.")
+        return self._repo.save_rules(rules.text())

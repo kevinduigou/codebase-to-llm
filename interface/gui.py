@@ -213,7 +213,7 @@ class MainWindow(QMainWindow):
 
         # Add spacer to push settings cog to the right
         spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         toolbar.addWidget(spacer)
 
         # Settings dropdown with cog icon
@@ -225,15 +225,11 @@ class MainWindow(QMainWindow):
         settings_button = QToolButton(self)
         settings_button.setIcon(settings_icon)
         settings_button.setMenu(settings_menu)
-        settings_button.setPopupMode(QToolButton.InstantPopup)
+        settings_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         settings_button.setToolTip("Settings")
         toolbar.addWidget(settings_button)
 
     # ──────────────────────────────────────────────────────────────────
-
-    def _persist_rules(self) -> None:
-        current_rules = self.rules_edit.toPlainText()
-        self._rules_service.save_rules(current_rules)
 
     def _choose_directory(self):  # noqa: D401 (simple verb)
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
@@ -264,7 +260,7 @@ class MainWindow(QMainWindow):
     def _open_settings(self) -> None:
         result_load_rules: Result[str,str] = self._rules_service.load_rules()
         if result_load_rules.is_ok():
-            dialog = RulesDialog(result_load_rules.ok(),self._rules_service)
+            dialog = RulesDialog(result_load_rules.ok() or "",self._rules_service)
         else:
             dialog = RulesDialog("",self._rules_service)
         if dialog.exec() == QDialog.DialogCode.Accepted:

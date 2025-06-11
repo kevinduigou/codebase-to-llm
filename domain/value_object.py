@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing_extensions import final
 
 
-@final
+
 class ValueObject:
     """Base class for immutable value objects compared *by value*."""
 

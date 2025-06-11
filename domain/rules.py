@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing_extensions import final
 
+from domain.value_object import ValueObject
+
 from .result import Result, Ok, Err
-from .value_object import ValueObject
 
 
-@final
 class Rules(ValueObject):
     """
     Immutable wrapper around the raw rules text.

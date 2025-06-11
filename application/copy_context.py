@@ -26,7 +26,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
 
         parts: List[str] = [
             "<tree_structure>",
-            tree_result.ok(),
+            tree_result.ok() or "",
             "</tree_structure>",
         ]  # type: ignore[list-item]
 
@@ -42,7 +42,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
             tag = f"<{file_}>"
             parts.append(tag)
             if content_result.is_ok():
-                parts.append(content_result.ok())  # type: ignore[list-item,arg-type]
+                parts.append(content_result.ok() or "")  # type: ignore[list-item,arg-type]
             # On failure, embed empty body — could embed error instead if desired.
             parts.append(f"</{file_}>")
 

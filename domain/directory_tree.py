@@ -8,6 +8,8 @@ from .result import Err, Ok, Result
 
 _DEFAULT_IGNORES: Final[Set[str]] = {".git", ".venv", "venv",".mypy_cache","__pycache__"}
 
+DEFAULT_IGNORES: Final[Set[str]] = _DEFAULT_IGNORES
+
 
 def _gitignore_paths(root: Path) -> Set[str]:
     gitignore_file = root / ".gitignore"
@@ -26,7 +28,13 @@ def _gitignore_paths(root: Path) -> Set[str]:
     return patterns
 
 
-def _should_ignore(path: Path, ignore_tokens: Set[str]) -> bool:
+def get_ignore_tokens(root: Path) -> Set[str]:
+    """Return the set of ignore tokens for a given root directory (default + .gitignore)."""
+    return DEFAULT_IGNORES.union(_gitignore_paths(root))
+
+
+def should_ignore(path: Path, ignore_tokens: Set[str]) -> bool:
+    """Return True if the path should be ignored according to the ignore tokens."""
     for token in ignore_tokens:
         if token and token in path.parts:
             return True
@@ -44,7 +52,7 @@ def _ascii_tree(root: Path, ignore_tokens: Set[str]) -> str:
 
     def _walk(current: Path, level: int) -> None:  # noqa: ANN001
         entries: List[Path] = sorted(
-            p for p in current.iterdir() if not _should_ignore(p, ignore_tokens)
+            p for p in current.iterdir() if not should_ignore(p, ignore_tokens)
         )
         for index, entry in enumerate(entries):
             connector = "└── " if index == len(entries) - 1 else "├── "
@@ -65,6 +73,6 @@ def _ascii_tree(root: Path, ignore_tokens: Set[str]) -> str:
 def build_tree(root: Path) -> Result[str, str]:
     if not root.exists():
         return Err(f"Directory not found: {root}")
-    ignore_tokens = _DEFAULT_IGNORES.union(_gitignore_paths(root))
+    ignore_tokens = get_ignore_tokens(root)
     tree_repr = _ascii_tree(root, ignore_tokens)
     return Ok(tree_repr)

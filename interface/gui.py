@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Final, List
+import os
 
 from PySide6.QtCore import Qt, QMimeData, QUrl, QDir
 from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QDragMoveEvent
@@ -27,6 +28,7 @@ from application.copy_context import CopyContextUseCase
 from application.ports import ClipboardPort, DirectoryRepositoryPort
 from domain.result import Err
 from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
+from domain.directory_tree import should_ignore, get_ignore_tokens
 
 
 class _FileListWidget(QListWidget):
@@ -43,6 +45,22 @@ class _FileListWidget(QListWidget):
     def set_root_path(self, root_path: Path):
         self._root_path = root_path
 
+    def _add_files_from_directory(self, directory: Path):
+        """Recursively add all non-ignored files from the directory."""
+        ignore_tokens = get_ignore_tokens(directory)
+        for root, dirs, files in os.walk(directory):
+            root_path = Path(root)
+            # Filter out ignored directories in-place
+            dirs[:] = [d for d in dirs if not should_ignore(root_path / d, ignore_tokens)]
+            for file in files:
+                file_path = root_path / file
+                if not should_ignore(file_path, ignore_tokens):
+                    try:
+                        rel_path = file_path.relative_to(self._root_path)
+                    except ValueError:
+                        rel_path = file_path
+                    self.addItem(str(rel_path))
+
     # -------------------------------------------------------------- DnD
     def dragEnterEvent(self, event: QDragEnterEvent):  # noqa: N802
         if event.mimeData().hasUrls():
@@ -53,12 +71,16 @@ class _FileListWidget(QListWidget):
     def dropEvent(self, event: QDropEvent):  # noqa: N802
         for url in event.mimeData().urls():
             path = Path(url.toLocalFile())
-            if path.is_file() or path.is_dir():
-                try:
-                    rel_path = path.relative_to(self._root_path)
-                except ValueError:
-                    rel_path = path  # fallback to absolute if not under root
-                self.addItem(str(rel_path))
+            if path.is_file():
+                ignore_tokens = get_ignore_tokens(self._root_path)
+                if not should_ignore(path, ignore_tokens):
+                    try:
+                        rel_path = path.relative_to(self._root_path)
+                    except ValueError:
+                        rel_path = path
+                    self.addItem(str(rel_path))
+            elif path.is_dir():
+                self._add_files_from_directory(path)
         event.acceptProposedAction()
 
     def dragMoveEvent(self, event: QDragMoveEvent):  # noqa: N802

@@ -212,7 +212,9 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
         layout.addWidget(splitter)
         self.user_request_text_edit = QPlainTextEdit()
-        self.user_request_text_edit.setPlaceholderText("Describe your need or the bug here...")
+        self.user_request_text_edit.setPlaceholderText(
+            "Describe your need or the bug here..."
+        )
         self.user_request_text_edit.setFixedHeight(100)
         layout.addWidget(self.user_request_text_edit)
         self.setCentralWidget(central)
@@ -255,17 +257,19 @@ class MainWindow(QMainWindow):
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
         # Bottom bar layout for "Copy Context" button
         bottom_bar_layout = QHBoxLayout()
-        bottom_bar_layout.addStretch(1)            # Pushes everything else to the right
+        bottom_bar_layout.addStretch(1)  # Pushes everything else to the right
         bottom_bar_layout.addWidget(delete_btn)
-        bottom_bar_layout.addWidget(copy_btn)      # Button sits flush right
+        bottom_bar_layout.addWidget(copy_btn)  # Button sits flush right
 
-        
-        layout.addLayout(bottom_bar_layout)        # Attach to the main vertical layout
-
+        layout.addLayout(bottom_bar_layout)  # Attach to the main vertical layout
 
         # Set up context menu for user_request_text_edit
-        self.user_request_text_edit.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.user_request_text_edit.customContextMenuRequested.connect(self._show_user_request_context_menu)
+        self.user_request_text_edit.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
+        self.user_request_text_edit.customContextMenuRequested.connect(
+            self._show_user_request_context_menu
+        )
 
     # ──────────────────────────────────────────────────────────────────
 
@@ -290,7 +294,7 @@ class MainWindow(QMainWindow):
         result = self._copy_context_use_case.execute(files, self.rules, user_text)
 
         if result.is_err():
-            QMessageBox.critical(self, "Copy\u00A0Context\u00A0Error", result.err())
+            QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", result.err())
 
     def _delete_selected(self) -> None:
         self._file_list.delete_selected()

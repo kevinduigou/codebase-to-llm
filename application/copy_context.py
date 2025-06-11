@@ -18,7 +18,10 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
 
     # ──────────────────────────────────────────────────────────────────
     def execute(
-        self, files: List[Path], rules: str | None = None, user_request: str | None = None
+        self,
+        files: List[Path],
+        rules: str | None = None,
+        user_request: str | None = None,
     ) -> Result[None, str]:  # noqa: D401 (simple verb)
         tree_result = self._repo.build_tree()
         if tree_result.is_err():
@@ -30,8 +33,6 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
             "</tree_structure>",
         ]  # type: ignore[list-item]
 
-        
-
         for file_ in files:
             content_result = self._repo.read_file(file_)
             tag = f"<{file_}>"
@@ -40,7 +41,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                 parts.append(content_result.ok() or "")  # type: ignore[list-item,arg-type]
             # On failure, embed empty body — could embed error instead if desired.
             parts.append(f"</{file_}>")
-        
+
         if rules and rules.strip():
             parts.extend(
                 [
@@ -49,7 +50,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                     "</rules_to_follow>",
                 ]
             )
-            
+
         if user_request:
             parts.append("<user_request>")
             parts.append(user_request)

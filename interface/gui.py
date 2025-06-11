@@ -92,7 +92,7 @@ class MainWindow(QMainWindow):
         self._clipboard: Final = clipboard
         self._copy_context_use_case: Final = CopyContextUseCase(repo, clipboard)
 
-        splitter = QSplitter(QSplitter.Horizontal, self)  # type: ignore[attr-defined]
+        splitter = QSplitter(Qt.Horizontal, self)
         splitter.setChildrenCollapsible(False)
 
         # --------------------------- left — directory tree

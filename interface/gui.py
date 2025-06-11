@@ -241,7 +241,7 @@ class MainWindow(QMainWindow):
         # Recent repositories dropdown
         self._recent_menu = QMenu(self)
         recent_button = QToolButton(self)
-        recent_button.setText("Open Recent")
+        recent_button.setText("Open Recently")
         recent_button.setMenu(self._recent_menu)
         recent_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         toolbar.addWidget(recent_button)

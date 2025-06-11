@@ -6,7 +6,7 @@ from typing import Final, Iterable, List, Set
 
 from .result import Err, Ok, Result
 
-_DEFAULT_IGNORES: Final[Set[str]] = {".git", ".venv", "venv"}
+_DEFAULT_IGNORES: Final[Set[str]] = {".git", ".venv", "venv",".mypy_cache","__pycache__"}
 
 
 def _gitignore_paths(root: Path) -> Set[str]:

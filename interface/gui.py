@@ -174,6 +174,7 @@ class MainWindow(QMainWindow):
         "user_request_text_edit",
         "_rules",
         "_include_rules_checkbox",
+        "_include_tree_checkbox",
     )
 
     def __init__(
@@ -269,6 +270,8 @@ class MainWindow(QMainWindow):
 
         # --------------------------- bottom bar for copy context button
         bottom_bar_layout = QHBoxLayout()
+        self._include_tree_checkbox = QCheckBox("Include Tree Context")
+        self._include_tree_checkbox.setChecked(True)
         self._include_rules_checkbox = QCheckBox("Include Rules")
         self._include_rules_checkbox.setChecked(True)
         # Copy context button
@@ -277,6 +280,7 @@ class MainWindow(QMainWindow):
         delete_btn = QPushButton("Delete Selected")
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
         # Bottom bar layout for "Copy Context" button
+        bottom_bar_layout.addWidget(self._include_tree_checkbox)
         bottom_bar_layout.addWidget(self._include_rules_checkbox)
         bottom_bar_layout.addStretch(1)  # Pushes everything else to the right
         bottom_bar_layout.addWidget(delete_btn)
@@ -338,7 +342,10 @@ class MainWindow(QMainWindow):
         ]
         user_text = self.user_request_text_edit.toPlainText().strip()
         rules_text = self._rules if self._include_rules_checkbox.isChecked() else None
-        result = self._copy_context_use_case.execute(files, rules_text, user_text)
+        include_tree = self._include_tree_checkbox.isChecked()
+        result = self._copy_context_use_case.execute(
+            files, rules_text, user_text, include_tree
+        )
 
         if result.is_err():
             QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", result.err())

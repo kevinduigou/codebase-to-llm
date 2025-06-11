@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QTreeView,
     QWidget,
     QVBoxLayout,
+    QAbstractItemView,
 )
 
 from application.copy_context import CopyContextUseCase
@@ -36,6 +37,7 @@ class _FileListWidget(QListWidget):
     def __init__(self, root_path: Path):
         super().__init__()
         self.setAcceptDrops(True)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self._root_path = root_path
 
     def set_root_path(self, root_path: Path):
@@ -129,6 +131,11 @@ class MainWindow(QMainWindow):
         copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
         toolbar.addWidget(copy_btn)
 
+        # Delete selected button
+        delete_btn = QPushButton("Delete Selected")
+        delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
+        toolbar.addWidget(delete_btn)
+
     # ──────────────────────────────────────────────────────────────────
     def _choose_directory(self):  # noqa: D401 (simple verb)
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
@@ -150,3 +157,8 @@ class MainWindow(QMainWindow):
         result = self._copy_context_use_case.execute(files)
         if result.is_err():
             QMessageBox.critical(self, "Copy Context Error", result.err())
+
+    def _delete_selected(self) -> None:
+        for item in self._file_list.selectedItems():
+            row = self._file_list.row(item)
+            self._file_list.takeItem(row)

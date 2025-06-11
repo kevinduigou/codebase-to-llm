@@ -12,4 +12,4 @@ def test_tree_build(tmp_path: Path):
     result = build_tree(tmp_path)
     assert isinstance(result, Ok)
     expected_first_line = tmp_path.name
-    assert result.ok().splitlines()[0] == expected_first_line  # type: ignore[arg-type]
+    assert result.ok().splitlines()[0] == expected_first_line  # type: ignore[arg-type,union-attr]

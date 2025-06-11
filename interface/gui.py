@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Final, List
 
 from PySide6.QtCore import Qt, QMimeData, QUrl
-from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QDragMoveEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from application.copy_context import CopyContextUseCase
 from application.ports import ClipboardPort, DirectoryRepositoryPort
 from domain.result import Err
+from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
 
 
 class _FileListWidget(QListWidget):
@@ -58,7 +59,7 @@ class _FileListWidget(QListWidget):
                 self.addItem(str(rel_path))
         event.acceptProposedAction()
 
-    def dragMoveEvent(self, event: QDragEnterEvent):  # noqa: N802
+    def dragMoveEvent(self, event: QDragMoveEvent):  # noqa: N802
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
         else:
@@ -91,7 +92,7 @@ class MainWindow(QMainWindow):
         self._clipboard: Final = clipboard
         self._copy_context_use_case: Final = CopyContextUseCase(repo, clipboard)
 
-        splitter = QSplitter(Qt.Horizontal, self)
+        splitter = QSplitter(QSplitter.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
 
         # --------------------------- left — directory tree

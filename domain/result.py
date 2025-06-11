@@ -12,8 +12,8 @@ class Result(Generic[T, E]):
 
     __slots__ = ("_is_ok", "_value")
 
-    _is_ok: Final[bool]
-    _value: Final[Union[T, E]]
+    _is_ok: bool
+    _value: Union[T, E]
 
     def __init__(self, is_ok: bool, value: Union[T, E]):
         self._is_ok = is_ok
@@ -27,17 +27,23 @@ class Result(Generic[T, E]):
         return not self._is_ok
 
     def ok(self) -> T | None:
-        return self._value if self._is_ok else None
+        if self._is_ok:
+            return self._value  # type: ignore[return-value]
+        return None
 
     def err(self) -> E | None:
-        return self._value if not self._is_ok else None
+        if not self._is_ok:
+            return self._value  # type: ignore[return-value]
+        return None
 
     # ------------------------------------------------------ helpers
     def map(self, fn):  # noqa: ANN001
         return Ok(fn(self.ok())) if self.is_ok() else self  # type: ignore[arg-type]
 
     def unwrap_or(self, default: T) -> T:  # noqa: D401 (simple verb)
-        return self.ok() if self.is_ok() else default
+        if self.is_ok():
+            return self._value  # type: ignore[return-value]
+        return default
 
 
 @final

@@ -13,6 +13,9 @@ from PySide6.QtWidgets import (
     QFileSystemModel,
     QListWidget,
     QListWidgetItem,
+    QDialog,
+    QDialogButtonBox,
+    QPlainTextEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -96,6 +99,30 @@ class _FileListWidget(QListWidget):
             super().dragMoveEvent(event)
 
 
+class RulesDialog(QDialog):
+    """Simple dialog to edit rules."""
+
+    __slots__ = ("_edit",)
+
+    def __init__(self, current_rules: str) -> None:
+        super().__init__()
+        self.setWindowTitle("Edit Rules")
+        layout = QVBoxLayout(self)
+        self._edit = QPlainTextEdit()
+        self._edit.setPlainText(current_rules)
+        layout.addWidget(self._edit)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)  # type: ignore[arg-type]
+        buttons.rejected.connect(self.reject)  # type: ignore[arg-type]
+        layout.addWidget(buttons)
+
+    def text(self) -> str:
+        return self._edit.toPlainText()
+
+
 class MainWindow(QMainWindow):
     """Qt main window binding infrastructure to application layer."""
 
@@ -106,6 +133,7 @@ class MainWindow(QMainWindow):
         "_repo",
         "_clipboard",
         "_copy_context_use_case",
+        "_rules",
     )
 
     def __init__(
@@ -121,6 +149,7 @@ class MainWindow(QMainWindow):
         self._repo: Final = repo
         self._clipboard: Final = clipboard
         self._copy_context_use_case: Final = CopyContextUseCase(repo, clipboard)
+        self._rules: str = ""
 
         splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -164,6 +193,11 @@ class MainWindow(QMainWindow):
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
         toolbar.addWidget(delete_btn)
 
+        # Settings action
+        settings_action = QAction("Settings", self)
+        settings_action.triggered.connect(self._open_settings)  # type: ignore[arg-type]
+        toolbar.addAction(settings_action)
+
     # ──────────────────────────────────────────────────────────────────
     def _choose_directory(self):  # noqa: D401 (simple verb)
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
@@ -182,7 +216,7 @@ class MainWindow(QMainWindow):
             Path(item.text())
             for item in self._file_list.findItems("*", Qt.MatchFlag.MatchWildcard)
         ]
-        result = self._copy_context_use_case.execute(files)
+        result = self._copy_context_use_case.execute(files, self._rules)
         if result.is_err():
             QMessageBox.critical(self, "Copy Context Error", result.err())
 
@@ -190,3 +224,8 @@ class MainWindow(QMainWindow):
         for item in self._file_list.selectedItems():
             row = self._file_list.row(item)
             self._file_list.takeItem(row)
+
+    def _open_settings(self) -> None:
+        dialog = RulesDialog(self._rules)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._rules = dialog.text()

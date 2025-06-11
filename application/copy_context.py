@@ -18,13 +18,24 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
 
     # ──────────────────────────────────────────────────────────────────
     def execute(
-        self, files: List[Path]
+        self, files: List[Path], rules: str | None = None
     ) -> Result[None, str]:  # noqa: D401 (simple verb)
         tree_result = self._repo.build_tree()
         if tree_result.is_err():
             return Err(tree_result.err())  # type: ignore[arg-type]
 
-        parts: List[str] = ["<tree_structure>", tree_result.ok(), "</tree_structure>"]  # type: ignore[list-item]
+        parts: List[str] = [
+            "<tree_structure>",
+            tree_result.ok(),
+            "</tree_structure>",
+        ]  # type: ignore[list-item]
+
+        if rules and rules.strip():
+            parts.extend([
+                "<rules_to_follow>",
+                rules.strip(),
+                "</rules_to_follow>",
+            ])
 
         for file_ in files:
             content_result = self._repo.read_file(file_)

@@ -39,7 +39,7 @@ class _FileListWidget(QListWidget):
     def __init__(self, root_path: Path):
         super().__init__()
         self.setAcceptDrops(True)
-        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)  # type: ignore[attr-defined]
         self._root_path = root_path
 
     def set_root_path(self, root_path: Path):
@@ -118,12 +118,12 @@ class MainWindow(QMainWindow):
         self._clipboard: Final = clipboard
         self._copy_context_use_case: Final = CopyContextUseCase(repo, clipboard)
 
-        splitter = QSplitter(Qt.Horizontal, self)
+        splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
 
         # --------------------------- left — directory tree
         self._model = QFileSystemModel()
-        self._model.setFilter(QDir.Dirs | QDir.Files | QDir.Hidden)
+        self._model.setFilter(QDir.Dirs | QDir.Files | QDir.Hidden)  # type: ignore[attr-defined]
         self._model.setRootPath(str(initial_root))
         self._tree_view = QTreeView()
         self._tree_view.setModel(self._model)

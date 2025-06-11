@@ -62,7 +62,7 @@ class _FileListWidget(QListWidget):
                     except ValueError:
                         rel_path = file_path
                     # Prevent duplicates
-                    if not self.findItems(str(rel_path), Qt.MatchExactly):
+                    if not self.findItems(str(rel_path), Qt.MatchFlag.MatchExactly):
                         self.addItem(str(rel_path))
 
     # -------------------------------------------------------------- DnD
@@ -83,7 +83,7 @@ class _FileListWidget(QListWidget):
                     except ValueError:
                         rel_path = path
                     # Prevent duplicates
-                    if not self.findItems(str(rel_path), Qt.MatchExactly):
+                    if not self.findItems(str(rel_path), Qt.MatchFlag.MatchExactly):
                         self.addItem(str(rel_path))
             elif path.is_dir():
                 self._add_files_from_directory(path)
@@ -180,7 +180,7 @@ class MainWindow(QMainWindow):
     def _copy_context(self):  # noqa: D401 (simple verb)
         files: List[Path] = [
             Path(item.text())
-            for item in self._file_list.findItems("*", Qt.MatchWildcard)
+            for item in self._file_list.findItems("*", Qt.MatchFlag.MatchWildcard)
         ]
         result = self._copy_context_use_case.execute(files)
         if result.is_err():

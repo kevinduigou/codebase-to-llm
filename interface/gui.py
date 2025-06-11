@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
     QToolButton,
     QTextEdit,
     QHBoxLayout,
+    QCheckBox,
 )
 
 from application.copy_context import CopyContextUseCase
@@ -172,6 +173,7 @@ class MainWindow(QMainWindow):
         "_recent_menu",
         "user_request_text_edit",
         "_rules",
+        "_include_rules_checkbox",
     )
 
     def __init__(
@@ -193,11 +195,10 @@ class MainWindow(QMainWindow):
         self._recent_service = recent_service
 
         # Load persisted rules if available
+        self._rules = ""
         rules_result = self._rules_service.load_rules()
         if rules_result.is_ok():
-            self.rules = rules_result.ok()  # type: ignore[arg-type]
-        else:
-            self.rules = ""
+            self._rules = rules_result.ok() or ""
 
         splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -268,13 +269,15 @@ class MainWindow(QMainWindow):
 
         # --------------------------- bottom bar for copy context button
         bottom_bar_layout = QHBoxLayout()
+        self._include_rules_checkbox = QCheckBox("Include Rules")
+        self._include_rules_checkbox.setChecked(True)
         # Copy context button
         copy_btn = QPushButton("Copy Context")
         copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
         delete_btn = QPushButton("Delete Selected")
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
         # Bottom bar layout for "Copy Context" button
-        bottom_bar_layout = QHBoxLayout()
+        bottom_bar_layout.addWidget(self._include_rules_checkbox)
         bottom_bar_layout.addStretch(1)  # Pushes everything else to the right
         bottom_bar_layout.addWidget(delete_btn)
         bottom_bar_layout.addWidget(copy_btn)  # Button sits flush right
@@ -333,7 +336,8 @@ class MainWindow(QMainWindow):
             for item in self._file_list.findItems("*", Qt.MatchFlag.MatchWildcard)
         ]
         user_text = self.user_request_text_edit.toPlainText().strip()
-        result = self._copy_context_use_case.execute(files, self.rules, user_text)
+        rules_text = self._rules if self._include_rules_checkbox.isChecked() else None
+        result = self._copy_context_use_case.execute(files, rules_text, user_text)
 
         if result.is_err():
             QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", result.err())

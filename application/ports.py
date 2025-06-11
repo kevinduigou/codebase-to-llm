@@ -28,3 +28,12 @@ class RulesRepositoryPort(Protocol):
 
     def load_rules(self) -> Result[str, str]: ...  # pragma: no cover
     def save_rules(self, rules: str) -> Result[None, str]: ...  # pragma: no cover
+
+
+class RecentRepositoryPort(Protocol):
+    """Pure port for persisting recently opened repository paths."""
+
+    def load_paths(self) -> Result[list[Path], str]: ...  # pragma: no cover
+    def save_paths(
+        self, paths: list[Path]
+    ) -> Result[None, str]: ...  # pragma: no cover

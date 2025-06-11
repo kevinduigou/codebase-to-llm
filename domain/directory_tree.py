@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Final, Iterable, List, Set
-
+import re
+import fnmatch
 from .result import Err, Ok, Result
 
 _DEFAULT_IGNORES: Final[Set[str]] = {
@@ -37,19 +38,22 @@ def _gitignore_paths(root: Path) -> Set[str]:
     return patterns
 
 
-def get_ignore_tokens(root: Path, base_tokens: Iterable[str] | None = None) -> Set[str]:
-    """Return the ignore tokens combining the provided list and `.gitignore`."""
-    tokens = set(base_tokens or _DEFAULT_IGNORES)
-    tokens.update(_gitignore_paths(root))
-    return tokens
+def get_ignore_tokens(root: Path, base_tokens: Iterable[str] | None = None) -> Set[Pattern]:
+    """Convert glob-style ignore tokens and .gitignore entries into compiled regex patterns."""
+    raw_tokens = set(base_tokens or _DEFAULT_IGNORES)
+    raw_tokens.update(_gitignore_paths(root))
+
+    regex_patterns = {re.compile(fnmatch.translate(token)) for token in raw_tokens}
+    return regex_patterns
 
 
-def should_ignore(path: Path, ignore_tokens: Iterable[str]) -> bool:
-    """Return True if the path should be ignored according to the ignore tokens."""
-    for token in ignore_tokens:
-        if token and token in path.parts:
+def should_ignore(path: Path, ignore_patterns: Iterable[str]) -> bool:
+    """Return True if the path matches any of the ignore regex patterns."""
+    normalized_path = str(path.as_posix())
+    for pattern in ignore_patterns:
+        if pattern.search(normalized_path):
             return True
-    # Ignore .pyc files
+    # Also ignore .pyc files
     if path.is_file() and path.name.endswith(".pyc"):
         return True
     return False

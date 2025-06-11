@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Final, Iterable, Set
+from typing import Final, Iterable, List, Set
 
 from domain.result import Err, Ok, Result
 from domain.directory_tree import (
@@ -24,7 +24,9 @@ class FileSystemDirectoryRepository(DirectoryRepositoryPort):
     def set_ignore_tokens(self, tokens: list[str]) -> None:
         self._ignore_tokens = set(tokens)
 
-    def build_tree(self) -> Result[str, str]:  # noqa: D401 (simple verb)
+    def build_tree(self,ignore_token: List[str] | None) -> Result[str, str]:  # noqa: D401 (simple verb)
+        if ignore_token != None:
+            self._ignore_tokens = ignore_token
         return domain_build_tree(self._root, self._ignore_tokens)
 
     def read_file(

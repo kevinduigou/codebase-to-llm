@@ -4,17 +4,19 @@ import os
 from pathlib import Path
 from typing import Final, List
 
+from application.ignore_service import IgnoreService
 from domain.result import Err, Ok, Result
 
 from .ports import ClipboardPort, DirectoryRepositoryPort
 
 
 class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory here)
-    __slots__ = ("_repo", "_clipboard")
+    __slots__ = ("_repo", "_clipboard","_ignore_service")
 
-    def __init__(self, repo: DirectoryRepositoryPort, clipboard: ClipboardPort):
+    def __init__(self, repo: DirectoryRepositoryPort, clipboard: ClipboardPort, ignore_service: IgnoreService):
         self._repo: Final = repo
         self._clipboard: Final = clipboard
+        self._ignore_service = ignore_service
 
     # ──────────────────────────────────────────────────────────────────
     def execute(
@@ -27,7 +29,8 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
         parts: List[str] = []
 
         if include_tree:
-            tree_result = self._repo.build_tree()
+            tokens = self._ignore_service.load_tokens()
+            tree_result = self._repo.build_tree(tokens.ok())
             if tree_result.is_err():
                 return Err(tree_result.err())  # type: ignore[arg-type]
 

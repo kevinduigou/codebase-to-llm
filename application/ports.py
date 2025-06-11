@@ -16,7 +16,7 @@ class ClipboardPort(Protocol):
 class DirectoryRepositoryPort(Protocol):
     """Read‑only access to a directory tree and its files (pure queries)."""
 
-    def build_tree(self) -> Result[str, str]: ...  # pragma: no cover
+    def build_tree(self,ignore_tokens : list[str]|None) -> Result[str, str]: ...  # pragma: no cover
 
     def read_file(
         self, relative_path: Path

@@ -233,10 +233,10 @@ class MainWindow(QMainWindow):
 
         self._repo = repo
         self._clipboard: Final = clipboard
-        self._copy_context_use_case = CopyContextUseCase(repo, clipboard)
         self._rules_service = rules_service
         self._recent_service = recent_service
         self._ignore_service = ignore_service
+        self._copy_context_use_case = CopyContextUseCase(repo, clipboard,self._ignore_service)
 
         ignore_result = self._ignore_service.load_tokens()
         self._ignore_tokens = (

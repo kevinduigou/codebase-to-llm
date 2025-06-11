@@ -22,6 +22,7 @@ def test_include_tree_flag(tmp_path: Path):
     clipboard = FakeClipboard()
     use_case = CopyContextUseCase(repo, clipboard)
     use_case.execute([], include_tree=True)
+    assert clipboard.text is not None
     assert "<tree_structure>" in clipboard.text
     clipboard2 = FakeClipboard()
     use_case2 = CopyContextUseCase(repo, clipboard2)

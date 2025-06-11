@@ -49,7 +49,7 @@ class _FileListWidget(QListWidget):
         self.setAcceptDrops(True)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)  # type: ignore[attr-defined]
         self._root_path = root_path
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
     def set_root_path(self, root_path: Path):
@@ -280,4 +280,3 @@ class MainWindow(QMainWindow):
             dialog = RulesDialog("", self._rules_service)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._rules = dialog.text()
-

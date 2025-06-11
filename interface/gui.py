@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QAbstractItemView,
+    QMenu,
 )
 
 from application.copy_context import CopyContextUseCase
@@ -41,9 +42,24 @@ class _FileListWidget(QListWidget):
         self.setAcceptDrops(True)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)  # type: ignore[attr-defined]
         self._root_path = root_path
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
 
     def set_root_path(self, root_path: Path):
         self._root_path = root_path
+
+    # ----------------------------------------------------------- context menu
+    def _show_context_menu(self, pos) -> None:
+        menu = QMenu(self)
+        delete_action = QAction("Delete Selected", self)
+        delete_action.triggered.connect(self.delete_selected)  # type: ignore[arg-type]
+        menu.addAction(delete_action)
+        menu.exec_(self.mapToGlobal(pos))
+
+    def delete_selected(self) -> None:
+        for item in self.selectedItems():
+            row = self.row(item)
+            self.takeItem(row)
 
     def _add_files_from_directory(self, directory: Path):
         """Recursively add all non-ignored files from the directory."""
@@ -187,6 +203,4 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Copy Context Error", result.err())
 
     def _delete_selected(self) -> None:
-        for item in self._file_list.selectedItems():
-            row = self._file_list.row(item)
-            self._file_list.takeItem(row)
+        self._file_list.delete_selected()

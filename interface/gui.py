@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QSplitter,
     QToolBar,
@@ -106,6 +107,7 @@ class MainWindow(QMainWindow):
         "_repo",
         "_clipboard",
         "_copy_context_use_case",
+        "_text_edit",
     )
 
     def __init__(
@@ -143,6 +145,10 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QVBoxLayout(central)
         layout.addWidget(splitter)
+        self._text_edit = QPlainTextEdit()
+        self._text_edit.setPlaceholderText("Describe your need or the bug here...")
+        self._text_edit.setFixedHeight(100)
+        layout.addWidget(self._text_edit)
         self.setCentralWidget(central)
 
         # --------------------------- toolbar
@@ -182,9 +188,10 @@ class MainWindow(QMainWindow):
             Path(item.text())
             for item in self._file_list.findItems("*", Qt.MatchFlag.MatchWildcard)
         ]
-        result = self._copy_context_use_case.execute(files)
+        user_text = self._text_edit.toPlainText().strip()
+        result = self._copy_context_use_case.execute(files, user_text or None)
         if result.is_err():
-            QMessageBox.critical(self, "Copy Context Error", result.err())
+            QMessageBox.critical(self, "Copy\u00A0Context\u00A0Error", result.err())
 
     def _delete_selected(self) -> None:
         for item in self._file_list.selectedItems():

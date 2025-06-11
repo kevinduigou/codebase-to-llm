@@ -18,7 +18,9 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
 
     # ──────────────────────────────────────────────────────────────────
     def execute(
-        self, files: List[Path]
+        self,
+        files: List[Path],
+        user_text: str | None = None,
     ) -> Result[None, str]:  # noqa: D401 (simple verb)
         tree_result = self._repo.build_tree()
         if tree_result.is_err():
@@ -34,6 +36,11 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                 parts.append(content_result.ok())  # type: ignore[list-item,arg-type]
             # On failure, embed empty body — could embed error instead if desired.
             parts.append(f"</{file_}>")
+
+        if user_text:
+            parts.append("<user_notes>")
+            parts.append(user_text)
+            parts.append("</user_notes>")
 
         self._clipboard.set_text(os.linesep.join(parts))
         return Ok(None)

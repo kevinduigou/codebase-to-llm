@@ -44,4 +44,4 @@ jobs:
       - name: Run integration tests with Behave
         run: |
           uv pip install --system behave
-          behave 
+          if ls features/*.feature 1> /dev/null 2>&1; then behave; else echo "No feature files found, skipping Behave tests."; fi

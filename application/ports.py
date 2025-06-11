@@ -21,3 +21,9 @@ class DirectoryRepositoryPort(Protocol):
     def read_file(
         self, relative_path: Path
     ) -> Result[str, str]: ...  # pragma: no cover
+
+class RulesRepositoryPort(Protocol):
+    """Pure port for persisting / loading the user’s custom rules."""
+
+    def load_rules(self) -> Result[str, str]: ...      # pragma: no cover
+    def save_rules(self, rules: str) -> Result[None, str]: ...  # pragma: no cover

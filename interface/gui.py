@@ -25,11 +25,16 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QAbstractItemView,
+    QSizePolicy,
+    QMenu,
+    QToolButton,
+    QTextEdit
 )
 
 from application.copy_context import CopyContextUseCase
 from application.ports import ClipboardPort, DirectoryRepositoryPort
-from domain.result import Err
+from application.rules_service import RulesService
+from domain.result import Err, Result
 from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
 from domain.directory_tree import should_ignore, get_ignore_tokens
 
@@ -104,7 +109,7 @@ class RulesDialog(QDialog):
 
     __slots__ = ("_edit",)
 
-    def __init__(self, current_rules: str) -> None:
+    def __init__(self, current_rules: str, rules_service: RulesService) -> None:
         super().__init__()
         self.setWindowTitle("Edit Rules")
         layout = QVBoxLayout(self)
@@ -118,9 +123,14 @@ class RulesDialog(QDialog):
         buttons.accepted.connect(self.accept)  # type: ignore[arg-type]
         buttons.rejected.connect(self.reject)  # type: ignore[arg-type]
         layout.addWidget(buttons)
+        self._rules_service = rules_service
 
     def text(self) -> str:
         return self._edit.toPlainText()
+
+    def accept(self) -> None:
+        self._rules_service.save_rules(self._edit.toPlainText())
+        return super().accept()
 
 
 class MainWindow(QMainWindow):
@@ -141,6 +151,7 @@ class MainWindow(QMainWindow):
         repo: DirectoryRepositoryPort,
         clipboard: ClipboardPort,
         initial_root: Path,
+        rules_service: RulesService,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
@@ -149,7 +160,14 @@ class MainWindow(QMainWindow):
         self._repo: Final = repo
         self._clipboard: Final = clipboard
         self._copy_context_use_case: Final = CopyContextUseCase(repo, clipboard)
-        self._rules: str = ""
+        self._rules_service = rules_service
+
+        # Load persisted rules if available
+        rules_result = self._rules_service.load_rules()
+        if rules_result.is_ok():
+            self.rules = rules_result.ok()  # type: ignore[arg-type]
+        else:
+            self.rules = ""
 
         splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -193,12 +211,30 @@ class MainWindow(QMainWindow):
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
         toolbar.addWidget(delete_btn)
 
-        # Settings action
-        settings_action = QAction("Settings", self)
-        settings_action.triggered.connect(self._open_settings)  # type: ignore[arg-type]
-        toolbar.addAction(settings_action)
+        # Add spacer to push settings cog to the right
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        toolbar.addWidget(spacer)
+
+        # Settings dropdown with cog icon
+        settings_icon = self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView)
+        settings_menu = QMenu(self)
+        edit_rules_action = QAction("Edit Rules", self)
+        edit_rules_action.triggered.connect(self._open_settings)  # type: ignore[arg-type]
+        settings_menu.addAction(edit_rules_action)
+        settings_button = QToolButton(self)
+        settings_button.setIcon(settings_icon)
+        settings_button.setMenu(settings_menu)
+        settings_button.setPopupMode(QToolButton.InstantPopup)
+        settings_button.setToolTip("Settings")
+        toolbar.addWidget(settings_button)
 
     # ──────────────────────────────────────────────────────────────────
+
+    def _persist_rules(self) -> None:
+        current_rules = self.rules_edit.toPlainText()
+        self._rules_service.save_rules(current_rules)
+
     def _choose_directory(self):  # noqa: D401 (simple verb)
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
         if directory:
@@ -226,6 +262,10 @@ class MainWindow(QMainWindow):
             self._file_list.takeItem(row)
 
     def _open_settings(self) -> None:
-        dialog = RulesDialog(self._rules)
+        result_load_rules: Result[str,str] = self._rules_service.load_rules()
+        if result_load_rules.is_ok():
+            dialog = RulesDialog(result_load_rules.ok(),self._rules_service)
+        else:
+            dialog = RulesDialog("",self._rules_service)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._rules = dialog.text()

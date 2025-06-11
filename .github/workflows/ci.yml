@@ -28,20 +28,20 @@ jobs:
 
       - name: Lint with Black
         run: |
-          uv pip install black
+          uv pip install --system black
           black --check .
 
       - name: Type check with mypy
         run: |
-          uv pip install mypy
+          uv pip install --system mypy
           mypy .
 
       - name: Run unit tests with pytest
         run: |
-          uv pip install pytest
+          uv pip install --system pytest
           pytest tests/
 
       - name: Run integration tests with Behave
         run: |
-          uv pip install behave
+          uv pip install --system behave
           behave 

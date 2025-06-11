@@ -35,8 +35,13 @@ from PySide6.QtWidgets import (
 )
 
 from application.copy_context import CopyContextUseCase
-from application.ports import ClipboardPort, DirectoryRepositoryPort
+from application.ports import (
+    ClipboardPort,
+    DirectoryRepositoryPort,
+)
 from application.rules_service import RulesService
+from application.recent_repository_service import RecentRepositoryService
+from infrastructure.filesystem_recent_repository import FileSystemRecentRepository
 from domain.result import Err, Result
 from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
 from domain.directory_tree import should_ignore, get_ignore_tokens
@@ -164,6 +169,8 @@ class MainWindow(QMainWindow):
         "_repo",
         "_clipboard",
         "_copy_context_use_case",
+        "_recent_service",
+        "_recent_menu",
         "user_request_text_edit",
         "_rules",
         "_include_rules_checkbox",
@@ -175,15 +182,17 @@ class MainWindow(QMainWindow):
         clipboard: ClipboardPort,
         initial_root: Path,
         rules_service: RulesService,
+        recent_service: RecentRepositoryService,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
         self.resize(960, 600)
 
-        self._repo: Final = repo
+        self._repo = repo
         self._clipboard: Final = clipboard
-        self._copy_context_use_case: Final = CopyContextUseCase(repo, clipboard)
+        self._copy_context_use_case = CopyContextUseCase(repo, clipboard)
         self._rules_service = rules_service
+        self._recent_service = recent_service
 
         # Load persisted rules if available
         self._rules = ""
@@ -228,6 +237,15 @@ class MainWindow(QMainWindow):
         choose_dir_action = QAction("Choose Directory", self)
         choose_dir_action.triggered.connect(self._choose_directory)  # type: ignore[arg-type]
         toolbar.addAction(choose_dir_action)
+
+        # Recent repositories dropdown
+        self._recent_menu = QMenu(self)
+        recent_button = QToolButton(self)
+        recent_button.setText("Open Recently")
+        recent_button.setMenu(self._recent_menu)
+        recent_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        toolbar.addWidget(recent_button)
+        self._populate_recent_menu()
 
         # Add spacer to push settings cog to the right
         spacer = QWidget()
@@ -287,6 +305,31 @@ class MainWindow(QMainWindow):
             self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
             self._file_list.clear()
             self._file_list.set_root_path(path)
+            self._recent_service.add_path(path)
+            self._populate_recent_menu()
+
+    def _open_recent(self, path: Path) -> None:
+        self._model.setRootPath(str(path))
+        self._tree_view.setRootIndex(self._model.index(str(path)))
+        self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
+        self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
+        self._file_list.clear()
+        self._file_list.set_root_path(path)
+        self._recent_service.add_path(path)
+        self._populate_recent_menu()
+
+    def _populate_recent_menu(self) -> None:
+        self._recent_menu.clear()
+        result = self._recent_service.load_recent()
+        if result.is_err():
+            return
+        paths = result.ok() or []
+        for path in paths:
+            action = QAction(str(path), self)
+            action.triggered.connect(
+                lambda checked=False, p=path: self._open_recent(p)
+            )  # type: ignore[arg-type]
+            self._recent_menu.addAction(action)
 
     def _copy_context(self):  # noqa: D401 (simple verb)
         files: List[Path] = [

@@ -61,7 +61,9 @@ class _FileListWidget(QListWidget):
                         rel_path = file_path.relative_to(self._root_path)
                     except ValueError:
                         rel_path = file_path
-                    self.addItem(str(rel_path))
+                    # Prevent duplicates
+                    if not self.findItems(str(rel_path), Qt.MatchExactly):
+                        self.addItem(str(rel_path))
 
     # -------------------------------------------------------------- DnD
     def dragEnterEvent(self, event: QDragEnterEvent):  # noqa: N802
@@ -80,7 +82,9 @@ class _FileListWidget(QListWidget):
                         rel_path = path.relative_to(self._root_path)
                     except ValueError:
                         rel_path = path
-                    self.addItem(str(rel_path))
+                    # Prevent duplicates
+                    if not self.findItems(str(rel_path), Qt.MatchExactly):
+                        self.addItem(str(rel_path))
             elif path.is_dir():
                 self._add_files_from_directory(path)
         event.acceptProposedAction()

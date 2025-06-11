@@ -188,9 +188,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Desktop Context Copier")
         self.resize(960, 600)
 
-        self._repo: Final = repo
+        self._repo = repo
         self._clipboard: Final = clipboard
-        self._copy_context_use_case: Final = CopyContextUseCase(repo, clipboard)
+        self._copy_context_use_case = CopyContextUseCase(repo, clipboard)
         self._rules_service = rules_service
         self._recent_service = recent_service
 
@@ -323,7 +323,8 @@ class MainWindow(QMainWindow):
         result = self._recent_service.load_recent()
         if result.is_err():
             return
-        for path in result.ok():
+        paths = result.ok() or []
+        for path in paths:
             action = QAction(str(path), self)
             action.triggered.connect(
                 lambda checked=False, p=path: self._open_recent(p)

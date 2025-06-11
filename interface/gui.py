@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Final, List
+from typing import Final, List, Callable
 import os
 
 from PySide6.QtCore import Qt, QMimeData, QUrl, QDir
@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QToolButton,
     QTextEdit,
+    QHBoxLayout,
 )
 
 from application.copy_context import CopyContextUseCase
@@ -43,13 +44,14 @@ from domain.directory_tree import should_ignore, get_ignore_tokens
 class _FileListWidget(QListWidget):
     """Right‑panel list accepting drops from the tree view."""
 
-    __slots__ = ("_root_path",)
+    __slots__ = ("_root_path", "_copy_context")
 
-    def __init__(self, root_path: Path):
+    def __init__(self, root_path: Path, copy_context: Callable[[], None]):
         super().__init__()
         self.setAcceptDrops(True)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)  # type: ignore[attr-defined]
         self._root_path = root_path
+        self._copy_context = copy_context
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
@@ -62,6 +64,9 @@ class _FileListWidget(QListWidget):
         delete_action = QAction("Delete Selected", self)
         delete_action.triggered.connect(self.delete_selected)  # type: ignore[arg-type]
         menu.addAction(delete_action)
+        copy_context_action = QAction("Copy Context", self)
+        copy_context_action.triggered.connect(self._copy_context)  # type: ignore[arg-type]
+        menu.addAction(copy_context_action)
         menu.exec_(self.mapToGlobal(pos))
 
     def delete_selected(self) -> None:
@@ -199,7 +204,7 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self._tree_view)
 
         # --------------------------- right — dropped files list
-        self._file_list = _FileListWidget(initial_root)
+        self._file_list = _FileListWidget(initial_root, self._copy_context)
         splitter.addWidget(self._file_list)
 
         # --------------------------- central widget
@@ -221,16 +226,6 @@ class MainWindow(QMainWindow):
         choose_dir_action.triggered.connect(self._choose_directory)  # type: ignore[arg-type]
         toolbar.addAction(choose_dir_action)
 
-        # Copy context button
-        copy_btn = QPushButton("Copy Context")
-        copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
-        toolbar.addWidget(copy_btn)
-
-        # Delete selected button
-        delete_btn = QPushButton("Delete Selected")
-        delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
-        toolbar.addWidget(delete_btn)
-
         # Add spacer to push settings cog to the right
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -250,6 +245,27 @@ class MainWindow(QMainWindow):
         settings_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         settings_button.setToolTip("Settings")
         toolbar.addWidget(settings_button)
+
+        # --------------------------- bottom bar for copy context button
+        bottom_bar_layout = QHBoxLayout()
+        # Copy context button
+        copy_btn = QPushButton("Copy Context")
+        copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
+        delete_btn = QPushButton("Delete Selected")
+        delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
+        # Bottom bar layout for "Copy Context" button
+        bottom_bar_layout = QHBoxLayout()
+        bottom_bar_layout.addStretch(1)            # Pushes everything else to the right
+        bottom_bar_layout.addWidget(delete_btn)
+        bottom_bar_layout.addWidget(copy_btn)      # Button sits flush right
+
+        
+        layout.addLayout(bottom_bar_layout)        # Attach to the main vertical layout
+
+
+        # Set up context menu for user_request_text_edit
+        self.user_request_text_edit.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.user_request_text_edit.customContextMenuRequested.connect(self._show_user_request_context_menu)
 
     # ──────────────────────────────────────────────────────────────────
 
@@ -277,7 +293,6 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Copy\u00A0Context\u00A0Error", result.err())
 
     def _delete_selected(self) -> None:
-
         self._file_list.delete_selected()
 
     def _open_settings(self) -> None:
@@ -288,3 +303,10 @@ class MainWindow(QMainWindow):
             dialog = RulesDialog("", self._rules_service)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._rules = dialog.text()
+
+    def _show_user_request_context_menu(self, pos) -> None:
+        menu = QMenu(self)
+        copy_context_action = QAction("Copy Context", self)
+        copy_context_action.triggered.connect(self._copy_context)  # type: ignore[arg-type]
+        menu.addAction(copy_context_action)
+        menu.exec_(self.user_request_text_edit.mapToGlobal(pos))

@@ -141,7 +141,10 @@ class MainWindow(QMainWindow):
             self._file_list.set_root_path(path)
 
     def _copy_context(self):  # noqa: D401 (simple verb)
-        files: List[Path] = [Path(item.text()) for item in self._file_list.findItems("*", Qt.MatchWildcard)]
+        files: List[Path] = [
+            Path(item.text())
+            for item in self._file_list.findItems("*", Qt.MatchWildcard)
+        ]
         result = self._copy_context_use_case.execute(files)
         if result.is_err():
             QMessageBox.critical(self, "Copy Context Error", result.err())

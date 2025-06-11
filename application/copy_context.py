@@ -17,7 +17,9 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
         self._clipboard: Final = clipboard
 
     # ──────────────────────────────────────────────────────────────────
-    def execute(self, files: List[Path]) -> Result[None, str]:  # noqa: D401 (simple verb)
+    def execute(
+        self, files: List[Path]
+    ) -> Result[None, str]:  # noqa: D401 (simple verb)
         tree_result = self._repo.build_tree()
         if tree_result.is_err():
             return Err(tree_result.err())  # type: ignore[arg-type]

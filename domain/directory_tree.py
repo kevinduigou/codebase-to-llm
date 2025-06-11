@@ -17,7 +17,9 @@ def _gitignore_paths(root: Path) -> Set[str]:
     # Reading .gitignore without exceptions
     # (Assume UTF‑8 and ignore undecodable bytes)
     patterns: Set[str] = set()
-    for line in gitignore_file.read_text(encoding="utf-8", errors="ignore").splitlines():
+    for line in gitignore_file.read_text(
+        encoding="utf-8", errors="ignore"
+    ).splitlines():
         stripped = line.strip()
         if stripped and not stripped.startswith("#"):
             patterns.add(stripped)
@@ -58,6 +60,7 @@ def _ascii_tree(root: Path, ignore_tokens: Set[str]) -> str:
 
 
 # The port‑friendly façade
+
 
 def build_tree(root: Path) -> Result[str, str]:
     if not root.exists():

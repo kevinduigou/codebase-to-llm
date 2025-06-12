@@ -58,10 +58,4 @@ If you do not see the configuration, ensure `.vscode/launch.json` exists as belo
 pytest -q
 ```
 
-## TODO
-
-* Behave E2E scenarios.
-* Celery task for huge directory export.
-* Dark‑mode stylesheet for GUI.
-
 # Enjoy!

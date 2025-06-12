@@ -4,8 +4,9 @@ import sys
 from pathlib import Path
 from typing import Final, List, Callable
 import os
+import re
 
-from PySide6.QtCore import Qt, QMimeData, QUrl, QDir
+from PySide6.QtCore import Qt, QMimeData, QUrl, QDir, QSortFilterProxyModel, QRegularExpression
 from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QDragMoveEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -32,6 +33,8 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QHBoxLayout,
     QCheckBox,
+    QLineEdit,
+    QInputDialog,
 )
 
 from application.copy_context import CopyContextUseCase
@@ -159,6 +162,24 @@ class RulesDialog(QDialog):
         return super().accept()
 
 
+class SearchResultsDialog(QDialog):
+    """Simple dialog displaying grep-like search results."""
+
+    __slots__ = ("_edit",)
+
+    def __init__(self, results: str) -> None:
+        super().__init__()
+        self.setWindowTitle("Search Results")
+        layout = QVBoxLayout(self)
+        self._edit = QPlainTextEdit()
+        self._edit.setReadOnly(True)
+        self._edit.setPlainText(results)
+        layout.addWidget(self._edit)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(self.reject)  # type: ignore[arg-type]
+        layout.addWidget(buttons)
+
+
 class MainWindow(QMainWindow):
     """Qt main window binding infrastructure to application layer."""
 
@@ -175,6 +196,8 @@ class MainWindow(QMainWindow):
         "_rules",
         "_include_rules_checkbox",
         "_include_tree_checkbox",
+        "_filter_model",
+        "_name_filter_edit",
     )
 
     def __init__(
@@ -208,11 +231,31 @@ class MainWindow(QMainWindow):
         self._model = QFileSystemModel()
         self._model.setFilter(QDir.Dirs | QDir.Files | QDir.Hidden)  # type: ignore[attr-defined]
         self._model.setRootPath(str(initial_root))
+
+        self._filter_model = QSortFilterProxyModel()
+        self._filter_model.setSourceModel(self._model)
+        self._filter_model.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self._filter_model.setRecursiveFilteringEnabled(True)
+        self._filter_model.setFilterKeyColumn(0)
+
         self._tree_view = QTreeView()
-        self._tree_view.setModel(self._model)
-        self._tree_view.setRootIndex(self._model.index(str(initial_root)))
+        self._tree_view.setModel(self._filter_model)
+        self._tree_view.setRootIndex(
+            self._filter_model.mapFromSource(self._model.index(str(initial_root)))
+        )
         self._tree_view.setDragEnabled(True)
-        splitter.addWidget(self._tree_view)
+
+        self._name_filter_edit = QLineEdit()
+        self._name_filter_edit.setPlaceholderText("Filter files (regex)")
+        self._name_filter_edit.textChanged.connect(self._filter_by_name)
+
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.addWidget(self._name_filter_edit)
+        left_layout.addWidget(self._tree_view)
+
+        splitter.addWidget(left_panel)
 
         # --------------------------- right — dropped files list
         self._file_list = _FileListWidget(initial_root, self._copy_context)
@@ -238,6 +281,10 @@ class MainWindow(QMainWindow):
         choose_dir_action = QAction("Choose Directory", self)
         choose_dir_action.triggered.connect(self._choose_directory)  # type: ignore[arg-type]
         toolbar.addAction(choose_dir_action)
+
+        search_content_action = QAction("Search Content", self)
+        search_content_action.triggered.connect(self._search_content)  # type: ignore[arg-type]
+        toolbar.addAction(search_content_action)
 
         # Recent repositories dropdown
         self._recent_menu = QMenu(self)
@@ -303,7 +350,10 @@ class MainWindow(QMainWindow):
         if directory:
             path = Path(directory)
             self._model.setRootPath(str(path))
-            self._tree_view.setRootIndex(self._model.index(str(path)))
+            self._filter_model.invalidateFilter()
+            self._tree_view.setRootIndex(
+                self._filter_model.mapFromSource(self._model.index(str(path)))
+            )
             # Re‑initialise repository for new root
             self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
             self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
@@ -314,7 +364,10 @@ class MainWindow(QMainWindow):
 
     def _open_recent(self, path: Path) -> None:
         self._model.setRootPath(str(path))
-        self._tree_view.setRootIndex(self._model.index(str(path)))
+        self._filter_model.invalidateFilter()
+        self._tree_view.setRootIndex(
+            self._filter_model.mapFromSource(self._model.index(str(path)))
+        )
         self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
         self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
         self._file_list.clear()
@@ -368,3 +421,36 @@ class MainWindow(QMainWindow):
         copy_context_action.triggered.connect(self._copy_context)  # type: ignore[arg-type]
         menu.addAction(copy_context_action)
         menu.exec_(self.user_request_text_edit.mapToGlobal(pos))
+
+    def _filter_by_name(self, text: str) -> None:
+        if text:
+            regex = QRegularExpression(text)
+            self._filter_model.setFilterRegularExpression(regex)
+        else:
+            self._filter_model.setFilterRegularExpression(QRegularExpression())
+
+    def _search_content(self) -> None:
+        pattern, ok = QInputDialog.getText(self, "Search Content", "Regex:")
+        if not ok or not pattern:
+            return
+        root = Path(self._model.rootPath())
+        regex = re.compile(pattern)
+        results: list[str] = []
+        for path in root.rglob("*"):
+            if path.is_file():
+                try:
+                    text = path.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+                for i, line in enumerate(text.splitlines(), 1):
+                    if regex.search(line):
+                        try:
+                            rel = path.relative_to(root)
+                        except ValueError:
+                            rel = path
+                        results.append(f"{rel}:{i}:{line}")
+        if not results:
+            QMessageBox.information(self, "Search Content", "No matches found.")
+            return
+        dialog = SearchResultsDialog("\n".join(results))
+        dialog.exec()

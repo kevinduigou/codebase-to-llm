@@ -50,6 +50,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QLineEdit,
     QInputDialog,
+    QLabel,
 )
 
 from application.copy_context import CopyContextUseCase
@@ -360,6 +361,10 @@ class MainWindow(QMainWindow):
         "_include_tree_checkbox",
         "_filter_model",
         "_name_filter_edit",
+        "_dir_title_label",
+        "_preview_title_label",
+        "_buffer_title_label",
+        "_user_request_label",
     )
 
     def __init__(
@@ -414,6 +419,12 @@ class MainWindow(QMainWindow):
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
+        self._dir_title_label = QLabel("Working Directory")
+        self._dir_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._dir_title_label.setToolTip(
+            "Browse your working directory. Drag files or directories to the Content Buffer."
+        )
+        left_layout.addWidget(self._dir_title_label)
         left_layout.addWidget(self._name_filter_edit)
         left_layout.addWidget(self._tree_view)
 
@@ -423,8 +434,29 @@ class MainWindow(QMainWindow):
         self._file_list = _FileListWidget(initial_root, self._copy_context)
         # --------------------------- middle — file preview
         self._file_preview = _FilePreviewWidget(self._file_list.add_snippet)
-        splitter.addWidget(self._file_preview)
-        splitter.addWidget(self._file_list)
+
+        preview_panel = QWidget()
+        preview_layout = QVBoxLayout(preview_panel)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+        self._preview_title_label = QLabel("File Preview")
+        self._preview_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._preview_title_label.setToolTip("Preview contents of selected files.")
+        preview_layout.addWidget(self._preview_title_label)
+        preview_layout.addWidget(self._file_preview)
+
+        buffer_panel = QWidget()
+        buffer_layout = QVBoxLayout(buffer_panel)
+        buffer_layout.setContentsMargins(0, 0, 0, 0)
+        self._buffer_title_label = QLabel("Content Buffer")
+        self._buffer_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._buffer_title_label.setToolTip(
+            "Files and snippets collected for context; right-click for actions."
+        )
+        buffer_layout.addWidget(self._buffer_title_label)
+        buffer_layout.addWidget(self._file_list)
+
+        splitter.addWidget(preview_panel)
+        splitter.addWidget(buffer_panel)
 
         # Set initial splitter sizes
         splitter.setStretchFactor(0, 2)  # Left tree
@@ -435,6 +467,11 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QVBoxLayout(central)
         layout.addWidget(splitter)
+        self._user_request_label = QLabel("User Request")
+        self._user_request_label.setToolTip(
+            "Describe your request or issue to include with the copied context."
+        )
+        layout.addWidget(self._user_request_label)
         self.user_request_text_edit = QPlainTextEdit()
         self.user_request_text_edit.setPlaceholderText(
             "Describe your need or the bug here..."

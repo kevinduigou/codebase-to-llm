@@ -4,9 +4,26 @@ import sys
 from pathlib import Path
 from typing import Final, List, Callable
 import os
+import re
 
-from PySide6.QtCore import Qt, QMimeData, QUrl, QDir
-from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QDragMoveEvent
+from PySide6.QtCore import (
+    Qt,
+    QMimeData,
+    QUrl,
+    QDir,
+    QSortFilterProxyModel,
+    QRegularExpression,
+    QRect,
+    QSize,
+)
+from PySide6.QtGui import (
+    QAction,
+    QDragEnterEvent,
+    QDropEvent,
+    QDragMoveEvent,
+    QPainter,
+    QFontMetrics,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -18,7 +35,6 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QMainWindow,
     QMessageBox,
-    QPlainTextEdit,
     QPushButton,
     QSplitter,
     QToolBar,
@@ -32,6 +48,8 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QHBoxLayout,
     QCheckBox,
+    QLineEdit,
+    QInputDialog,
 )
 
 from application.copy_context import CopyContextUseCase
@@ -47,8 +65,23 @@ from infrastructure.filesystem_directory_repository import FileSystemDirectoryRe
 from domain.directory_tree import should_ignore, get_ignore_tokens
 
 
+class _LineNumberArea(QWidget):
+    """Thin gutter that the parent editor paints line numbers into."""
+
+    def __init__(self, editor: " _FilePreviewWidget"):  # editor is the parent
+        super().__init__(editor)
+        self._editor = editor
+
+    # Width is dictated by the editor’s calculation
+    def sizeHint(self) -> QSize:  # type: ignore[override]
+        return QSize(self._editor._line_number_area_width(), 0)
+
+    def paintEvent(self, event):  # noqa: N802
+        self._editor._paint_line_numbers(event)
+
+
 class _FileListWidget(QListWidget):
-    """Right‑panel list accepting drops from the tree view."""
+    """Right-panel list accepting drops from the tree view."""
 
     __slots__ = ("_root_path", "_copy_context")
 
@@ -131,6 +164,123 @@ class _FileListWidget(QListWidget):
             super().dragMoveEvent(event)
 
 
+class _FilePreviewWidget(QPlainTextEdit):
+    """Middle-panel read-only file preview widget with a line-number gutter."""
+
+    __slots__ = ("_line_number_area",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setReadOnly(True)
+        self.setLineWrapMode(QPlainTextEdit.NoWrap)
+
+        # Line-number gutter setup
+        self._line_number_area = _LineNumberArea(self)
+
+        # Keep gutter in sync with the document
+        self.blockCountChanged.connect(self._update_line_number_area_width)  # type: ignore[arg-type]
+        self.updateRequest.connect(self._update_line_number_area)  # type: ignore[arg-type]
+        self.cursorPositionChanged.connect(self._highlight_current_line)  # type: ignore[arg-type]
+
+        self._update_line_number_area_width(0)
+        self._highlight_current_line()
+
+        # Context-menu for copying selected text
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
+
+    # ────────────────────────────── Line-number logic ────────────────────────
+    def _line_number_area_width(self) -> int:
+        digits = max(3, len(str(max(1, self.blockCount()))))  # at least 3 chars
+        fm = QFontMetrics(self.font())
+        return 4 + fm.horizontalAdvance("9") * digits
+
+    def _update_line_number_area_width(self, _):  # slot
+        self.setViewportMargins(self._line_number_area_width(), 0, 0, 0)
+
+    def _update_line_number_area(self, rect: QRect, dy: int):  # slot
+        if dy:
+            self._line_number_area.scroll(0, dy)
+        else:
+            self._line_number_area.update(
+                0, rect.y(), self._line_number_area.width(), rect.height()
+            )
+
+        if rect.contains(self.viewport().rect()):
+            self._update_line_number_area_width(0)
+
+    def resizeEvent(self, event):  # noqa: N802
+        super().resizeEvent(event)
+        cr = self.contentsRect()
+        self._line_number_area.setGeometry(
+            QRect(cr.left(), cr.top(), self._line_number_area_width(), cr.height())
+        )
+
+    def _paint_line_numbers(self, event):  # called from _LineNumberArea.paintEvent
+        painter = QPainter(self._line_number_area)
+        painter.fillRect(event.rect(), self.palette().window().color())
+
+        block = self.firstVisibleBlock()
+        block_number = block.blockNumber()
+        top = int(
+            self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
+        )
+        bottom = top + int(self.blockBoundingRect(block).height())
+        height = self.fontMetrics().height()
+
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                number = str(block_number + 1)
+                painter.drawText(
+                    0,
+                    top,
+                    self._line_number_area.width() - 4,
+                    height,
+                    Qt.AlignRight | Qt.AlignVCenter,
+                    number,
+                )
+            block = block.next()
+            top = bottom
+            bottom = top + int(self.blockBoundingRect(block).height())
+            block_number += 1
+
+    def _highlight_current_line(self):  # slot
+        extra_selections = []
+        if not self.isReadOnly():
+            return
+        selection = QTextEdit.ExtraSelection()  # type: ignore[attr-defined]
+        line_color = self.palette().alternateBase().color().lighter(120)
+        selection.format.setBackground(line_color)
+        # selection.format.setProperty(QTextEdit.ExtraSelection.FullWidthSelection, True)  # type: ignore[attr-defined]
+        selection.cursor = self.textCursor()
+        selection.cursor.clearSelection()
+        extra_selections.append(selection)
+        self.setExtraSelections(extra_selections)
+
+    # ───────────────────────────── context menu (unchanged) ──────────────────
+    def _show_context_menu(self, pos) -> None:
+        if not self.textCursor().hasSelection():
+            return
+        menu = QMenu(self)
+        copy_action = QAction("Copy Selected", self)
+        copy_action.triggered.connect(self.copy)  # type: ignore[arg-type]
+        menu.addAction(copy_action)
+        menu.exec_(self.mapToGlobal(pos))
+
+    # ───────────────────────────── load_file helper (unchanged) ──────────────
+    def load_file(self, path: Path, max_bytes: int = 200_000) -> None:
+        try:
+            with path.open("rb") as f:
+                data = f.read(max_bytes)
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError:
+                text = data.decode("latin-1", errors="replace")
+            self.setPlainText(text)
+        except Exception as exc:  # pylint: disable=broad-except
+            self.setPlainText(f"<Could not preview file: {exc}>")
+
+
 class RulesDialog(QDialog):
     """Simple dialog to edit rules."""
 
@@ -164,6 +314,7 @@ class MainWindow(QMainWindow):
 
     __slots__ = (
         "_tree_view",
+        "_file_preview",
         "_file_list",
         "_model",
         "_repo",
@@ -175,6 +326,8 @@ class MainWindow(QMainWindow):
         "_rules",
         "_include_rules_checkbox",
         "_include_tree_checkbox",
+        "_filter_model",
+        "_name_filter_edit",
     )
 
     def __init__(
@@ -187,7 +340,7 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
-        self.resize(960, 600)
+        self.resize(1200, 700)
 
         self._repo = repo
         self._clipboard: Final = clipboard
@@ -208,15 +361,44 @@ class MainWindow(QMainWindow):
         self._model = QFileSystemModel()
         self._model.setFilter(QDir.Dirs | QDir.Files | QDir.Hidden)  # type: ignore[attr-defined]
         self._model.setRootPath(str(initial_root))
+
+        self._filter_model = QSortFilterProxyModel()
+        self._filter_model.setSourceModel(self._model)
+        self._filter_model.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self._filter_model.setRecursiveFilteringEnabled(True)
+        self._filter_model.setFilterKeyColumn(0)
+
         self._tree_view = QTreeView()
-        self._tree_view.setModel(self._model)
-        self._tree_view.setRootIndex(self._model.index(str(initial_root)))
+        self._tree_view.setModel(self._filter_model)
+        self._tree_view.setRootIndex(
+            self._filter_model.mapFromSource(self._model.index(str(initial_root)))
+        )
         self._tree_view.setDragEnabled(True)
-        splitter.addWidget(self._tree_view)
+
+        self._name_filter_edit = QLineEdit()
+        self._name_filter_edit.setPlaceholderText("Filter files (regex)")
+        self._name_filter_edit.textChanged.connect(self._filter_by_name)
+
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.addWidget(self._name_filter_edit)
+        left_layout.addWidget(self._tree_view)
+
+        splitter.addWidget(left_panel)
+
+        # --------------------------- middle — file preview
+        self._file_preview = _FilePreviewWidget()
+        splitter.addWidget(self._file_preview)
 
         # --------------------------- right — dropped files list
         self._file_list = _FileListWidget(initial_root, self._copy_context)
         splitter.addWidget(self._file_list)
+
+        # Set initial splitter sizes
+        splitter.setStretchFactor(0, 2)  # Left tree
+        splitter.setStretchFactor(1, 3)  # Preview
+        splitter.setStretchFactor(2, 2)  # Right list
 
         # --------------------------- central widget
         central = QWidget()
@@ -296,29 +478,52 @@ class MainWindow(QMainWindow):
             self._show_user_request_context_menu
         )
 
+        # --------------------------- connections for preview
+        # Update preview when user clicks an item in the tree
+        self._tree_view.clicked.connect(self._handle_tree_click)  # type: ignore[arg-type]
+
     # ──────────────────────────────────────────────────────────────────
+
+    # ----------------------------- Preview logic
+    def _handle_tree_click(self, proxy_index):  # noqa: D401 (simple verb)
+        source_index = self._filter_model.mapToSource(proxy_index)
+        file_path = Path(self._model.filePath(source_index))
+        if file_path.is_file():
+            self._file_preview.load_file(file_path)
+        else:
+            self._file_preview.clear()
+
+    # ----------------------------- Existing methods (unchanged except splitter adjustments)
 
     def _choose_directory(self):  # noqa: D401 (simple verb)
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
         if directory:
             path = Path(directory)
             self._model.setRootPath(str(path))
-            self._tree_view.setRootIndex(self._model.index(str(path)))
-            # Re‑initialise repository for new root
+            self._filter_model.invalidateFilter()
+            self._tree_view.setRootIndex(
+                self._filter_model.mapFromSource(self._model.index(str(path)))
+            )
+            # Re-initialise repository for new root
             self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
             self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
             self._file_list.clear()
             self._file_list.set_root_path(path)
+            self._file_preview.clear()
             self._recent_service.add_path(path)
             self._populate_recent_menu()
 
     def _open_recent(self, path: Path) -> None:
         self._model.setRootPath(str(path))
-        self._tree_view.setRootIndex(self._model.index(str(path)))
+        self._filter_model.invalidateFilter()
+        self._tree_view.setRootIndex(
+            self._filter_model.mapFromSource(self._model.index(str(path)))
+        )
         self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
         self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
         self._file_list.clear()
         self._file_list.set_root_path(path)
+        self._file_preview.clear()
         self._recent_service.add_path(path)
         self._populate_recent_menu()
 
@@ -368,3 +573,33 @@ class MainWindow(QMainWindow):
         copy_context_action.triggered.connect(self._copy_context)  # type: ignore[arg-type]
         menu.addAction(copy_context_action)
         menu.exec_(self.user_request_text_edit.mapToGlobal(pos))
+
+    def _filter_by_name(self, text: str) -> None:
+        # Apply (or clear) the regex
+        self._filter_model.setFilterRegularExpression(QRegularExpression(text))
+
+        # Always reset the root index so the view stays anchored
+        root_source_idx = self._model.index(str(self._model.rootPath()))
+        root_proxy_idx = self._filter_model.mapFromSource(root_source_idx)
+        self._tree_view.setRootIndex(root_proxy_idx)
+
+
+# Optional: add a small demo runner when executed directly
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+
+    # Replace these with actual implementations in your project context
+    from infrastructure.clipboard_qt import QtClipboard  # hypothetical implementation
+
+    root = Path.cwd()
+    window = MainWindow(
+        repo=FileSystemDirectoryRepository(root),
+        clipboard=QtClipboard(),
+        initial_root=root,
+        rules_service=RulesService(),
+        recent_service=RecentRepositoryService(
+            FileSystemRecentRepository(Path.home() / ".dcc_recent")
+        ),
+    )
+    window.show()
+    sys.exit(app.exec())

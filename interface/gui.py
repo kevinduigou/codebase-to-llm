@@ -263,9 +263,6 @@ class MainWindow(QMainWindow):
         choose_dir_action.triggered.connect(self._choose_directory)  # type: ignore[arg-type]
         toolbar.addAction(choose_dir_action)
 
-        search_content_action = QAction("Search Content", self)
-        search_content_action.triggered.connect(self._search_content)  # type: ignore[arg-type]
-        toolbar.addAction(search_content_action)
 
         # Recent repositories dropdown
         self._recent_menu = QMenu(self)
@@ -409,28 +406,3 @@ class MainWindow(QMainWindow):
             self._filter_model.setFilterRegularExpression(regex)
         else:
             self._filter_model.setFilterRegularExpression(QRegularExpression())
-
-    def _search_content(self) -> None:
-        pattern, ok = QInputDialog.getText(self, "Search Content", "Regex:")
-        if not ok or not pattern:
-            return
-        root = Path(self._model.rootPath())
-        regex = re.compile(pattern)
-        results: list[str] = []
-        for path in root.rglob("*"):
-            if path.is_file():
-                try:
-                    text = path.read_text(encoding="utf-8", errors="ignore")
-                except Exception:
-                    continue
-                for i, line in enumerate(text.splitlines(), 1):
-                    if regex.search(line):
-                        try:
-                            rel = path.relative_to(root)
-                        except ValueError:
-                            rel = path
-                        results.append(f"{rel}:{i}:{line}")
-        if not results:
-            QMessageBox.information(self, "Search Content", "No matches found.")
-            return
-        QMessageBox.information(self, "Search Results", "\n".join(results))

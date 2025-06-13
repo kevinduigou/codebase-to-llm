@@ -125,6 +125,14 @@ class _FileListWidget(QListWidget):
         item.setData(Qt.ItemDataRole.UserRole, text)
         self.addItem(item)
 
+    def add_file(self, path: Path) -> None:
+        try:
+            rel_path = path.relative_to(self._root_path)
+        except ValueError:
+            rel_path = path
+        if not self.findItems(str(rel_path), Qt.MatchFlag.MatchExactly):
+            self.addItem(str(rel_path))
+
     def _add_files_from_directory(self, directory: Path):
         """Recursively add all non-ignored files from the directory."""
         ignore_tokens = get_ignore_tokens(directory)
@@ -406,6 +414,10 @@ class MainWindow(QMainWindow):
             self._filter_model.mapFromSource(self._model.index(str(initial_root)))
         )
         self._tree_view.setDragEnabled(True)
+        self._tree_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._tree_view.customContextMenuRequested.connect(
+            self._show_tree_context_menu
+        )
 
         self._name_filter_edit = QLineEdit()
         self._name_filter_edit.setPlaceholderText("Filter files (regex)")
@@ -523,6 +535,27 @@ class MainWindow(QMainWindow):
             self._file_preview.load_file(file_path)
         else:
             self._file_preview.clear()
+
+    def _show_tree_context_menu(self, pos) -> None:
+        index = self._tree_view.indexAt(pos)
+        if not index.isValid():
+            return
+        source_index = self._filter_model.mapToSource(index)
+        file_path = Path(self._model.filePath(source_index))
+        if not file_path.is_file():
+            return
+        menu = QMenu(self)
+        preview_action = QAction("Open Preview", self)
+        preview_action.triggered.connect(
+            lambda checked=False, p=file_path: self._file_preview.load_file(p)
+        )
+        menu.addAction(preview_action)
+        add_action = QAction("Add to Content Buffer", self)
+        add_action.triggered.connect(
+            lambda checked=False, p=file_path: self._file_list.add_file(p)
+        )
+        menu.addAction(add_action)
+        menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
 
     # ----------------------------- Existing methods (unchanged except splitter adjustments)
 

@@ -64,6 +64,7 @@ from infrastructure.filesystem_rules_repository import FileSystemRulesRepository
 from domain.result import Err, Result
 from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
 from domain.directory_tree import should_ignore, get_ignore_tokens
+from domain.selected_text import SelectedText
 
 
 class _LineNumberArea(QWidget):
@@ -113,6 +114,16 @@ class _FileListWidget(QListWidget):
         for item in self.selectedItems():
             row = self.row(item)
             self.takeItem(row)
+
+    def add_snippet(self, path: Path, start: int, end: int, text: str) -> None:
+        try:
+            rel_path = path.relative_to(self._root_path)
+        except ValueError:
+            rel_path = path
+        label = f"{rel_path}:{start}:{end}"
+        item = QListWidgetItem(label)
+        item.setData(Qt.ItemDataRole.UserRole, text)
+        self.addItem(item)
 
     def _add_files_from_directory(self, directory: Path):
         """Recursively add all non-ignored files from the directory."""
@@ -168,12 +179,15 @@ class _FileListWidget(QListWidget):
 class _FilePreviewWidget(QPlainTextEdit):
     """Middle-panel read-only file preview widget with a line-number gutter."""
 
-    __slots__ = ("_line_number_area",)
+    __slots__ = ("_line_number_area", "_add_snippet", "_current_path")
 
-    def __init__(self) -> None:
+    def __init__(self, add_snippet: Callable[[Path, int, int, str], None]):
         super().__init__()
         self.setReadOnly(True)
         self.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+
+        self._add_snippet = add_snippet
+        self._current_path: Path | None = None
 
         # Line-number gutter setup
         self._line_number_area = _LineNumberArea(self)
@@ -266,7 +280,22 @@ class _FilePreviewWidget(QPlainTextEdit):
         copy_action = QAction("Copy Selected", self)
         copy_action.triggered.connect(self.copy)  # type: ignore[arg-type]
         menu.addAction(copy_action)
+        add_action = QAction("Add to Content Buffer", self)
+        add_action.triggered.connect(self._handle_add_to_buffer)  # type: ignore[arg-type]
+        menu.addAction(add_action)
         menu.exec_(self.mapToGlobal(pos))
+
+    def _handle_add_to_buffer(self) -> None:
+        if self._current_path is None:
+            return
+        cursor = self.textCursor()
+        start_pos = cursor.selectionStart()
+        end_pos = cursor.selectionEnd()
+        doc = self.document()
+        start_line = doc.findBlock(start_pos).blockNumber() + 1
+        end_line = doc.findBlock(end_pos).blockNumber() + 1
+        text = cursor.selectedText().replace("\u2029", os.linesep)
+        self._add_snippet(self._current_path, start_line, end_line, text)
 
     # ───────────────────────────── load_file helper (unchanged) ──────────────
     def load_file(self, path: Path, max_bytes: int = 200_000) -> None:
@@ -278,6 +307,7 @@ class _FilePreviewWidget(QPlainTextEdit):
             except UnicodeDecodeError:
                 text = data.decode("latin-1", errors="replace")
             self.setPlainText(text)
+            self._current_path = path
         except Exception as exc:  # pylint: disable=broad-except
             self.setPlainText(f"<Could not preview file: {exc}>")
 
@@ -389,12 +419,11 @@ class MainWindow(QMainWindow):
 
         splitter.addWidget(left_panel)
 
-        # --------------------------- middle — file preview
-        self._file_preview = _FilePreviewWidget()
-        splitter.addWidget(self._file_preview)
-
         # --------------------------- right — dropped files list
         self._file_list = _FileListWidget(initial_root, self._copy_context)
+        # --------------------------- middle — file preview
+        self._file_preview = _FilePreviewWidget(self._file_list.add_snippet)
+        splitter.addWidget(self._file_preview)
         splitter.addWidget(self._file_list)
 
         # Set initial splitter sizes
@@ -543,15 +572,30 @@ class MainWindow(QMainWindow):
             self._recent_menu.addAction(action)
 
     def _copy_context(self):  # noqa: D401 (simple verb)
-        files: List[Path] = [
-            Path(item.text())
-            for item in self._file_list.findItems("*", Qt.MatchFlag.MatchWildcard)
-        ]
+        files: List[Path] = []
+        snippets: List[SelectedText] = []
+        for i in range(self._file_list.count()):
+            item = self._file_list.item(i)
+            data = item.data(Qt.ItemDataRole.UserRole)
+            if data:
+                text_data = str(data)
+                label = item.text()
+                try:
+                    path_str, start_str, end_str = label.rsplit(":", 2)
+                    snippet_result = SelectedText.try_create(
+                        Path(path_str), int(start_str), int(end_str), text_data
+                    )
+                    if snippet_result.is_ok():
+                        snippets.append(snippet_result.ok())
+                except Exception:
+                    continue
+            else:
+                files.append(Path(item.text()))
         user_text = self.user_request_text_edit.toPlainText().strip()
         rules_text = self._rules if self._include_rules_checkbox.isChecked() else None
         include_tree = self._include_tree_checkbox.isChecked()
         result = self._copy_context_use_case.execute(
-            files, rules_text, user_text, include_tree
+            files, snippets, rules_text, user_text, include_tree
         )
 
         if result.is_err():

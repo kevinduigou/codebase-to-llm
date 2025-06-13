@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from typing import Final, List
 
+from domain.selected_text import SelectedText
+
 from domain.result import Err, Ok, Result
 
 from .ports import ClipboardPort, DirectoryRepositoryPort
@@ -20,6 +22,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
     def execute(
         self,
         files: List[Path],
+        snippets: List[SelectedText] | None = None,
         rules: str | None = None,
         user_request: str | None = None,
         include_tree: bool = True,
@@ -47,6 +50,13 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                 parts.append(content_result.ok() or "")  # type: ignore[list-item,arg-type]
             # On failure, embed empty body — could embed error instead if desired.
             parts.append(f"</{file_}>")
+
+        if snippets:
+            for snippet in snippets:
+                tag = f"<{snippet.path}:{snippet.start}:{snippet.end}>"
+                parts.append(tag)
+                parts.append(snippet.text)
+                parts.append(f"</{snippet.path}:{snippet.start}:{snippet.end}>")
 
         if rules and rules.strip():
             parts.extend(

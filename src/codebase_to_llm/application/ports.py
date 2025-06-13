@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
-from domain.result import Result
+from codebase_to_llm.domain.result import Result
 
 
 class ClipboardPort(Protocol):

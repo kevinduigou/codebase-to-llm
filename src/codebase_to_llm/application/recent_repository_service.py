@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final, List
 
-from domain.result import Result, Ok, Err
-from domain.recent_repositories import RecentRepositories
+from codebase_to_llm.domain.result import Result, Ok, Err
+from codebase_to_llm.domain.recent_repositories import RecentRepositories
 from .ports import RecentRepositoryPort
 
 

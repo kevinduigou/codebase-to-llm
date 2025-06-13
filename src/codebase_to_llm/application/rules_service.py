@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Final
 
-from domain.result import Result, Err, Ok
-from domain.rules import Rules
+from codebase_to_llm.domain.result import Result, Err, Ok
+from codebase_to_llm.domain.rules import Rules
 from .ports import RulesRepositoryPort
 
 

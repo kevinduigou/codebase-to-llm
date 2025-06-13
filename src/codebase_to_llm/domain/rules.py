@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing_extensions import final
 
-from domain.value_object import ValueObject
+from codebase_to_llm.domain.value_object import ValueObject
 
 from .result import Result, Ok, Err
 

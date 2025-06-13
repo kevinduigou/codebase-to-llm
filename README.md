@@ -1,3 +1,4 @@
+
 # Desktop Context Copier
 
 Simple, immutable, Rust‑flavoured desktop utility that lets you:
@@ -10,12 +11,26 @@ Simple, immutable, Rust‑flavoured desktop utility that lets you:
 
 ## Installation
 
+# Use it
+Available on pypi
+https://pypi.org/project/codebase-to-llm/
+```
+uv run --with codebase-to-llm codebase-to-llm
+```
+
+# Make it evolve
+
+## Clone the repo
+```shell
+git clone
+```
+## Configure venv
 ```shell
 # Install dependencies with **uv**
-uv pip install -r requirements.txt
+uv venv --python 3.12
 
 # Run the application
-python main.py
+uv run ./src/codebase_to_llm/main.py
 ```
 
 ## VSCode Setup
@@ -49,7 +64,7 @@ If you do not see the configuration, ensure `.vscode/launch.json` exists as belo
 
 * **Hexagonal Architecture** (Ports/Adapters) keeps the GUI replaceable.
 * **DDD**: all business rules (tree rendering) live in `domain/`.
-* **Result** type eliminates exceptions in domain & application layers.
+* **Banishing Try/Except** Result type eliminates exceptions in domain & application layers.
 * **Immutable code** — `@final`, `__slots__`, and pure functions.
 
 ## Testing

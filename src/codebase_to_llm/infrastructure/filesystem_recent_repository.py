@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final, List
 
-from domain.result import Result, Ok, Err
-from application.ports import RecentRepositoryPort
+from codebase_to_llm.domain.result import Result, Ok, Err
+from codebase_to_llm.application.ports import RecentRepositoryPort
 
 
 class FileSystemRecentRepository(RecentRepositoryPort):

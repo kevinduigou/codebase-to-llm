@@ -1,2 +1,4 @@
 *.pyc
 *.venv
+src/codebase_to_llm.egg-*
+dist/*

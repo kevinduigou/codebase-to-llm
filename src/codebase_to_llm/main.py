@@ -5,14 +5,22 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from application.ports import ClipboardPort, DirectoryRepositoryPort
-from application.rules_service import RulesService
-from application.recent_repository_service import RecentRepositoryService
-from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
-from infrastructure.filesystem_rules_repository import FileSystemRulesRepository
-from infrastructure.filesystem_recent_repository import FileSystemRecentRepository
-from infrastructure.qt_clipboard_service import QtClipboardService
-from interface.gui import MainWindow
+from codebase_to_llm.application.ports import ClipboardPort, DirectoryRepositoryPort
+from codebase_to_llm.application.rules_service import RulesService
+from codebase_to_llm.application.recent_repository_service import (
+    RecentRepositoryService,
+)
+from codebase_to_llm.infrastructure.filesystem_directory_repository import (
+    FileSystemDirectoryRepository,
+)
+from codebase_to_llm.infrastructure.filesystem_rules_repository import (
+    FileSystemRulesRepository,
+)
+from codebase_to_llm.infrastructure.filesystem_recent_repository import (
+    FileSystemRecentRepository,
+)
+from codebase_to_llm.infrastructure.qt_clipboard_service import QtClipboardService
+from codebase_to_llm.interface.gui import MainWindow
 
 
 def main() -> None:  # noqa: D401 (simple verb)

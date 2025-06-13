@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codebase_to_llm"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
     "pyside6-stubs>=6.7.3.0",
     "PySide6>=6.6.0",
@@ -13,4 +13,19 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://example.com/codebase_to_llm"
+"Homepage" = "https://github.com/kevinduigou/CopyRepoToLLM"
+
+[project.scripts]
+codebase-to-llm = "codebase_to_llm.main:main"
+
+[dependency-groups]
+dev = [
+    "build>=1.2.2.post1",
+    "twine>=6.1.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -416,9 +416,7 @@ class MainWindow(QMainWindow):
         )
         self._tree_view.setDragEnabled(True)
         self._tree_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self._tree_view.customContextMenuRequested.connect(
-            self._show_tree_context_menu
-        )
+        self._tree_view.customContextMenuRequested.connect(self._show_tree_context_menu)
 
         self._name_filter_edit = QLineEdit()
         self._name_filter_edit.setPlaceholderText("Filter files (regex)")
@@ -427,13 +425,15 @@ class MainWindow(QMainWindow):
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Add title for directory tree
         tree_title = QLabel("Directory Tree")
         tree_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
-        tree_title.setToolTip("Browse and navigate through your project's directory structure. Drag files to the right panel to include them in the context.")
+        tree_title.setToolTip(
+            "Browse and navigate through your project's directory structure. Drag files to the right panel to include them in the context."
+        )
         left_layout.addWidget(tree_title)
-        
+
         left_layout.addWidget(self._name_filter_edit)
         left_layout.addWidget(self._tree_view)
 
@@ -451,16 +451,18 @@ class MainWindow(QMainWindow):
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Add title for content buffer
         buffer_title = QLabel("Content Buffer")
         buffer_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
-        buffer_title.setToolTip("Files and text snippets that will be included in the context. Drag files from the directory tree to add them here.")
+        buffer_title.setToolTip(
+            "Files and text snippets that will be included in the context. Drag files from the directory tree to add them here."
+        )
         right_layout.addWidget(buffer_title)
-        
+
         self._file_list = _FileListWidget(initial_root, self._copy_context)
         right_layout.addWidget(self._file_list)
-        
+
         splitter.addWidget(right_panel)
 
         # --------------------------- middle — file preview
@@ -468,13 +470,15 @@ class MainWindow(QMainWindow):
         self._preview_panel = QWidget()
         preview_layout = QVBoxLayout(self._preview_panel)
         preview_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Add title for file preview
         preview_title = QLabel("File Preview")
         preview_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
-        preview_title.setToolTip("View and select text from files. Double-click files in the directory tree to preview them here. Selected text can be added to the context buffer.")
+        preview_title.setToolTip(
+            "View and select text from files. Double-click files in the directory tree to preview them here. Selected text can be added to the context buffer."
+        )
         preview_layout.addWidget(preview_title)
-        
+
         preview_layout.addWidget(self._file_preview)
         splitter.insertWidget(1, self._preview_panel)
         self._preview_panel.setVisible(False)
@@ -533,8 +537,6 @@ class MainWindow(QMainWindow):
         settings_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         settings_button.setToolTip("Settings")
         toolbar.addWidget(settings_button)
-
-
 
         # --------------------------- bottom bar for copy context button
         bottom_bar_layout = QHBoxLayout()

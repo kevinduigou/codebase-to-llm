@@ -5,7 +5,9 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from codebase_to_llm.application.copy_context import CopyContextUseCase
-from codebase_to_llm.infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
+from codebase_to_llm.infrastructure.filesystem_directory_repository import (
+    FileSystemDirectoryRepository,
+)
 from codebase_to_llm.domain.selected_text import SelectedText
 
 

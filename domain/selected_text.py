@@ -26,4 +26,3 @@ class SelectedText(ValueObject):
         if start < 1 or end < start:
             return Err("Invalid line range")
         return Ok(cls(path, start, end, text))
-

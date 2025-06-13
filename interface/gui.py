@@ -50,7 +50,7 @@ from domain.directory_tree import should_ignore, get_ignore_tokens
 
 
 class _FileListWidget(QListWidget):
-    """Right‑panel list accepting drops from the tree view."""
+    """Right-panel list accepting drops from the tree view."""
 
     __slots__ = ("_root_path", "_copy_context")
 
@@ -133,6 +133,45 @@ class _FileListWidget(QListWidget):
             super().dragMoveEvent(event)
 
 
+class _FilePreviewWidget(QPlainTextEdit):
+    """Middle-panel read-only file preview widget."""
+
+    __slots__ = ()
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setReadOnly(True)
+        self.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
+
+    # ----------------------------------------------------------- context menu
+    def _show_context_menu(self, pos) -> None:  # noqa: D401 (simple verb)
+        # Only show menu if something is selected
+        if not self.textCursor().hasSelection():
+            return
+        menu = QMenu(self)
+        copy_action = QAction("Copy Selected", self)
+        copy_action.triggered.connect(self.copy)  # type: ignore[arg-type]
+        menu.addAction(copy_action)
+        menu.exec_(self.mapToGlobal(pos))
+
+    # Utility to load file content
+    def load_file(self, path: Path, max_bytes: int = 200_000) -> None:  # 200 KB cap
+        """Load the file content (truncated) into the preview pane."""
+        try:
+            with path.open("rb") as f:
+                data = f.read(max_bytes)
+            # Try utf-8 first, fall back to latin-1 with replacement
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError:
+                text = data.decode("latin-1", errors="replace")
+            self.setPlainText(text)
+        except Exception as exc:  # pylint: disable=broad-except
+            self.setPlainText(f"<Could not preview file: {exc}>")
+
+
 class RulesDialog(QDialog):
     """Simple dialog to edit rules."""
 
@@ -166,6 +205,7 @@ class MainWindow(QMainWindow):
 
     __slots__ = (
         "_tree_view",
+        "_file_preview",
         "_file_list",
         "_model",
         "_repo",
@@ -191,7 +231,7 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
-        self.resize(960, 600)
+        self.resize(1200, 700)
 
         self._repo = repo
         self._clipboard: Final = clipboard
@@ -238,9 +278,18 @@ class MainWindow(QMainWindow):
 
         splitter.addWidget(left_panel)
 
+        # --------------------------- middle — file preview
+        self._file_preview = _FilePreviewWidget()
+        splitter.addWidget(self._file_preview)
+
         # --------------------------- right — dropped files list
         self._file_list = _FileListWidget(initial_root, self._copy_context)
         splitter.addWidget(self._file_list)
+
+        # Set initial splitter sizes
+        splitter.setStretchFactor(0, 2)  # Left tree
+        splitter.setStretchFactor(1, 3)  # Preview
+        splitter.setStretchFactor(2, 2)  # Right list
 
         # --------------------------- central widget
         central = QWidget()
@@ -262,7 +311,6 @@ class MainWindow(QMainWindow):
         choose_dir_action = QAction("Choose Directory", self)
         choose_dir_action.triggered.connect(self._choose_directory)  # type: ignore[arg-type]
         toolbar.addAction(choose_dir_action)
-
 
         # Recent repositories dropdown
         self._recent_menu = QMenu(self)
@@ -321,7 +369,22 @@ class MainWindow(QMainWindow):
             self._show_user_request_context_menu
         )
 
+        # --------------------------- connections for preview
+        # Update preview when user clicks an item in the tree
+        self._tree_view.clicked.connect(self._handle_tree_click)  # type: ignore[arg-type]
+
     # ──────────────────────────────────────────────────────────────────
+
+    # ----------------------------- Preview logic
+    def _handle_tree_click(self, proxy_index):  # noqa: D401 (simple verb)
+        source_index = self._filter_model.mapToSource(proxy_index)
+        file_path = Path(self._model.filePath(source_index))
+        if file_path.is_file():
+            self._file_preview.load_file(file_path)
+        else:
+            self._file_preview.clear()
+
+    # ----------------------------- Existing methods (unchanged except splitter adjustments)
 
     def _choose_directory(self):  # noqa: D401 (simple verb)
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
@@ -332,11 +395,12 @@ class MainWindow(QMainWindow):
             self._tree_view.setRootIndex(
                 self._filter_model.mapFromSource(self._model.index(str(path)))
             )
-            # Re‑initialise repository for new root
+            # Re-initialise repository for new root
             self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
             self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
             self._file_list.clear()
             self._file_list.set_root_path(path)
+            self._file_preview.clear()
             self._recent_service.add_path(path)
             self._populate_recent_menu()
 
@@ -350,6 +414,7 @@ class MainWindow(QMainWindow):
         self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
         self._file_list.clear()
         self._file_list.set_root_path(path)
+        self._file_preview.clear()
         self._recent_service.add_path(path)
         self._populate_recent_menu()
 
@@ -406,5 +471,24 @@ class MainWindow(QMainWindow):
 
         # Always reset the root index so the view stays anchored
         root_source_idx = self._model.index(str(self._model.rootPath()))
-        root_proxy_idx  = self._filter_model.mapFromSource(root_source_idx)
+        root_proxy_idx = self._filter_model.mapFromSource(root_source_idx)
         self._tree_view.setRootIndex(root_proxy_idx)
+
+
+# Optional: add a small demo runner when executed directly
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+
+    # Replace these with actual implementations in your project context
+    from infrastructure.clipboard_qt import QtClipboard  # hypothetical implementation
+
+    root = Path.cwd()
+    window = MainWindow(
+        repo=FileSystemDirectoryRepository(root),
+        clipboard=QtClipboard(),
+        initial_root=root,
+        rules_service=RulesService(),
+        recent_service=RecentRepositoryService(FileSystemRecentRepository(Path.home() / ".dcc_recent")),
+    )
+    window.show()
+    sys.exit(app.exec())

@@ -6,8 +6,24 @@ from typing import Final, List, Callable
 import os
 import re
 
-from PySide6.QtCore import Qt, QMimeData, QUrl, QDir, QSortFilterProxyModel, QRegularExpression, QRect, QSize
-from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QDragMoveEvent, QPainter, QFontMetrics
+from PySide6.QtCore import (
+    Qt,
+    QMimeData,
+    QUrl,
+    QDir,
+    QSortFilterProxyModel,
+    QRegularExpression,
+    QRect,
+    QSize,
+)
+from PySide6.QtGui import (
+    QAction,
+    QDragEnterEvent,
+    QDropEvent,
+    QDragMoveEvent,
+    QPainter,
+    QFontMetrics,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -57,11 +73,12 @@ class _LineNumberArea(QWidget):
         self._editor = editor
 
     # Width is dictated by the editor’s calculation
-    def sizeHint(self) -> QSize:                         # type: ignore[override]
+    def sizeHint(self) -> QSize:  # type: ignore[override]
         return QSize(self._editor._line_number_area_width(), 0)
 
-    def paintEvent(self, event):                         # noqa: N802
+    def paintEvent(self, event):  # noqa: N802
         self._editor._paint_line_numbers(event)
+
 
 class _FileListWidget(QListWidget):
     """Right-panel list accepting drops from the tree view."""
@@ -161,9 +178,9 @@ class _FilePreviewWidget(QPlainTextEdit):
         self._line_number_area = _LineNumberArea(self)
 
         # Keep gutter in sync with the document
-        self.blockCountChanged.connect(self._update_line_number_area_width)   # type: ignore[arg-type]
-        self.updateRequest.connect(self._update_line_number_area)             # type: ignore[arg-type]
-        self.cursorPositionChanged.connect(self._highlight_current_line)      # type: ignore[arg-type]
+        self.blockCountChanged.connect(self._update_line_number_area_width)  # type: ignore[arg-type]
+        self.updateRequest.connect(self._update_line_number_area)  # type: ignore[arg-type]
+        self.cursorPositionChanged.connect(self._highlight_current_line)  # type: ignore[arg-type]
 
         self._update_line_number_area_width(0)
         self._highlight_current_line()
@@ -185,7 +202,9 @@ class _FilePreviewWidget(QPlainTextEdit):
         if dy:
             self._line_number_area.scroll(0, dy)
         else:
-            self._line_number_area.update(0, rect.y(), self._line_number_area.width(), rect.height())
+            self._line_number_area.update(
+                0, rect.y(), self._line_number_area.width(), rect.height()
+            )
 
         if rect.contains(self.viewport().rect()):
             self._update_line_number_area_width(0)
@@ -193,7 +212,9 @@ class _FilePreviewWidget(QPlainTextEdit):
     def resizeEvent(self, event):  # noqa: N802
         super().resizeEvent(event)
         cr = self.contentsRect()
-        self._line_number_area.setGeometry(QRect(cr.left(), cr.top(), self._line_number_area_width(), cr.height()))
+        self._line_number_area.setGeometry(
+            QRect(cr.left(), cr.top(), self._line_number_area_width(), cr.height())
+        )
 
     def _paint_line_numbers(self, event):  # called from _LineNumberArea.paintEvent
         painter = QPainter(self._line_number_area)
@@ -201,15 +222,23 @@ class _FilePreviewWidget(QPlainTextEdit):
 
         block = self.firstVisibleBlock()
         block_number = block.blockNumber()
-        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        top = int(
+            self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
+        )
         bottom = top + int(self.blockBoundingRect(block).height())
         height = self.fontMetrics().height()
 
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
                 number = str(block_number + 1)
-                painter.drawText(0, top, self._line_number_area.width() - 4, height,
-                                 Qt.AlignRight | Qt.AlignVCenter, number)
+                painter.drawText(
+                    0,
+                    top,
+                    self._line_number_area.width() - 4,
+                    height,
+                    Qt.AlignRight | Qt.AlignVCenter,
+                    number,
+                )
             block = block.next()
             top = bottom
             bottom = top + int(self.blockBoundingRect(block).height())
@@ -222,7 +251,7 @@ class _FilePreviewWidget(QPlainTextEdit):
         selection = QTextEdit.ExtraSelection()  # type: ignore[attr-defined]
         line_color = self.palette().alternateBase().color().lighter(120)
         selection.format.setBackground(line_color)
-        #selection.format.setProperty(QTextEdit.ExtraSelection.FullWidthSelection, True)  # type: ignore[attr-defined]
+        # selection.format.setProperty(QTextEdit.ExtraSelection.FullWidthSelection, True)  # type: ignore[attr-defined]
         selection.cursor = self.textCursor()
         selection.cursor.clearSelection()
         extra_selections.append(selection)
@@ -568,7 +597,9 @@ if __name__ == "__main__":
         clipboard=QtClipboard(),
         initial_root=root,
         rules_service=RulesService(),
-        recent_service=RecentRepositoryService(FileSystemRecentRepository(Path.home() / ".dcc_recent")),
+        recent_service=RecentRepositoryService(
+            FileSystemRecentRepository(Path.home() / ".dcc_recent")
+        ),
     )
     window.show()
     sys.exit(app.exec())

@@ -437,6 +437,14 @@ class MainWindow(QMainWindow):
         left_layout.addWidget(self._name_filter_edit)
         left_layout.addWidget(self._tree_view)
 
+        # Toggle button for preview panel visibility belongs to the tree view
+        self._toggle_preview_btn = QToolButton(self)
+        self._toggle_preview_btn.setText("Hide File Preview")
+        self._toggle_preview_btn.setCheckable(True)
+        self._toggle_preview_btn.setChecked(False)
+        self._toggle_preview_btn.toggled.connect(self._toggle_preview)
+        left_layout.addWidget(self._toggle_preview_btn)
+
         splitter.addWidget(left_panel)
 
         # --------------------------- right — dropped files list
@@ -468,7 +476,7 @@ class MainWindow(QMainWindow):
         preview_layout.addWidget(preview_title)
         
         preview_layout.addWidget(self._file_preview)
-        splitter.addWidget(self._preview_panel)
+        splitter.insertWidget(1, self._preview_panel)
         self._preview_panel.setVisible(False)
 
         # Set initial splitter sizes
@@ -526,13 +534,7 @@ class MainWindow(QMainWindow):
         settings_button.setToolTip("Settings")
         toolbar.addWidget(settings_button)
 
-        # Toggle button for preview panel visibility
-        self._toggle_preview_btn = QToolButton(self)
-        self._toggle_preview_btn.setText("Hide File Preview")
-        self._toggle_preview_btn.setCheckable(True)
-        self._toggle_preview_btn.setChecked(False)
-        self._toggle_preview_btn.toggled.connect(self._toggle_preview)
-        toolbar.addWidget(self._toggle_preview_btn)
+
 
         # --------------------------- bottom bar for copy context button
         bottom_bar_layout = QHBoxLayout()
@@ -711,6 +713,10 @@ class MainWindow(QMainWindow):
     def _toggle_preview(self, checked: bool) -> None:
         """Show or hide the file preview panel."""
         self._preview_panel.setVisible(checked)
+        if checked:
+            self._toggle_preview_btn.setText("Hide File Preview")
+        else:
+            self._toggle_preview_btn.setText("Show File Preview")
 
 
 # Optional: add a small demo runner when executed directly

@@ -46,7 +46,11 @@ jobs:
         run: |
           uv pip install --system behave
           if ls features/*.feature 1> /dev/null 2>&1; then behave; else echo "No feature files found, skipping Behave tests."; fi
-
+      
+      - name: Build distribution
+        run: |
+          uv sync --dev
+          uv run -m build
   publish:
     runs-on: ubuntu-latest
     needs: build-test

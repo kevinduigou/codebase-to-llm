@@ -4,9 +4,9 @@ import os
 from pathlib import Path
 from typing import Final, List
 
-from domain.selected_text import SelectedText
+from codebase_to_llm.domain.selected_text import SelectedText
 
-from domain.result import Err, Ok, Result
+from codebase_to_llm.domain.result import Err, Ok, Result
 
 from .ports import ClipboardPort, DirectoryRepositoryPort
 

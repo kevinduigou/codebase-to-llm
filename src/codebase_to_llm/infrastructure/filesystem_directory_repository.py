@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final, Set
 
-from domain.result import Err, Ok, Result
-from domain.directory_tree import build_tree as domain_build_tree
+from codebase_to_llm.domain.result import Err, Ok, Result
+from codebase_to_llm.domain.directory_tree import build_tree as domain_build_tree
 
-from application.ports import DirectoryRepositoryPort
+from codebase_to_llm.application.ports import DirectoryRepositoryPort
 
 
 class FileSystemDirectoryRepository(DirectoryRepositoryPort):

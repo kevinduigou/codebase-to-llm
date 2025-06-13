@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtGui import QGuiApplication
 
-from application.ports import ClipboardPort
+from codebase_to_llm.application.ports import ClipboardPort
 
 
 class QtClipboardService(ClipboardPort):

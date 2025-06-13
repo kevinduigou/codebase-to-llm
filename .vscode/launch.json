@@ -5,7 +5,7 @@
             "name": "Run Desktop Context Copier",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/src/codebase_to_llm/main.py",
             "console": "integratedTerminal"
         }
     ]

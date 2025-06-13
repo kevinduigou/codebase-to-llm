@@ -1,10 +1,10 @@
 from pathlib import Path
 import sys
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-from domain.directory_tree import build_tree
-from domain.result import Ok
+from codebase_to_llm.domain.directory_tree import build_tree
+from codebase_to_llm.domain.result import Ok
 
 
 def test_tree_build(tmp_path: Path):

@@ -2,11 +2,13 @@ from pathlib import Path
 
 import sys
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-from application.copy_context import CopyContextUseCase
-from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
-from domain.selected_text import SelectedText
+from codebase_to_llm.application.copy_context import CopyContextUseCase
+from codebase_to_llm.infrastructure.filesystem_directory_repository import (
+    FileSystemDirectoryRepository,
+)
+from codebase_to_llm.domain.selected_text import SelectedText
 
 
 class FakeClipboard:
@@ -41,6 +43,7 @@ def test_selected_text(tmp_path: Path):
     snippet_result = SelectedText.try_create(file_path, 1, 2, "line1\nline2\n")
     assert snippet_result.is_ok()
     snippet = snippet_result.ok()
+    assert snippet is not None
     use_case.execute([], [snippet], include_tree=False)
     assert clipboard.text is not None
     expected_tag = f"<{file_path}:1:2>"

@@ -53,19 +53,27 @@ from PySide6.QtWidgets import (
     QLabel,
 )
 
-from application.copy_context import CopyContextUseCase
-from application.ports import (
+from codebase_to_llm.application.copy_context import CopyContextUseCase
+from codebase_to_llm.application.ports import (
     ClipboardPort,
     DirectoryRepositoryPort,
 )
-from application.rules_service import RulesService
-from application.recent_repository_service import RecentRepositoryService
-from infrastructure.filesystem_recent_repository import FileSystemRecentRepository
-from infrastructure.filesystem_rules_repository import FileSystemRulesRepository
-from domain.result import Err, Result
-from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
-from domain.directory_tree import should_ignore, get_ignore_tokens
-from domain.selected_text import SelectedText
+from codebase_to_llm.application.rules_service import RulesService
+from codebase_to_llm.application.recent_repository_service import (
+    RecentRepositoryService,
+)
+from codebase_to_llm.infrastructure.filesystem_recent_repository import (
+    FileSystemRecentRepository,
+)
+from codebase_to_llm.infrastructure.filesystem_rules_repository import (
+    FileSystemRulesRepository,
+)
+from codebase_to_llm.domain.result import Err, Result
+from codebase_to_llm.infrastructure.filesystem_directory_repository import (
+    FileSystemDirectoryRepository,
+)
+from codebase_to_llm.domain.directory_tree import should_ignore, get_ignore_tokens
+from codebase_to_llm.domain.selected_text import SelectedText
 
 
 class _LineNumberArea(QWidget):
@@ -260,7 +268,7 @@ class _FilePreviewWidget(QPlainTextEdit):
                     top,
                     self._line_number_area.width() - 4,
                     height,
-                    Qt.AlignRight | Qt.AlignVCenter,
+                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                     number,
                 )
             block = block.next()
@@ -289,7 +297,7 @@ class _FilePreviewWidget(QPlainTextEdit):
         copy_action = QAction("Copy Selected", self)
         copy_action.triggered.connect(self.copy)  # type: ignore[arg-type]
         menu.addAction(copy_action)
-        add_action = QAction("Add to Content Buffer", self)
+        add_action = QAction("Add to Context Buffer", self)
         add_action.triggered.connect(self._handle_add_to_buffer)  # type: ignore[arg-type]
         menu.addAction(add_action)
         menu.exec_(self.mapToGlobal(pos))
@@ -369,6 +377,8 @@ class MainWindow(QMainWindow):
         "_include_tree_checkbox",
         "_filter_model",
         "_name_filter_edit",
+        "_toggle_preview_btn",
+        "_preview_panel",
     )
 
     def __init__(
@@ -438,13 +448,13 @@ class MainWindow(QMainWindow):
         self._toggle_preview_btn.setCheckable(True)
         self._toggle_preview_btn.setChecked(False)
         self._toggle_preview_btn.toggled.connect(self._toggle_preview)
-        
+
         # Create horizontal layout for title and button
         title_layout = QHBoxLayout()
         title_layout.addWidget(tree_title)
         title_layout.addWidget(self._toggle_preview_btn)
         title_layout.addStretch()  # Push elements to the left
-        
+
         left_layout.addLayout(title_layout)
         left_layout.addWidget(self._name_filter_edit)
         left_layout.addWidget(self._tree_view)
@@ -456,8 +466,8 @@ class MainWindow(QMainWindow):
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Add title for content buffer
-        buffer_title = QLabel("Content Buffer")
+        # Add title for context buffer
+        buffer_title = QLabel("Context Buffer")
         buffer_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
         buffer_title.setToolTip(
             "Files and text snippets that will be included in the context. Drag files from the directory tree to add them here."
@@ -549,7 +559,7 @@ class MainWindow(QMainWindow):
         self._include_rules_checkbox = QCheckBox("Include Rules")
         self._include_rules_checkbox.setChecked(True)
         # Copy context button
-        copy_btn = QPushButton("Copy Context")
+        copy_btn = QPushButton("Copy Context in clipboard")
         copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
         delete_btn = QPushButton("Delete Selected")
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
@@ -604,7 +614,7 @@ class MainWindow(QMainWindow):
             lambda checked=False, p=file_path: self._file_preview.load_file(p)
         )
         menu.addAction(preview_action)
-        add_action = QAction("Add to Content Buffer", self)
+        add_action = QAction("Add to Context Buffer", self)
         add_action.triggered.connect(
             lambda checked=False, p=file_path: self._file_list.add_file(p)
         )
@@ -673,7 +683,9 @@ class MainWindow(QMainWindow):
                         Path(path_str), int(start_str), int(end_str), text_data
                     )
                     if snippet_result.is_ok():
-                        snippets.append(snippet_result.ok())
+                        snippet = snippet_result.ok()
+                        assert snippet is not None
+                        snippets.append(snippet)
                 except Exception:
                     continue
             else:
@@ -686,7 +698,8 @@ class MainWindow(QMainWindow):
         )
 
         if result.is_err():
-            QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", result.err())
+            error: str = result.err() or ""
+            QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", error)
 
     def _delete_selected(self) -> None:
         self._file_list.delete_selected()
@@ -730,7 +743,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # Replace these with actual implementations in your project context
-    from infrastructure.qt_clipboard_service import QtClipboardService
+    from codebase_to_llm.infrastructure.qt_clipboard_service import QtClipboardService
 
     root = Path.cwd()
     window = MainWindow(

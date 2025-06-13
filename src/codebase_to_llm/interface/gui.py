@@ -377,6 +377,8 @@ class MainWindow(QMainWindow):
         "_include_tree_checkbox",
         "_filter_model",
         "_name_filter_edit",
+        "_toggle_preview_btn",
+        "_preview_panel",
     )
 
     def __init__(
@@ -681,7 +683,9 @@ class MainWindow(QMainWindow):
                         Path(path_str), int(start_str), int(end_str), text_data
                     )
                     if snippet_result.is_ok():
-                        snippets.append(snippet_result.ok())
+                        snippet = snippet_result.ok()
+                        assert snippet is not None
+                        snippets.append(snippet)
                 except Exception:
                     continue
             else:
@@ -738,7 +742,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # Replace these with actual implementations in your project context
-    from infrastructure.qt_clipboard_service import QtClipboardService
+    from codebase_to_llm.infrastructure.qt_clipboard_service import QtClipboardService
 
     root = Path.cwd()
     window = MainWindow(

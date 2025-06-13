@@ -1,8 +1,26 @@
 
-# Desktop Context Copier
+# Context to LLM
 
-Simple, immutable, Rust‑flavoured desktop utility that lets you:
+🔍 LLM Context Tool
 
+Give your favorite ChatBot the context it needs to help you better.
+Easily copy repo tree structures, rules, or chunks of files to your clipboard — then paste directly into a ChatBot prompt.
+
+🧠 What It Does
+
+LLM Context Tool helps developers quickly extract and share meaningful context from their codebase to ChatBots like ChatGPT, Claude, or Gemini.
+
+🎯 Why You Need It
+
+ChatBots are only as smart as the context you give them.
+This tool makes that easy by solving common pain points:
+- Manually copying repo trees or files? 🐌 Slow and error-prone.
+
+- Pasting too much code? 🧱 Token limits and messy formatting.
+
+- ChatBot not helping? 😫 Lacks rules, structure, or dependencies to make sense of your code.
+
+How does it work?
 1. Browse any directory from the **left panel** (tree view).
 2. Drag‑and‑drop files into the **right panel** for collection.
 3. Hit **Copy Context** to send to the clipboard:

@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QMainWindow,
     QMessageBox,
-    QPlainTextEdit,
     QPushButton,
     QSplitter,
     QToolBar,
@@ -160,24 +159,6 @@ class RulesDialog(QDialog):
     def accept(self) -> None:
         self._rules_service.save_rules(self._edit.toPlainText())
         return super().accept()
-
-
-class SearchResultsDialog(QDialog):
-    """Simple dialog displaying grep-like search results."""
-
-    __slots__ = ("_edit",)
-
-    def __init__(self, results: str) -> None:
-        super().__init__()
-        self.setWindowTitle("Search Results")
-        layout = QVBoxLayout(self)
-        self._edit = QPlainTextEdit()
-        self._edit.setReadOnly(True)
-        self._edit.setPlainText(results)
-        layout.addWidget(self._edit)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.rejected.connect(self.reject)  # type: ignore[arg-type]
-        layout.addWidget(buttons)
 
 
 class MainWindow(QMainWindow):
@@ -452,5 +433,4 @@ class MainWindow(QMainWindow):
         if not results:
             QMessageBox.information(self, "Search Content", "No matches found.")
             return
-        dialog = SearchResultsDialog("\n".join(results))
-        dialog.exec()
+        QMessageBox.information(self, "Search Results", "\n".join(results))

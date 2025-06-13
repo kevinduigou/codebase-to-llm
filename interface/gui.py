@@ -50,6 +50,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QLineEdit,
     QInputDialog,
+    QLabel,
 )
 
 from application.copy_context import CopyContextUseCase
@@ -74,7 +75,7 @@ class _LineNumberArea(QWidget):
         super().__init__(editor)
         self._editor = editor
 
-    # Width is dictated by the editor’s calculation
+    # Width is dictated by the editor's calculation
     def sizeHint(self) -> QSize:  # type: ignore[override]
         return QSize(self._editor._line_number_area_width(), 0)
 
@@ -414,18 +415,49 @@ class MainWindow(QMainWindow):
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Add title for directory tree
+        tree_title = QLabel("Directory Tree")
+        tree_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
+        tree_title.setToolTip("Browse and navigate through your project's directory structure. Drag files to the right panel to include them in the context.")
+        left_layout.addWidget(tree_title)
+        
         left_layout.addWidget(self._name_filter_edit)
         left_layout.addWidget(self._tree_view)
 
         splitter.addWidget(left_panel)
 
         # --------------------------- right — dropped files list
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Add title for content buffer
+        buffer_title = QLabel("Content Buffer")
+        buffer_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
+        buffer_title.setToolTip("Files and text snippets that will be included in the context. Drag files from the directory tree to add them here.")
+        right_layout.addWidget(buffer_title)
+        
         self._file_list = _FileListWidget(initial_root, self._copy_context)
+        right_layout.addWidget(self._file_list)
+        
+        splitter.addWidget(right_panel)
+
         # --------------------------- middle — file preview
         self._file_preview = _FilePreviewWidget(self._file_list.add_snippet)
-        splitter.addWidget(self._file_preview)
-        self._file_preview.setVisible(False)
-        splitter.addWidget(self._file_list)
+        self._preview_panel = QWidget()
+        preview_layout = QVBoxLayout(self._preview_panel)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Add title for file preview
+        preview_title = QLabel("File Preview")
+        preview_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
+        preview_title.setToolTip("View and select text from files. Double-click files in the directory tree to preview them here. Selected text can be added to the context buffer.")
+        preview_layout.addWidget(preview_title)
+        
+        preview_layout.addWidget(self._file_preview)
+        splitter.addWidget(self._preview_panel)
+        self._preview_panel.setVisible(False)
 
         # Set initial splitter sizes
         splitter.setStretchFactor(0, 2)  # Left tree
@@ -484,7 +516,7 @@ class MainWindow(QMainWindow):
 
         # Toggle button for preview panel visibility
         self._toggle_preview_btn = QToolButton(self)
-        self._toggle_preview_btn.setText("Preview")
+        self._toggle_preview_btn.setText("Hide File Preview")
         self._toggle_preview_btn.setCheckable(True)
         self._toggle_preview_btn.setChecked(False)
         self._toggle_preview_btn.toggled.connect(self._toggle_preview)
@@ -532,7 +564,7 @@ class MainWindow(QMainWindow):
         file_path = Path(self._model.filePath(source_index))
         if file_path.is_file():
             self._file_preview.load_file(file_path)
-            self._file_preview.setVisible(True)
+            self._preview_panel.setVisible(True)
             if hasattr(self, "_toggle_preview_btn"):
                 self._toggle_preview_btn.setChecked(True)
         else:
@@ -645,7 +677,7 @@ class MainWindow(QMainWindow):
 
     def _toggle_preview(self, checked: bool) -> None:
         """Show or hide the file preview panel."""
-        self._file_preview.setVisible(checked)
+        self._preview_panel.setVisible(checked)
 
 
 # Optional: add a small demo runner when executed directly

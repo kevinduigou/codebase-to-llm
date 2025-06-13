@@ -6,8 +6,8 @@ from typing import Final, List, Callable
 import os
 import re
 
-from PySide6.QtCore import Qt, QMimeData, QUrl, QDir, QSortFilterProxyModel, QRegularExpression
-from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QDragMoveEvent
+from PySide6.QtCore import Qt, QMimeData, QUrl, QDir, QSortFilterProxyModel, QRegularExpression, QRect, QSize
+from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QDragMoveEvent, QPainter, QFontMetrics
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -48,6 +48,20 @@ from domain.result import Err, Result
 from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
 from domain.directory_tree import should_ignore, get_ignore_tokens
 
+
+class _LineNumberArea(QWidget):
+    """Thin gutter that the parent editor paints line numbers into."""
+
+    def __init__(self, editor: " _FilePreviewWidget"):  # editor is the parent
+        super().__init__(editor)
+        self._editor = editor
+
+    # Width is dictated by the editor’s calculation
+    def sizeHint(self) -> QSize:                         # type: ignore[override]
+        return QSize(self._editor._line_number_area_width(), 0)
+
+    def paintEvent(self, event):                         # noqa: N802
+        self._editor._paint_line_numbers(event)
 
 class _FileListWidget(QListWidget):
     """Right-panel list accepting drops from the tree view."""
@@ -134,20 +148,88 @@ class _FileListWidget(QListWidget):
 
 
 class _FilePreviewWidget(QPlainTextEdit):
-    """Middle-panel read-only file preview widget."""
+    """Middle-panel read-only file preview widget with a line-number gutter."""
 
-    __slots__ = ()
+    __slots__ = ("_line_number_area",)
 
     def __init__(self) -> None:
         super().__init__()
         self.setReadOnly(True)
         self.setLineWrapMode(QPlainTextEdit.NoWrap)
+
+        # Line-number gutter setup
+        self._line_number_area = _LineNumberArea(self)
+
+        # Keep gutter in sync with the document
+        self.blockCountChanged.connect(self._update_line_number_area_width)   # type: ignore[arg-type]
+        self.updateRequest.connect(self._update_line_number_area)             # type: ignore[arg-type]
+        self.cursorPositionChanged.connect(self._highlight_current_line)      # type: ignore[arg-type]
+
+        self._update_line_number_area_width(0)
+        self._highlight_current_line()
+
+        # Context-menu for copying selected text
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
-    # ----------------------------------------------------------- context menu
-    def _show_context_menu(self, pos) -> None:  # noqa: D401 (simple verb)
-        # Only show menu if something is selected
+    # ────────────────────────────── Line-number logic ────────────────────────
+    def _line_number_area_width(self) -> int:
+        digits = max(3, len(str(max(1, self.blockCount()))))  # at least 3 chars
+        fm = QFontMetrics(self.font())
+        return 4 + fm.horizontalAdvance("9") * digits
+
+    def _update_line_number_area_width(self, _):  # slot
+        self.setViewportMargins(self._line_number_area_width(), 0, 0, 0)
+
+    def _update_line_number_area(self, rect: QRect, dy: int):  # slot
+        if dy:
+            self._line_number_area.scroll(0, dy)
+        else:
+            self._line_number_area.update(0, rect.y(), self._line_number_area.width(), rect.height())
+
+        if rect.contains(self.viewport().rect()):
+            self._update_line_number_area_width(0)
+
+    def resizeEvent(self, event):  # noqa: N802
+        super().resizeEvent(event)
+        cr = self.contentsRect()
+        self._line_number_area.setGeometry(QRect(cr.left(), cr.top(), self._line_number_area_width(), cr.height()))
+
+    def _paint_line_numbers(self, event):  # called from _LineNumberArea.paintEvent
+        painter = QPainter(self._line_number_area)
+        painter.fillRect(event.rect(), self.palette().window().color())
+
+        block = self.firstVisibleBlock()
+        block_number = block.blockNumber()
+        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        bottom = top + int(self.blockBoundingRect(block).height())
+        height = self.fontMetrics().height()
+
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                number = str(block_number + 1)
+                painter.drawText(0, top, self._line_number_area.width() - 4, height,
+                                 Qt.AlignRight | Qt.AlignVCenter, number)
+            block = block.next()
+            top = bottom
+            bottom = top + int(self.blockBoundingRect(block).height())
+            block_number += 1
+
+    def _highlight_current_line(self):  # slot
+        extra_selections = []
+        if not self.isReadOnly():
+            return
+        selection = QTextEdit.ExtraSelection()  # type: ignore[attr-defined]
+        line_color = self.palette().alternateBase().color().lighter(120)
+        selection.format.setBackground(line_color)
+        #selection.format.setProperty(QTextEdit.ExtraSelection.FullWidthSelection, True)  # type: ignore[attr-defined]
+        selection.cursor = self.textCursor()
+        selection.cursor.clearSelection()
+        extra_selections.append(selection)
+        self.setExtraSelections(extra_selections)
+
+    # ───────────────────────────── context menu (unchanged) ──────────────────
+    def _show_context_menu(self, pos) -> None:
         if not self.textCursor().hasSelection():
             return
         menu = QMenu(self)
@@ -156,13 +238,11 @@ class _FilePreviewWidget(QPlainTextEdit):
         menu.addAction(copy_action)
         menu.exec_(self.mapToGlobal(pos))
 
-    # Utility to load file content
-    def load_file(self, path: Path, max_bytes: int = 200_000) -> None:  # 200 KB cap
-        """Load the file content (truncated) into the preview pane."""
+    # ───────────────────────────── load_file helper (unchanged) ──────────────
+    def load_file(self, path: Path, max_bytes: int = 200_000) -> None:
         try:
             with path.open("rb") as f:
                 data = f.read(max_bytes)
-            # Try utf-8 first, fall back to latin-1 with replacement
             try:
                 text = data.decode("utf-8")
             except UnicodeDecodeError:

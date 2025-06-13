@@ -432,18 +432,22 @@ class MainWindow(QMainWindow):
         tree_title.setToolTip(
             "Browse and navigate through your project's directory structure. Drag files to the right panel to include them in the context."
         )
-        left_layout.addWidget(tree_title)
-
-        left_layout.addWidget(self._name_filter_edit)
-        left_layout.addWidget(self._tree_view)
-
         # Toggle button for preview panel visibility belongs to the tree view
         self._toggle_preview_btn = QToolButton(self)
-        self._toggle_preview_btn.setText("Hide File Preview")
+        self._toggle_preview_btn.setText("Show File Preview")
         self._toggle_preview_btn.setCheckable(True)
         self._toggle_preview_btn.setChecked(False)
         self._toggle_preview_btn.toggled.connect(self._toggle_preview)
-        left_layout.addWidget(self._toggle_preview_btn)
+        
+        # Create horizontal layout for title and button
+        title_layout = QHBoxLayout()
+        title_layout.addWidget(tree_title)
+        title_layout.addWidget(self._toggle_preview_btn)
+        title_layout.addStretch()  # Push elements to the left
+        
+        left_layout.addLayout(title_layout)
+        left_layout.addWidget(self._name_filter_edit)
+        left_layout.addWidget(self._tree_view)
 
         splitter.addWidget(left_panel)
 

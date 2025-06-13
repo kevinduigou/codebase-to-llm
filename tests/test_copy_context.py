@@ -43,6 +43,7 @@ def test_selected_text(tmp_path: Path):
     snippet_result = SelectedText.try_create(file_path, 1, 2, "line1\nline2\n")
     assert snippet_result.is_ok()
     snippet = snippet_result.ok()
+    assert snippet is not None
     use_case.execute([], [snippet], include_tree=False)
     assert clipboard.text is not None
     expected_tag = f"<{file_path}:1:2>"

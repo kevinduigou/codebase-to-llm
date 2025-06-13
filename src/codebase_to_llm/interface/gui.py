@@ -268,7 +268,7 @@ class _FilePreviewWidget(QPlainTextEdit):
                     top,
                     self._line_number_area.width() - 4,
                     height,
-                    Qt.AlignRight | Qt.AlignVCenter,
+                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                     number,
                 )
             block = block.next()
@@ -698,7 +698,8 @@ class MainWindow(QMainWindow):
         )
 
         if result.is_err():
-            QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", result.err())
+            error: str = result.err() or ""
+            QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", error)
 
     def _delete_selected(self) -> None:
         self._file_list.delete_selected()

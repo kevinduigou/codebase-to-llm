@@ -60,6 +60,7 @@ from application.ports import (
 from application.rules_service import RulesService
 from application.recent_repository_service import RecentRepositoryService
 from infrastructure.filesystem_recent_repository import FileSystemRecentRepository
+from infrastructure.filesystem_rules_repository import FileSystemRulesRepository
 from domain.result import Err, Result
 from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
 from domain.directory_tree import should_ignore, get_ignore_tokens
@@ -172,7 +173,7 @@ class _FilePreviewWidget(QPlainTextEdit):
     def __init__(self) -> None:
         super().__init__()
         self.setReadOnly(True)
-        self.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
         # Line-number gutter setup
         self._line_number_area = _LineNumberArea(self)
@@ -284,7 +285,7 @@ class _FilePreviewWidget(QPlainTextEdit):
 class RulesDialog(QDialog):
     """Simple dialog to edit rules."""
 
-    __slots__ = ("_edit",)
+    __slots__ = ("_edit", "_rules_service")
 
     def __init__(self, current_rules: str, rules_service: RulesService) -> None:
         super().__init__()
@@ -321,6 +322,7 @@ class MainWindow(QMainWindow):
         "_clipboard",
         "_copy_context_use_case",
         "_recent_service",
+        "_rules_service",
         "_recent_menu",
         "user_request_text_edit",
         "_rules",
@@ -364,7 +366,7 @@ class MainWindow(QMainWindow):
 
         self._filter_model = QSortFilterProxyModel()
         self._filter_model.setSourceModel(self._model)
-        self._filter_model.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self._filter_model.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         self._filter_model.setRecursiveFilteringEnabled(True)
         self._filter_model.setFilterKeyColumn(0)
 
@@ -589,14 +591,14 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # Replace these with actual implementations in your project context
-    from infrastructure.clipboard_qt import QtClipboard  # hypothetical implementation
+    from infrastructure.qt_clipboard_service import QtClipboardService
 
     root = Path.cwd()
     window = MainWindow(
         repo=FileSystemDirectoryRepository(root),
-        clipboard=QtClipboard(),
+        clipboard=QtClipboardService(),
         initial_root=root,
-        rules_service=RulesService(),
+        rules_service=RulesService(FileSystemRulesRepository()),
         recent_service=RecentRepositoryService(
             FileSystemRecentRepository(Path.home() / ".dcc_recent")
         ),

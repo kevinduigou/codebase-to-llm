@@ -1,10 +1,9 @@
 
 # Context to LLM
 
-Give your favorite ChatBot the context it needs to help you better.
-Easily copy repo tree structures, rules, or chunks of files to your clipboard — then paste directly into a ChatBot prompt.
+**Give your AI assistant the context it needs to help you effectively. Quickly copy repository structures, coding guidelines, or file contents to your clipboard, then paste them directly into your AI chat.**
 
-🧠 What It Does
+🧠 What It Does?
 
 LLM Context Tool helps developers quickly extract and share meaningful context from their codebase to ChatBots like ChatGPT, Claude, or Gemini.
 
@@ -13,7 +12,6 @@ LLM Context Tool helps developers quickly extract and share meaningful context f
 ChatBots are only as smart as the context you give them.
 This tool makes that easy by solving common pain points:
 - Manually copying repo trees or files? 🐌 Slow.
-
 - ChatBot not helping? 😫 Lacks rules, structure, or dependencies to make sense of your code.
 
 ✨ Key Features
@@ -35,6 +33,7 @@ Everything is formatted for easy pasting into ChatBots.
 Clean, structured, and optimized for context-aware conversations.
 
 🚀 How does it work?
+
 1. Browse any directory from the **left panel** (tree view).
 2. Drag‑and‑drop files into the **right panel** for context "buffering".
 3. Hit **Copy Context** to send to the clipboard:

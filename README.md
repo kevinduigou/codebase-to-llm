@@ -1,8 +1,6 @@
 
 # Context to LLM
 
-🔍 LLM Context Tool
-
 Give your favorite ChatBot the context it needs to help you better.
 Easily copy repo tree structures, rules, or chunks of files to your clipboard — then paste directly into a ChatBot prompt.
 
@@ -10,19 +8,35 @@ Easily copy repo tree structures, rules, or chunks of files to your clipboard �
 
 LLM Context Tool helps developers quickly extract and share meaningful context from their codebase to ChatBots like ChatGPT, Claude, or Gemini.
 
-🎯 Why You Need It
+🎯 Why You Need It?
 
 ChatBots are only as smart as the context you give them.
 This tool makes that easy by solving common pain points:
-- Manually copying repo trees or files? 🐌 Slow and error-prone.
-
-- Pasting too much code? 🧱 Token limits and messy formatting.
+- Manually copying repo trees or files? 🐌 Slow.
 
 - ChatBot not helping? 😫 Lacks rules, structure, or dependencies to make sense of your code.
 
-How does it work?
+✨ Key Features
+
+📂 Copy Repo Structure
+Give the model a clear picture of your project layout.
+The file tree helps ChatBots understand your architecture, dependencies, and context — just like a human developer would.
+
+📜 Copy Project Rules (like Cursor Rules)
+Extract guiding rules or architectural constraints that steer how the model should think.
+Perfect for setting boundaries or nudging LLM behavior (naming conventions, folder usage, coding styles, etc.).
+
+📄 Copy File Chunks
+Select specific pieces of code — functions, components, tests — and share only what matters.
+Ideal for focused debugging or feature walkthroughs.
+
+📋 Clipboard Ready
+Everything is formatted for easy pasting into ChatBots.
+Clean, structured, and optimized for context-aware conversations.
+
+🚀 How does it work?
 1. Browse any directory from the **left panel** (tree view).
-2. Drag‑and‑drop files into the **right panel** for collection.
+2. Drag‑and‑drop files into the **right panel** for context "buffering".
 3. Hit **Copy Context** to send to the clipboard:
    * the filtered directory tree (tagged `<tree_structure>`), and
    * the full contents of every collected file (tagged by path).

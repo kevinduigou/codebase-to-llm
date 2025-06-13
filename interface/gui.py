@@ -401,8 +401,10 @@ class MainWindow(QMainWindow):
         menu.exec_(self.user_request_text_edit.mapToGlobal(pos))
 
     def _filter_by_name(self, text: str) -> None:
-        if text:
-            regex = QRegularExpression(text)
-            self._filter_model.setFilterRegularExpression(regex)
-        else:
-            self._filter_model.setFilterRegularExpression(QRegularExpression())
+        # Apply (or clear) the regex
+        self._filter_model.setFilterRegularExpression(QRegularExpression(text))
+
+        # Always reset the root index so the view stays anchored
+        root_source_idx = self._model.index(str(self._model.rootPath()))
+        root_proxy_idx  = self._filter_model.mapFromSource(root_source_idx)
+        self._tree_view.setRootIndex(root_proxy_idx)

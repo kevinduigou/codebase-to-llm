@@ -2,11 +2,11 @@ from pathlib import Path
 
 import sys
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-from application.copy_context import CopyContextUseCase
-from infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
-from domain.selected_text import SelectedText
+from codebase_to_llm.application.copy_context import CopyContextUseCase
+from codebase_to_llm.infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
+from codebase_to_llm.domain.selected_text import SelectedText
 
 
 class FakeClipboard:

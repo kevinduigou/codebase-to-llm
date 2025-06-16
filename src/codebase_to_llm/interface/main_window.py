@@ -178,7 +178,31 @@ class MainWindow(QMainWindow):
         buffer_title.setToolTip(
             "Files and text snippets that will be included in the context. Drag files from the directory tree to add them here."
         )
-        right_layout.addWidget(buffer_title)
+
+        copy_icon = self.style().standardIcon(
+            self.style().StandardPixmap.SP_DialogApplyButton
+        )
+        copy_btn = QPushButton("Copy Context")
+        copy_btn.setIcon(copy_icon)
+        copy_btn.setIconSize(QSize(24, 24))
+        copy_btn.setMinimumHeight(30)
+        copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
+
+        delete_icon = self.style().standardIcon(
+            self.style().StandardPixmap.SP_TrashIcon
+        )
+        delete_btn = QPushButton("Delete Selected")
+        delete_btn.setIcon(delete_icon)
+        delete_btn.setIconSize(QSize(24, 24))
+        delete_btn.setMinimumHeight(30)
+        delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
+
+        title_bar_layout = QHBoxLayout()
+        title_bar_layout.addWidget(buffer_title)
+        title_bar_layout.addStretch(1)
+        title_bar_layout.addWidget(delete_btn)
+        title_bar_layout.addWidget(copy_btn)
+        right_layout.addLayout(title_bar_layout)
 
         self._file_list = ContextBufferWidget(initial_root, self._copy_context)
         right_layout.addWidget(self._file_list)
@@ -272,15 +296,9 @@ class MainWindow(QMainWindow):
         self._rules_button.setMenu(self._rules_menu)
         self._rules_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self._refresh_rules_checkboxes()
-        copy_btn = QPushButton("Copy Context in clipboard")
-        copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
-        delete_btn = QPushButton("Delete Selected")
-        delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
         bottom_bar_layout.addWidget(self._include_tree_checkbox)
         bottom_bar_layout.addWidget(self._rules_button)
         bottom_bar_layout.addStretch(1)
-        bottom_bar_layout.addWidget(delete_btn)
-        bottom_bar_layout.addWidget(copy_btn)
 
         layout.addLayout(bottom_bar_layout)
 

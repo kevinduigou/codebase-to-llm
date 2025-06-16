@@ -14,7 +14,7 @@
    - Enable or disable specific **rules**.
    - Add your **task description** in the input field.
    - Choose whether to **include the directory tree**.
-5. Click **"Copy Context in clipboard"**.
+5. Click **"Copy Context"**.
 6. **Paste the result into your LLM tool** to get coding assistance.
 
 ---
@@ -28,7 +28,7 @@
 | **Context Buffer**     | Shows selected files and snippets to be included in the context. Supports drag & drop.          |
 | **User Request Box**   | Optional field to describe the bug, feature request, or prompt to the LLM.                      |
 | **Rules Selection**    | Check rules you'd like to include. Click ⚙️ to edit or create rules.                             |
-| **Bottom Bar Buttons** | Copy context or delete selected items from the buffer.                                           |
+| **Context Buffer Actions** | Use the buttons at the top-right of the buffer to delete items or copy the context. |
 
 ---
 

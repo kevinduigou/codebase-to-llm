@@ -1,5 +1,5 @@
 
-# Context to LLM
+# codebase-to-llm
 
 **Give your AI assistant the context it needs to help you effectively. Quickly copy repository structures, coding guidelines, or file contents to your clipboard, then paste them directly into your AI chat.**
 
@@ -7,13 +7,13 @@
 
 🧠 **What It Does?**
 
-LLM Context Tool helps developers quickly extract and share meaningful context from their codebase to ChatBots like ChatGPT, Claude, or Gemini.
+codebase-to-llm helps developers quickly extract and share meaningful context from their codebase to ChatBots like ChatGPT, Claude, or Gemini.
 
 🎯 **Why You Need It?**
 
 ChatBots are only as smart as the context you give them.
-This tool makes that easy by solving common pain points:
-- Manually copying repo trees or files? 🐌 Slow.
+codebase-to-llm makes that easy by solving common pain points:
+- Manually copying repo trees or files? 🐌 Slow and error prone.
 - ChatBot not helping? 😫 Lacks rules, structure, or dependencies to make sense of your code.
 
 ✨ **Key Features**

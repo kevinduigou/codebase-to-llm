@@ -7,7 +7,14 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import Qt, QRect, QSize
-from PySide6.QtGui import QAction, QDragEnterEvent, QDragMoveEvent, QDropEvent, QPainter, QFontMetrics
+from PySide6.QtGui import (
+    QAction,
+    QDragEnterEvent,
+    QDragMoveEvent,
+    QDropEvent,
+    QPainter,
+    QFontMetrics,
+)
 from PySide6.QtWidgets import (
     QWidget,
     QListWidget,
@@ -89,7 +96,9 @@ class _FileListWidget(QListWidget):
         ignore_tokens = get_ignore_tokens(directory)
         for root, dirs, files in os.walk(directory):
             root_path = Path(root)
-            dirs[:] = [d for d in dirs if not should_ignore(root_path / d, ignore_tokens)]
+            dirs[:] = [
+                d for d in dirs if not should_ignore(root_path / d, ignore_tokens)
+            ]
             for file in files:
                 file_path = root_path / file
                 if not should_ignore(file_path, ignore_tokens):
@@ -165,7 +174,9 @@ class _FilePreviewWidget(QPlainTextEdit):
         if dy:
             self._line_number_area.scroll(0, dy)
         else:
-            self._line_number_area.update(0, rect.y(), self._line_number_area.width(), rect.height())
+            self._line_number_area.update(
+                0, rect.y(), self._line_number_area.width(), rect.height()
+            )
         if rect.contains(self.viewport().rect()):
             self._update_line_number_area_width(0)
 
@@ -182,7 +193,9 @@ class _FilePreviewWidget(QPlainTextEdit):
 
         block = self.firstVisibleBlock()
         block_number = block.blockNumber()
-        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        top = int(
+            self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
+        )
         bottom = top + int(self.blockBoundingRect(block).height())
         height = self.fontMetrics().height()
 
@@ -250,4 +263,3 @@ class _FilePreviewWidget(QPlainTextEdit):
             self._current_path = path
         except Exception as exc:  # pylint: disable=broad-except
             self.setPlainText(f"<Could not preview file: {exc}>")
-

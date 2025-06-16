@@ -1,4 +1,5 @@
 """Dialogs used to manage rules in the GUI."""
+
 from __future__ import annotations
 
 from typing import List, cast
@@ -18,7 +19,9 @@ from PySide6.QtWidgets import (
 )
 
 from codebase_to_llm.domain.rules import Rule
-from codebase_to_llm.infrastructure.filesystem_rules_repository import FileSystemRulesRepository
+from codebase_to_llm.infrastructure.filesystem_rules_repository import (
+    FileSystemRulesRepository,
+)
 
 
 class RulesDialogForm(QDialog):
@@ -26,7 +29,13 @@ class RulesDialogForm(QDialog):
 
     __slots__ = ("_name_edit", "_desc_edit", "_edit", "_rules_repo")
 
-    def __init__(self, current_rules: str, rules_repo: FileSystemRulesRepository, name: str = "", description: str = "") -> None:
+    def __init__(
+        self,
+        current_rules: str,
+        rules_repo: FileSystemRulesRepository,
+        name: str = "",
+        description: str = "",
+    ) -> None:
         super().__init__()
         self.setWindowTitle("Edit Rules")
         layout = QVBoxLayout(self)
@@ -49,7 +58,8 @@ class RulesDialogForm(QDialog):
         layout.addWidget(self._edit)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.button(QDialogButtonBox.StandardButton.Save).setText("Save")
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancel")
@@ -84,7 +94,9 @@ class RulesManagerDialog(QDialog):
         layout = QHBoxLayout(self)
 
         self._list_widget = QListWidget()
-        self._list_widget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._list_widget.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
         self._list_widget.currentRowChanged.connect(self._on_rule_selected)
         layout.addWidget(self._list_widget, 1)
 
@@ -136,11 +148,15 @@ class RulesManagerDialog(QDialog):
             desc = dialog.description().strip()
             content = dialog.text()
             if not name:
-                QMessageBox.warning(self, "Validation Error", "Rule name cannot be empty.")
+                QMessageBox.warning(
+                    self, "Validation Error", "Rule name cannot be empty."
+                )
                 return
             rule_result = Rule.try_create(name, content, desc)
             if rule_result.is_err():
-                QMessageBox.warning(self, "Validation Error", rule_result.err() or "Invalid rule.")
+                QMessageBox.warning(
+                    self, "Validation Error", rule_result.err() or "Invalid rule."
+                )
                 return
             rule = cast(Rule, rule_result.ok())
             self._rules.append(rule)
@@ -149,7 +165,9 @@ class RulesManagerDialog(QDialog):
             rules_obj = Rules(tuple(self._rules))
             save_result = self._rules_repo.save_rules(rules_obj)
             if save_result.is_err():
-                QMessageBox.critical(self, "Save Error", save_result.err() or "Failed to save rules.")
+                QMessageBox.critical(
+                    self, "Save Error", save_result.err() or "Failed to save rules."
+                )
 
     def _on_modify(self) -> None:
         idx = self._selected_index
@@ -168,11 +186,15 @@ class RulesManagerDialog(QDialog):
                 desc = dialog.description().strip()
                 content = dialog.text()
                 if not name:
-                    QMessageBox.warning(self, "Validation Error", "Rule name cannot be empty.")
+                    QMessageBox.warning(
+                        self, "Validation Error", "Rule name cannot be empty."
+                    )
                     return
                 rule_result = Rule.try_create(name, content, desc)
                 if rule_result.is_err():
-                    QMessageBox.warning(self, "Validation Error", rule_result.err() or "Invalid rule.")
+                    QMessageBox.warning(
+                        self, "Validation Error", rule_result.err() or "Invalid rule."
+                    )
                     return
                 rule = cast(Rule, rule_result.ok())
                 self._rules[idx] = rule
@@ -181,7 +203,9 @@ class RulesManagerDialog(QDialog):
                 rules_obj = Rules(tuple(self._rules))
                 save_result = self._rules_repo.save_rules(rules_obj)
                 if save_result.is_err():
-                    QMessageBox.critical(self, "Save Error", save_result.err() or "Failed to save rules.")
+                    QMessageBox.critical(
+                        self, "Save Error", save_result.err() or "Failed to save rules."
+                    )
 
     def _on_delete(self) -> None:
         idx = self._selected_index
@@ -195,4 +219,3 @@ class RulesManagerDialog(QDialog):
 
         rules_obj = Rules(tuple(self._rules))
         return rules_obj.to_text()
-

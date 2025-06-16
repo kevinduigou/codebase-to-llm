@@ -1,4 +1,5 @@
 """Main application window for the desktop tool."""
+
 from __future__ import annotations
 
 import os
@@ -40,10 +41,18 @@ from PySide6.QtWidgets import (
 
 from codebase_to_llm.application.copy_context import CopyContextUseCase
 from codebase_to_llm.application.ports import ClipboardPort, DirectoryRepositoryPort
-from codebase_to_llm.application.recent_repository_service import RecentRepositoryService
-from codebase_to_llm.infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
-from codebase_to_llm.infrastructure.filesystem_recent_repository import FileSystemRecentRepository
-from codebase_to_llm.infrastructure.filesystem_rules_repository import FileSystemRulesRepository
+from codebase_to_llm.application.recent_repository_service import (
+    RecentRepositoryService,
+)
+from codebase_to_llm.infrastructure.filesystem_directory_repository import (
+    FileSystemDirectoryRepository,
+)
+from codebase_to_llm.infrastructure.filesystem_recent_repository import (
+    FileSystemRecentRepository,
+)
+from codebase_to_llm.infrastructure.filesystem_rules_repository import (
+    FileSystemRulesRepository,
+)
 from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.selected_text import SelectedText
 
@@ -197,7 +206,9 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
         layout.addWidget(splitter)
         self.user_request_text_edit = QPlainTextEdit()
-        self.user_request_text_edit.setPlaceholderText("Describe your need or the bug here...")
+        self.user_request_text_edit.setPlaceholderText(
+            "Describe your need or the bug here..."
+        )
         self.user_request_text_edit.setFixedHeight(100)
         layout.addWidget(self.user_request_text_edit)
         self.setCentralWidget(central)
@@ -221,7 +232,9 @@ class MainWindow(QMainWindow):
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         toolbar.addWidget(spacer)
 
-        settings_icon = self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView)
+        settings_icon = self.style().standardIcon(
+            self.style().StandardPixmap.SP_FileDialogDetailedView
+        )
         settings_menu = QMenu(self)
         edit_rules_action = QAction("Edit Rules", self)
         edit_rules_action.triggered.connect(self._open_settings)  # type: ignore[arg-type]
@@ -254,7 +267,9 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(bottom_bar_layout)
 
-        self.user_request_text_edit.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.user_request_text_edit.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
         self.user_request_text_edit.customContextMenuRequested.connect(
             self._show_user_request_context_menu
         )
@@ -284,10 +299,14 @@ class MainWindow(QMainWindow):
             return
         menu = QMenu(self)
         preview_action = QAction("Open Preview", self)
-        preview_action.triggered.connect(lambda checked=False, p=file_path: self._file_preview.load_file(p))
+        preview_action.triggered.connect(
+            lambda checked=False, p=file_path: self._file_preview.load_file(p)
+        )
         menu.addAction(preview_action)
         add_action = QAction("Add to Context Buffer", self)
-        add_action.triggered.connect(lambda checked=False, p=file_path: self._file_list.add_file(p))
+        add_action.triggered.connect(
+            lambda checked=False, p=file_path: self._file_list.add_file(p)
+        )
         menu.addAction(add_action)
         menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
 
@@ -344,7 +363,9 @@ class MainWindow(QMainWindow):
                 label = item.text()
                 try:
                     path_str, start_str, end_str = label.rsplit(":", 2)
-                    snippet_result = SelectedText.try_create(Path(path_str), int(start_str), int(end_str), text_data)
+                    snippet_result = SelectedText.try_create(
+                        Path(path_str), int(start_str), int(end_str), text_data
+                    )
                     if snippet_result.is_ok():
                         snippet = snippet_result.ok()
                         assert snippet is not None
@@ -356,7 +377,11 @@ class MainWindow(QMainWindow):
         user_text = self.user_request_text_edit.toPlainText().strip()
         from codebase_to_llm.domain.rules import Rules
 
-        checked_rule_names = [name for name, cb in self._include_rules_checkboxes.items() if cb.isChecked()]
+        checked_rule_names = [
+            name
+            for name, cb in self._include_rules_checkboxes.items()
+            if cb.isChecked()
+        ]
         rules_obj = None
         if self._rules:
             rules_result = self._rules_repo.load_rules()
@@ -364,12 +389,16 @@ class MainWindow(QMainWindow):
                 all_rules_obj = rules_result.ok()
                 assert all_rules_obj is not None
                 filtered_rules = tuple(
-                    rule for rule in all_rules_obj.rules() if rule.name() in checked_rule_names
+                    rule
+                    for rule in all_rules_obj.rules()
+                    if rule.name() in checked_rule_names
                 )
                 if filtered_rules:
                     rules_obj = Rules(filtered_rules)
         include_tree = self._include_tree_checkbox.isChecked()
-        result = self._copy_context_use_case.execute(files, snippets, rules_obj, user_text, include_tree)
+        result = self._copy_context_use_case.execute(
+            files, snippets, rules_obj, user_text, include_tree
+        )
         if result.is_err():
             error: str = result.err() or ""
             QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", error)
@@ -453,4 +482,3 @@ if __name__ == "__main__":
     )
     window.show()
     sys.exit(app.exec())
-

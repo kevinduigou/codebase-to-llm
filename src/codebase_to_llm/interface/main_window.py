@@ -213,7 +213,7 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QVBoxLayout(central)
         # Create a vertical splitter to allow resizing between main content and user request text edit
-        vertical_splitter = QSplitter(Qt.Vertical, self)
+        vertical_splitter = QSplitter(Qt.Orientation.Vertical, self)
         vertical_splitter.setChildrenCollapsible(False)
         vertical_splitter.addWidget(splitter)
         self.user_request_text_edit = QPlainTextEdit()

@@ -3,36 +3,36 @@
 
 **Give your AI assistant the context it needs to help you effectively. Quickly copy repository structures, coding guidelines, or file contents to your clipboard, then paste them directly into your AI chat.**
 
-🧠 What It Does?
+🧠 **What It Does?**
 
 LLM Context Tool helps developers quickly extract and share meaningful context from their codebase to ChatBots like ChatGPT, Claude, or Gemini.
 
-🎯 Why You Need It?
+🎯 **Why You Need It?**
 
 ChatBots are only as smart as the context you give them.
 This tool makes that easy by solving common pain points:
 - Manually copying repo trees or files? 🐌 Slow.
 - ChatBot not helping? 😫 Lacks rules, structure, or dependencies to make sense of your code.
 
-✨ Key Features
+✨ **Key Features**
 
-📂 Copy Repo Structure
+📂 **Copy Repo Structure**
 Give the model a clear picture of your project layout.
 The file tree helps ChatBots understand your architecture, dependencies, and context — just like a human developer would.
 
-📜 Copy Project Rules (like Cursor Rules)
+📜 **Copy Project Rules (like Cursor Rules)**
 Extract guiding rules or architectural constraints that steer how the model should think.
 Perfect for setting boundaries or nudging LLM behavior (naming conventions, folder usage, coding styles, etc.).
 
-📄 Copy File Chunks
+📄 **Copy File Chunks**
 Select specific pieces of code — functions, components, tests — and share only what matters.
 Ideal for focused debugging or feature walkthroughs.
 
-📋 Clipboard Ready
+📋 **Clipboard Ready**
 Everything is formatted for easy pasting into ChatBots.
 Clean, structured, and optimized for context-aware conversations.
 
-🚀 How does it work?
+🚀 **How does it work?**
 
 1. Browse any directory from the **left panel** (tree view).
 2. Drag‑and‑drop files into the **right panel** for context "buffering".
@@ -49,6 +49,8 @@ https://pypi.org/project/codebase-to-llm/
 uv run --with codebase-to-llm codebase-to-llm
 ```
 
+To install uv, please refer to the official documentation https://docs.astral.sh/uv/guides/install-python/
+
 # Make it evolve
 
 ## Clone the repo
@@ -59,7 +61,8 @@ git clone
 ```shell
 # Install dependencies with **uv**
 uv venv --python 3.12
-
+# Synchroniz Deps
+uv sync
 # Run the application
 uv run ./src/codebase_to_llm/main.py
 ```
@@ -84,17 +87,17 @@ If you do not see the configuration, ensure `.vscode/launch.json` exists as belo
             "name": "Run Desktop Context Copier",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/src/codebase_to_llm/main.py",
             "console": "integratedTerminal"
         }
     ]
 }
 ```
 
-## Architectural notes
+## Architectural Principles in the Repo
 
-* **Hexagonal Architecture** (Ports/Adapters) keeps the GUI replaceable.
-* **DDD**: all business rules (tree rendering) live in `domain/`.
+* **Hexagonal Architecture** (Ports/Adapters) keeps the Infrastructure Layer replaceable.
+* **DDD**: all important business rules (tree rendering) live in `domain/`.
 * **Banishing Try/Except** Result type eliminates exceptions in domain & application layers.
 * **Immutable code** — `@final`, `__slots__`, and pure functions.
 

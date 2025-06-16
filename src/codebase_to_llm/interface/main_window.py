@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFileSystemModel,
     QMainWindow,
+    QDialog,
     QMessageBox,
     QPushButton,
     QSplitter,

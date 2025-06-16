@@ -20,7 +20,7 @@ This tool makes that easy by solving common pain points:
 Give the model a clear picture of your project layout.
 The file tree helps ChatBots understand your architecture, dependencies, and context — just like a human developer would.
 
-📜 **Copy Project Rules (like Cursor Rules)**
+📜 **Copy Project Rules (like Cursor Rules but you can have MANY)**
 Extract guiding rules or architectural constraints that steer how the model should think.
 Perfect for setting boundaries or nudging LLM behavior (naming conventions, folder usage, coding styles, etc.).
 

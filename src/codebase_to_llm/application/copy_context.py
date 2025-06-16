@@ -7,6 +7,7 @@ from typing import Final, List
 from codebase_to_llm.domain.selected_text import SelectedText
 
 from codebase_to_llm.domain.result import Err, Ok, Result
+from codebase_to_llm.domain.rules import Rules
 
 from .ports import ClipboardPort, DirectoryRepositoryPort
 
@@ -23,7 +24,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
         self,
         files: List[Path],
         snippets: List[SelectedText] | None = None,
-        rules: str | None = None,
+        rules: Rules | None = None,
         user_request: str | None = None,
         include_tree: bool = True,
     ) -> Result[None, str]:  # noqa: D401 (simple verb)
@@ -58,14 +59,11 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                 parts.append(snippet.text)
                 parts.append(f"</{snippet.path}:{snippet.start}:{snippet.end}>")
 
-        if rules and rules.strip():
-            parts.extend(
-                [
-                    "<rules_to_follow>",
-                    rules.strip(),
-                    "</rules_to_follow>",
-                ]
-            )
+        if rules and rules.rules():
+            parts.append("<rules_to_follow>")
+            for rule in rules.rules():
+                parts.append(rule.content())
+            parts.append("</rules_to_follow>")
 
         if user_request:
             parts.append("<user_request>")

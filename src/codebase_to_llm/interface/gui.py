@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Final, List, Callable
+from typing import Final, List, Callable, cast
 import os
 import re
 
@@ -58,7 +58,6 @@ from codebase_to_llm.application.ports import (
     ClipboardPort,
     DirectoryRepositoryPort,
 )
-from codebase_to_llm.application.rules_service import RulesService
 from codebase_to_llm.application.recent_repository_service import (
     RecentRepositoryService,
 )
@@ -74,6 +73,7 @@ from codebase_to_llm.infrastructure.filesystem_directory_repository import (
 )
 from codebase_to_llm.domain.directory_tree import should_ignore, get_ignore_tokens
 from codebase_to_llm.domain.selected_text import SelectedText
+from codebase_to_llm.domain.rules import Rule, Rules
 
 
 class _LineNumberArea(QWidget):
@@ -329,32 +329,212 @@ class _FilePreviewWidget(QPlainTextEdit):
             self.setPlainText(f"<Could not preview file: {exc}>")
 
 
-class RulesDialog(QDialog):
-    """Simple dialog to edit rules."""
+class RulesDialogForm(QDialog):
+    """Dialog to edit rules with name, description, and content fields."""
 
-    __slots__ = ("_edit", "_rules_service")
+    __slots__ = ("_name_edit", "_desc_edit", "_edit", "_rules_repo")
 
-    def __init__(self, current_rules: str, rules_service: RulesService) -> None:
+    def __init__(
+        self,
+        current_rules: str,
+        rules_repo: FileSystemRulesRepository,
+        name: str = "",
+        description: str = "",
+    ) -> None:
         super().__init__()
         self.setWindowTitle("Edit Rules")
         layout = QVBoxLayout(self)
+
+        # Name and Description on one line
+        name_desc_layout = QHBoxLayout()
+        name_label = QLabel("Name:")
+        self._name_edit = QLineEdit()
+        self._name_edit.setText(name)
+        desc_label = QLabel("Description:")
+        self._desc_edit = QLineEdit()
+        self._desc_edit.setText(description)
+        name_desc_layout.addWidget(name_label)
+        name_desc_layout.addWidget(self._name_edit)
+        name_desc_layout.addWidget(desc_label)
+        name_desc_layout.addWidget(self._desc_edit)
+        layout.addLayout(name_desc_layout)
+
+        # Content editor
         self._edit = QPlainTextEdit()
         self._edit.setPlainText(current_rules)
         layout.addWidget(self._edit)
+
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
         )
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Save")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancel")
         buttons.accepted.connect(self.accept)  # type: ignore[arg-type]
         buttons.rejected.connect(self.reject)  # type: ignore[arg-type]
         layout.addWidget(buttons)
-        self._rules_service = rules_service
+        self._rules_repo = rules_repo
 
     def text(self) -> str:
         return self._edit.toPlainText()
 
+    def name(self) -> str:
+        return self._name_edit.text()
+
+    def description(self) -> str:
+        return self._desc_edit.text()
+
     def accept(self) -> None:
-        self._rules_service.save_rules(self._edit.toPlainText())
+        # Save all fields (for now, only content is saved as before)
+        # The dialog just collects the rule data; saving happens in the caller
         return super().accept()
+
+
+class RulesManagerDialog(QDialog):
+    """Dialog to manage all rules: list on left, popup form for new/modify."""
+
+    def __init__(self, current_rules: str, rules_repo: FileSystemRulesRepository):
+        super().__init__()
+        self.setWindowTitle("Manage Rules")
+        self._rules_repo = rules_repo
+        self._selected_index: int | None = None
+        self._rules: list[Rule] = []
+
+        # Main layout
+        layout = QHBoxLayout(self)
+
+        # Left: List of rules
+        self._list_widget = QListWidget()
+        self._list_widget.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+        self._list_widget.currentRowChanged.connect(self._on_rule_selected)
+        layout.addWidget(self._list_widget, 1)
+
+        # Buttons below the list
+        button_layout = QVBoxLayout()
+        self._new_btn = QPushButton("New Rule")
+        self._delete_btn = QPushButton("Delete Rule")
+        self._modify_btn = QPushButton("Modify Rule")
+        self._new_btn.clicked.connect(self._on_new)
+        self._delete_btn.clicked.connect(self._on_delete)
+        self._modify_btn.clicked.connect(self._on_modify)
+        button_layout.addWidget(self._new_btn)
+        button_layout.addWidget(self._delete_btn)
+        button_layout.addWidget(self._modify_btn)
+        button_layout.addStretch(1)
+        layout.addLayout(button_layout)
+
+        # Load rules
+        self._load_rules()
+
+    def _load_rules(self):
+        from codebase_to_llm.domain.rules import Rules
+
+        rules_result = self._rules_repo.load_rules()
+        if rules_result.is_ok():
+            rules_obj = rules_result.ok()
+            assert rules_obj is not None
+            self._rules = list(rules_obj.rules())
+        else:
+            self._rules = []
+        self._refresh_list()
+        if self._rules:
+            self._list_widget.setCurrentRow(0)
+
+    def _refresh_list(self):
+        self._list_widget.clear()
+        for rule in self._rules:
+            desc = rule.description() or ""
+            label = f"{rule.name()} — {desc}" if desc else rule.name()
+            self._list_widget.addItem(label)
+
+    def _on_rule_selected(self, idx: int):
+        self._selected_index = idx if 0 <= idx < len(self._rules) else None
+
+    def _on_new(self):
+        dialog = RulesDialogForm("", self._rules_repo, name="", description="")
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            from codebase_to_llm.domain.rules import Rule, Rules
+
+            name = dialog.name().strip()
+            desc = dialog.description().strip()
+            content = dialog.text()
+            if not name:
+                QMessageBox.warning(
+                    self, "Validation Error", "Rule name cannot be empty."
+                )
+                return
+            rule_result = Rule.try_create(name, content, desc)
+            if rule_result.is_err():
+                QMessageBox.warning(
+                    self, "Validation Error", rule_result.err() or "Invalid rule."
+                )
+                return
+            rule = cast(Rule, rule_result.ok())
+            self._rules.append(rule)
+            self._refresh_list()
+            self._list_widget.setCurrentRow(len(self._rules) - 1)
+            # Save all rules
+            rules_obj = Rules(tuple(self._rules))
+            save_result = self._rules_repo.save_rules(rules_obj)
+            if save_result.is_err():
+                QMessageBox.critical(
+                    self, "Save Error", save_result.err() or "Failed to save rules."
+                )
+
+    def _on_modify(self):
+        idx = self._selected_index
+        if idx is not None and 0 <= idx < len(self._rules):
+            rule = self._rules[idx]
+            dialog = RulesDialogForm(
+                rule.content(),
+                self._rules_repo,
+                name=rule.name(),
+                description=rule.description() or "",
+            )
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                from codebase_to_llm.domain.rules import Rule, Rules
+
+                name = dialog.name().strip()
+                desc = dialog.description().strip()
+                content = dialog.text()
+                if not name:
+                    QMessageBox.warning(
+                        self, "Validation Error", "Rule name cannot be empty."
+                    )
+                    return
+                rule_result = Rule.try_create(name, content, desc)
+                if rule_result.is_err():
+                    QMessageBox.warning(
+                        self, "Validation Error", rule_result.err() or "Invalid rule."
+                    )
+                    return
+                rule = cast(Rule, rule_result.ok())
+                self._rules[idx] = rule
+                self._refresh_list()
+                self._list_widget.setCurrentRow(idx)
+                # Save all rules
+                rules_obj = Rules(tuple(self._rules))
+                save_result = self._rules_repo.save_rules(rules_obj)
+                if save_result.is_err():
+                    QMessageBox.critical(
+                        self, "Save Error", save_result.err() or "Failed to save rules."
+                    )
+
+    def _on_delete(self):
+        idx = self._selected_index
+        if idx is not None and 0 <= idx < len(self._rules):
+            del self._rules[idx]
+            self._refresh_list()
+            self._selected_index = None
+
+    def text(self) -> str:
+        # Return the rules as text (for compatibility)
+        from codebase_to_llm.domain.rules import Rules
+
+        rules_obj = Rules(tuple(self._rules))
+        return rules_obj.to_text()
 
 
 class MainWindow(QMainWindow):
@@ -369,16 +549,18 @@ class MainWindow(QMainWindow):
         "_clipboard",
         "_copy_context_use_case",
         "_recent_service",
-        "_rules_service",
+        "_rules_repo",
         "_recent_menu",
         "user_request_text_edit",
         "_rules",
-        "_include_rules_checkbox",
+        "_include_rules_checkboxes",
         "_include_tree_checkbox",
         "_filter_model",
         "_name_filter_edit",
         "_toggle_preview_btn",
         "_preview_panel",
+        "_rules_checkbox_container",
+        "_rules_checkbox_layout",
     )
 
     def __init__(
@@ -386,7 +568,7 @@ class MainWindow(QMainWindow):
         repo: DirectoryRepositoryPort,
         clipboard: ClipboardPort,
         initial_root: Path,
-        rules_service: RulesService,
+        rules_repo: FileSystemRulesRepository,
         recent_service: RecentRepositoryService,
     ) -> None:
         super().__init__()
@@ -396,14 +578,16 @@ class MainWindow(QMainWindow):
         self._repo = repo
         self._clipboard: Final = clipboard
         self._copy_context_use_case = CopyContextUseCase(repo, clipboard)
-        self._rules_service = rules_service
+        self._rules_repo = rules_repo
         self._recent_service = recent_service
 
         # Load persisted rules if available
-        self._rules = ""
-        rules_result = self._rules_service.load_rules()
+        self._rules: str = ""
+        rules_result = self._rules_repo.load_rules()
         if rules_result.is_ok():
-            self._rules = rules_result.ok() or ""
+            rules_val = rules_result.ok()
+            assert rules_val is not None
+            self._rules = rules_val.to_text()
 
         splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -556,8 +740,16 @@ class MainWindow(QMainWindow):
         bottom_bar_layout = QHBoxLayout()
         self._include_tree_checkbox = QCheckBox("Include Tree Context")
         self._include_tree_checkbox.setChecked(True)
-        self._include_rules_checkbox = QCheckBox("Include Rules")
-        self._include_rules_checkbox.setChecked(True)
+        # --- Begin: rules checkboxes ---
+        from codebase_to_llm.domain.rules import Rules
+
+        self._include_rules_checkboxes: dict[str, QCheckBox] = {}
+        self._rules_checkbox_container = QWidget()
+        self._rules_checkbox_layout = QHBoxLayout(self._rules_checkbox_container)
+        self._rules_checkbox_layout.setContentsMargins(0, 0, 0, 0)
+        self._rules_checkbox_layout.setSpacing(4)
+        self._refresh_rules_checkboxes()
+        # --- End: rules checkboxes ---
         # Copy context button
         copy_btn = QPushButton("Copy Context in clipboard")
         copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
@@ -565,7 +757,7 @@ class MainWindow(QMainWindow):
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
         # Bottom bar layout for "Copy Context" button
         bottom_bar_layout.addWidget(self._include_tree_checkbox)
-        bottom_bar_layout.addWidget(self._include_rules_checkbox)
+        bottom_bar_layout.addWidget(self._rules_checkbox_container)
         bottom_bar_layout.addStretch(1)  # Pushes everything else to the right
         bottom_bar_layout.addWidget(delete_btn)
         bottom_bar_layout.addWidget(copy_btn)  # Button sits flush right
@@ -691,12 +883,33 @@ class MainWindow(QMainWindow):
             else:
                 files.append(Path(item.text()))
         user_text = self.user_request_text_edit.toPlainText().strip()
-        rules_text = self._rules if self._include_rules_checkbox.isChecked() else None
+        # --- Begin: collect checked rules ---
+        from codebase_to_llm.domain.rules import Rules
+
+        checked_rule_names = [
+            name
+            for name, cb in self._include_rules_checkboxes.items()
+            if cb.isChecked()
+        ]
+        rules_obj = None
+        if self._rules:
+            rules_result = self._rules_repo.load_rules()
+            if rules_result.is_ok():
+                all_rules_obj = rules_result.ok()
+                assert all_rules_obj is not None
+                # Only include checked rules
+                filtered_rules = tuple(
+                    rule
+                    for rule in all_rules_obj.rules()
+                    if rule.name() in checked_rule_names
+                )
+                if filtered_rules:
+                    rules_obj = Rules(filtered_rules)
+        # --- End: collect checked rules ---
         include_tree = self._include_tree_checkbox.isChecked()
         result = self._copy_context_use_case.execute(
-            files, snippets, rules_text, user_text, include_tree
+            files, snippets, rules_obj, user_text, include_tree
         )
-
         if result.is_err():
             error: str = result.err() or ""
             QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", error)
@@ -705,13 +918,16 @@ class MainWindow(QMainWindow):
         self._file_list.delete_selected()
 
     def _open_settings(self) -> None:
-        result_load_rules: Result[str, str] = self._rules_service.load_rules()
+        result_load_rules: Result[Rules, str] = self._rules_repo.load_rules()
         if result_load_rules.is_ok():
-            dialog = RulesDialog(result_load_rules.ok() or "", self._rules_service)
+            rules_val = result_load_rules.ok()
+            assert rules_val is not None
+            dialog = RulesManagerDialog(rules_val.to_text(), self._rules_repo)
         else:
-            dialog = RulesDialog("", self._rules_service)
+            dialog = RulesManagerDialog("", self._rules_repo)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._rules = dialog.text()
+            self._refresh_rules_checkboxes()
 
     def _show_user_request_context_menu(self, pos) -> None:
         menu = QMenu(self)
@@ -737,6 +953,35 @@ class MainWindow(QMainWindow):
         else:
             self._toggle_preview_btn.setText("Show File Preview")
 
+    def _refresh_rules_checkboxes(self):
+        """Refresh the list of rule checkboxes in the bottom bar."""
+        # Clear old checkboxes
+        for i in reversed(range(self._rules_checkbox_layout.count())):
+            widget = self._rules_checkbox_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        self._include_rules_checkboxes.clear()
+        # Parse rules
+        from codebase_to_llm.domain.rules import Rules
+
+        rules_obj = None
+        if self._rules:
+            rules_result = self._rules_repo.load_rules()
+            if rules_result.is_ok():
+                rules_obj = rules_result.ok()
+        if rules_obj:
+            for rule in rules_obj.rules():
+                cb = QCheckBox(rule.name())
+                cb.setChecked(True)
+                cb.setToolTip(rule.description() or "")
+                self._rules_checkbox_layout.addWidget(cb)
+                self._include_rules_checkboxes[rule.name()] = cb
+        else:
+            # If no rules, show a disabled placeholder
+            cb = QCheckBox("No Rules Available")
+            cb.setEnabled(False)
+            self._rules_checkbox_layout.addWidget(cb)
+
 
 # Optional: add a small demo runner when executed directly
 if __name__ == "__main__":
@@ -750,7 +995,7 @@ if __name__ == "__main__":
         repo=FileSystemDirectoryRepository(root),
         clipboard=QtClipboardService(),
         initial_root=root,
-        rules_service=RulesService(FileSystemRulesRepository()),
+        rules_repo=FileSystemRulesRepository(),
         recent_service=RecentRepositoryService(
             FileSystemRecentRepository(Path.home() / ".dcc_recent")
         ),

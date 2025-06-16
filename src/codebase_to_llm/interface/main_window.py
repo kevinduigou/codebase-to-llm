@@ -85,6 +85,9 @@ class MainWindow(QMainWindow):
         "_preview_panel",
         "_rules_checkbox_container",
         "_rules_checkbox_layout",
+        "_include_rules_actions",
+        "_rules_menu",
+        "_rules_button",
     )
 
     def __init__(
@@ -250,18 +253,19 @@ class MainWindow(QMainWindow):
         bottom_bar_layout = QHBoxLayout()
         self._include_tree_checkbox = QCheckBox("Include Tree Context")
         self._include_tree_checkbox.setChecked(True)
-        self._include_rules_checkboxes: dict[str, QCheckBox] = {}
-        self._rules_checkbox_container = QWidget()
-        self._rules_checkbox_layout = QHBoxLayout(self._rules_checkbox_container)
-        self._rules_checkbox_layout.setContentsMargins(0, 0, 0, 0)
-        self._rules_checkbox_layout.setSpacing(4)
+        self._include_rules_actions: dict[str, QAction] = {}
+        self._rules_menu = QMenu(self)
+        self._rules_button = QToolButton(self)
+        self._rules_button.setText("Rules")
+        self._rules_button.setMenu(self._rules_menu)
+        self._rules_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self._refresh_rules_checkboxes()
         copy_btn = QPushButton("Copy Context in clipboard")
         copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
         delete_btn = QPushButton("Delete Selected")
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
         bottom_bar_layout.addWidget(self._include_tree_checkbox)
-        bottom_bar_layout.addWidget(self._rules_checkbox_container)
+        bottom_bar_layout.addWidget(self._rules_button)
         bottom_bar_layout.addStretch(1)
         bottom_bar_layout.addWidget(delete_btn)
         bottom_bar_layout.addWidget(copy_btn)
@@ -380,8 +384,8 @@ class MainWindow(QMainWindow):
 
         checked_rule_names = [
             name
-            for name, cb in self._include_rules_checkboxes.items()
-            if cb.isChecked()
+            for name, action in self._include_rules_actions.items()
+            if action.isChecked()
         ]
         rules_obj = None
         if self._rules:
@@ -442,11 +446,8 @@ class MainWindow(QMainWindow):
             self._toggle_preview_btn.setText("Show File Preview")
 
     def _refresh_rules_checkboxes(self) -> None:
-        for i in reversed(range(self._rules_checkbox_layout.count())):
-            widget = self._rules_checkbox_layout.itemAt(i).widget()
-            if widget:
-                widget.setParent(None)
-        self._include_rules_checkboxes.clear()
+        self._rules_menu.clear()
+        self._include_rules_actions.clear()
         from codebase_to_llm.domain.rules import Rules
 
         rules_obj = None
@@ -456,15 +457,16 @@ class MainWindow(QMainWindow):
                 rules_obj = rules_result.ok()
         if rules_obj:
             for rule in rules_obj.rules():
-                cb = QCheckBox(rule.name())
-                cb.setChecked(True)
-                cb.setToolTip(rule.description() or "")
-                self._rules_checkbox_layout.addWidget(cb)
-                self._include_rules_checkboxes[rule.name()] = cb
+                action = QAction(rule.name(), self)
+                action.setCheckable(True)
+                action.setChecked(True)
+                action.setToolTip(rule.description() or "")
+                self._rules_menu.addAction(action)
+                self._include_rules_actions[rule.name()] = action
         else:
-            cb = QCheckBox("No Rules Available")
-            cb.setEnabled(False)
-            self._rules_checkbox_layout.addWidget(cb)
+            action = QAction("No Rules Available", self)
+            action.setEnabled(False)
+            self._rules_menu.addAction(action)
 
 
 if __name__ == "__main__":

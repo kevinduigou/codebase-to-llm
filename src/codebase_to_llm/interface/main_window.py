@@ -232,13 +232,21 @@ class MainWindow(QMainWindow):
 
         central = QWidget()
         layout = QVBoxLayout(central)
-        layout.addWidget(splitter)
+        # Create a vertical splitter to allow resizing between main content and user request text edit
+        vertical_splitter = QSplitter(Qt.Vertical, self)
+        vertical_splitter.setChildrenCollapsible(False)
+        vertical_splitter.addWidget(splitter)
         self.user_request_text_edit = QPlainTextEdit()
         self.user_request_text_edit.setPlaceholderText(
-            "Describe your need or the bug here..."
+            "Describe your need or the bug here, LLM User Request..."
         )
-        self.user_request_text_edit.setFixedHeight(100)
-        layout.addWidget(self.user_request_text_edit)
+        # Remove fixed height to allow resizing
+        # self.user_request_text_edit.setFixedHeight(100)
+        vertical_splitter.addWidget(self.user_request_text_edit)
+        # Set initial sizes: main content larger, text edit smaller
+        vertical_splitter.setStretchFactor(0, 5)
+        vertical_splitter.setStretchFactor(1, 1)
+        layout.addWidget(vertical_splitter)
         self.setCentralWidget(central)
 
         toolbar = QToolBar()

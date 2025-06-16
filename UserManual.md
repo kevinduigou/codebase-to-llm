@@ -66,18 +66,6 @@
 
 ---
 
-### 4. **Iterative and Up-to-Date Context**
-
-- 🔁 **Update context as code evolves**  
-  Use the app to regenerate and copy context after code changes.
-
-- 📂 **Reopen recent projects**  
-  Use the "Open Recently" button to quickly switch between projects and keep your work in sync.
-
-- 🧪 **Incorporate LLM feedback**  
-  If results are unclear or off-target, revise the context: add missing dependencies, remove noisy files, or improve your task description.
-
----
 
 ## 💡 Tips & Tricks
 

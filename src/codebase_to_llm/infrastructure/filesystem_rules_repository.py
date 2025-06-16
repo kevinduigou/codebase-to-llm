@@ -31,9 +31,14 @@ class FileSystemRulesRepository(RulesRepositoryPort):
                 for item in data:
                     if isinstance(item, dict):
                         name = str(item.get("name", ""))
-                        desc_raw = item.get("description")
-                        desc = str(desc_raw) if desc_raw is not None else None
-                        rule_result = Rule.try_create(name, desc)
+                        description_raw = item.get("description")
+                        content_raw = item.get("content")
+                        description = (
+                            str(description_raw)
+                            if description_raw is not None
+                            else None
+                        )
+                        rule_result = Rule.try_create(name, content_raw, description)
                         if rule_result.is_err():
                             return Err(rule_result.err())
                         rule = rule_result.ok()
@@ -50,10 +55,16 @@ class FileSystemRulesRepository(RulesRepositoryPort):
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             data = [
-                {"name": r.name(), "description": r.description()}
-                for r in rules.rules()
+                {
+                    "name": rule.name(),
+                    "content": rule.content(),
+                    "description": rule.description(),
+                }
+                for rule in rules.rules()
             ]
-            self._path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            self._path.write_text(
+                json.dumps(data, ensure_ascii=False), encoding="utf-8"
+            )
             return Ok(None)
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))

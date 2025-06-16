@@ -12,28 +12,35 @@ from .result import Result, Ok, Err
 class Rule(ValueObject):
     """Single rule with a mandatory name and optional description."""
 
-    __slots__ = ("_name", "_description")
+    __slots__ = ("_name", "_content", "_description")
 
     _name: str
     _description: str | None
+    _content: str
 
     @staticmethod
-    def try_create(name: str, description: str | None = None) -> Result["Rule", str]:
-        trimmed = name.strip()
-        if not trimmed:
+    def try_create(
+        name: str, _content: str, description: str | None = None
+    ) -> Result["Rule", str]:
+        trimmed_name = name.strip()
+        if not trimmed_name:
             return Err("Rule name cannot be empty.")
         desc = description.strip() if description else None
-        return Ok(Rule(trimmed, desc))
+        return Ok(Rule(trimmed_name, _content, desc))
 
-    def __init__(self, name: str, description: str | None) -> None:
+    def __init__(self, name: str, content: str, description: str | None) -> None:
         self._name = name
         self._description = description
+        self._content = content
 
     def name(self) -> str:
         return self._name
 
     def description(self) -> str | None:
         return self._description
+
+    def content(self) -> str:
+        return self._content
 
 
 @final
@@ -47,22 +54,6 @@ class Rules(ValueObject):
     @staticmethod
     def try_create(rules: Iterable[Rule]) -> Result["Rules", str]:
         return Ok(Rules(tuple(rules)))
-
-    @staticmethod
-    def try_from_text(text: str) -> Result["Rules", str]:
-        items: list[Rule] = []
-        for line in [ln.strip() for ln in text.splitlines() if ln.strip()]:
-            if ":" in line:
-                name, desc = line.split(":", 1)
-                rule_result = Rule.try_create(name.strip(), desc.strip())
-            else:
-                rule_result = Rule.try_create(line, None)
-            if rule_result.is_err():
-                return Err(rule_result.err())
-            rule = rule_result.ok()
-            assert rule is not None
-            items.append(rule)
-        return Ok(Rules(tuple(items)))
 
     # ----------------------------------------------------------------- ctor (kept private – do not call directly)
     def __init__(self, rules: Tuple[Rule, ...]):

@@ -6,7 +6,6 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from codebase_to_llm.application.ports import ClipboardPort, DirectoryRepositoryPort
-from codebase_to_llm.application.rules_service import RulesService
 from codebase_to_llm.application.recent_repository_service import (
     RecentRepositoryService,
 )
@@ -29,7 +28,6 @@ def main() -> None:  # noqa: D401 (simple verb)
     root = Path.cwd()
     repo: DirectoryRepositoryPort = FileSystemDirectoryRepository(root)
     rules_repo = FileSystemRulesRepository()
-    rules_service = RulesService(rules_repo)
     recent_repo = FileSystemRecentRepository()
     recent_service = RecentRepositoryService(recent_repo)
     clipboard: ClipboardPort = QtClipboardService()
@@ -38,7 +36,7 @@ def main() -> None:  # noqa: D401 (simple verb)
         repo,
         clipboard,
         root,
-        rules_service,
+        rules_repo,
         recent_service,
     )
     window.show()

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Protocol
 
 from codebase_to_llm.domain.result import Result
+from codebase_to_llm.domain.rules import Rules
 
 
 class ClipboardPort(Protocol):
@@ -26,8 +27,8 @@ class DirectoryRepositoryPort(Protocol):
 class RulesRepositoryPort(Protocol):
     """Pure port for persisting / loading the user’s custom rules."""
 
-    def load_rules(self) -> Result[str, str]: ...  # pragma: no cover
-    def save_rules(self, rules: str) -> Result[None, str]: ...  # pragma: no cover
+    def load_rules(self) -> Result[Rules, str]: ...  # pragma: no cover
+    def save_rules(self, rules: Rules) -> Result[None, str]: ...  # pragma: no cover
 
 
 class RecentRepositoryPort(Protocol):

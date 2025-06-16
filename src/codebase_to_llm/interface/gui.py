@@ -74,6 +74,7 @@ from codebase_to_llm.infrastructure.filesystem_directory_repository import (
 )
 from codebase_to_llm.domain.directory_tree import should_ignore, get_ignore_tokens
 from codebase_to_llm.domain.selected_text import SelectedText
+from codebase_to_llm.domain.rules import Rules
 
 
 class _LineNumberArea(QWidget):
@@ -693,8 +694,13 @@ class MainWindow(QMainWindow):
         user_text = self.user_request_text_edit.toPlainText().strip()
         rules_text = self._rules if self._include_rules_checkbox.isChecked() else None
         include_tree = self._include_tree_checkbox.isChecked()
+        rules_obj = None
+        if rules_text:
+            rules_result = Rules.try_from_text(rules_text)
+            if rules_result.is_ok():
+                rules_obj = rules_result.ok()
         result = self._copy_context_use_case.execute(
-            files, snippets, rules_text, user_text, include_tree
+            files, snippets, rules_obj, user_text, include_tree
         )
 
         if result.is_err():

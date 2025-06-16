@@ -16,15 +16,20 @@ class RulesService:  # noqa: D101
     # -------------------------------------------------------------- queries
     def load_rules(self) -> Result[str, str]:
         """Load persisted rules text (may return Err if absent or unreadable)."""
-        return self._repo.load_rules()
+        rules_result = self._repo.load_rules()
+        if rules_result.is_err():
+            return Err(rules_result.err())  # type: ignore[arg-type]
+        rules = rules_result.ok()
+        if rules is None:
+            return Err("Failed to load rules")
+        return Ok(rules.to_text())
 
     # -------------------------------------------------------------- commands
     def save_rules(self, raw_text: str) -> Result[None, str]:
-        rules_result = Rules.try_create(raw_text)
+        rules_result = Rules.try_from_text(raw_text)
         if rules_result.is_err():
-            # Propagate the domain-level validation error
             return Err(rules_result.err())  # type: ignore[arg-type]
         rules = rules_result.ok()
         if rules is None:
             return Err("Failed to create rules object.")
-        return self._repo.save_rules(rules.text())
+        return self._repo.save_rules(rules)

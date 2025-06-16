@@ -179,14 +179,18 @@ class MainWindow(QMainWindow):
             "Files and text snippets that will be included in the context. Drag files from the directory tree to add them here."
         )
 
-        copy_icon = self.style().standardIcon(self.style().StandardPixmap.SP_DialogApplyButton)
+        copy_icon = self.style().standardIcon(
+            self.style().StandardPixmap.SP_DialogApplyButton
+        )
         copy_btn = QPushButton("Copy Context")
         copy_btn.setIcon(copy_icon)
         copy_btn.setIconSize(QSize(24, 24))
         copy_btn.setMinimumHeight(30)
         copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
 
-        delete_icon = self.style().standardIcon(self.style().StandardPixmap.SP_TrashIcon)
+        delete_icon = self.style().standardIcon(
+            self.style().StandardPixmap.SP_TrashIcon
+        )
         delete_btn = QPushButton("Delete Selected")
         delete_btn.setIcon(delete_icon)
         delete_btn.setIconSize(QSize(24, 24))

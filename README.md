@@ -62,11 +62,11 @@ To install uv, please refer to the official documentation https://docs.astral.sh
 git clone
 ```
 
-## Configure venv
+## Configure venv
 ```shell
 # Install dependencies with **uv**
 uv venv --python 3.12
-# Synchroniz Deps
+# Synchronize Deps
 uv sync
 # Run the application
 uv run ./src/codebase_to_llm/main.py

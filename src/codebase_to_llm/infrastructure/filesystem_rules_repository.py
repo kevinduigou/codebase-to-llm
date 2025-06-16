@@ -34,7 +34,9 @@ class FileSystemRulesRepository(RulesRepositoryPort):
                         description_raw = item.get("description")
                         content_raw = item.get("content")
                         description = (
-                            str(description_raw) if description_raw is not None else None
+                            str(description_raw)
+                            if description_raw is not None
+                            else None
                         )
                         content = str(content_raw) if content_raw is not None else ""
                         rule_result = Rule.try_create(name, content, description)

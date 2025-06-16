@@ -63,7 +63,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
             parts.append("<rules_to_follow>")
             for rule in rules.rules():
                 parts.append(rule.content())
-            parts.append("/<rules_to_follow>")
+            parts.append("</rules_to_follow>")
 
         if user_request:
             parts.append("<user_request>")

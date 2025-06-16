@@ -56,7 +56,8 @@ from codebase_to_llm.infrastructure.filesystem_rules_repository import (
 from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.selected_text import SelectedText
 
-from .widgets import _FileListWidget, _FilePreviewWidget
+from .context_buffer import ContextBufferWidget
+from .file_preview import FilePreviewWidget
 from .rules_dialogs import RulesManagerDialog
 
 
@@ -176,13 +177,13 @@ class MainWindow(QMainWindow):
         )
         right_layout.addWidget(buffer_title)
 
-        self._file_list = _FileListWidget(initial_root, self._copy_context)
+        self._file_list = ContextBufferWidget(initial_root, self._copy_context)
         right_layout.addWidget(self._file_list)
 
         splitter.addWidget(right_panel)
 
         # --------------------------- middle — file preview
-        self._file_preview = _FilePreviewWidget(self._file_list.add_snippet)
+        self._file_preview = FilePreviewWidget(self._file_list.add_snippet)
         self._preview_panel = QWidget()
         preview_layout = QVBoxLayout(self._preview_panel)
         preview_layout.setContentsMargins(0, 0, 0, 0)

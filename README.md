@@ -61,6 +61,7 @@ To install uv, please refer to the official documentation https://docs.astral.sh
 ```shell
 git clone
 ```
+
 ## Configure venv
 ```shell
 # Install dependencies with **uv**

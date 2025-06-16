@@ -40,6 +40,8 @@ Clean, structured, and optimized for context-aware conversations.
    * the filtered directory tree (tagged `<tree_structure>`), and
    * the full contents of every collected file (tagged by path).
 
+More details in the (UserManual)[./UserManual.md]
+
 ## Installation
 
 # Use it

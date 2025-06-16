@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Any, Optional
 
 from PySide6.QtCore import Qt, QRect, QSize
 from PySide6.QtGui import (
@@ -21,8 +21,6 @@ from pygments.formatter import Formatter
 from pygments.token import Token
 
 
-
-
 class FileSyntaxHighlighter(QSyntaxHighlighter):
     def __init__(self, document, language: str):
         super().__init__(document)
@@ -35,19 +33,20 @@ class FileSyntaxHighlighter(QSyntaxHighlighter):
             self.lexer = MarkdownLexer()
         else:
             self.lexer = None
-        self.formats = {}
+        self.formats: dict[Any, QTextCharFormat] = {}
         self._init_formats()
 
     def _init_formats(self):
-    # Basic mapping for a few token types
+        # Basic mapping for a few token types
         def make_format(color, bold=False, italic=False):
             fmt = QTextCharFormat()
             fmt.setForeground(QColor(color))
             if bold:
-                fmt.setFontWeight(QFont.Bold)
+                fmt.setFontWeight(QFont.Weight.Bold)
             if italic:
                 fmt.setFontItalic(True)
             return fmt
+
         self.formats = {
             Token.Keyword: make_format("#007020", bold=True),
             Token.Name: make_format("#000000"),
@@ -75,7 +74,12 @@ class FileSyntaxHighlighter(QSyntaxHighlighter):
 class FilePreviewWidget(QPlainTextEdit):
     """Read-only file preview widget with line numbers."""
 
-    __slots__ = ("_line_number_area", "_add_snippet", "_current_path", "_syntax_highlighter")
+    __slots__ = (
+        "_line_number_area",
+        "_add_snippet",
+        "_current_path",
+        "_syntax_highlighter",
+    )
 
     def __init__(self, add_snippet: Callable[[Path, int, int, str], None]):
         super().__init__()
@@ -84,7 +88,7 @@ class FilePreviewWidget(QPlainTextEdit):
 
         self._add_snippet = add_snippet
         self._current_path: Path | None = None
-        self._syntax_highlighter = None
+        self._syntax_highlighter: Optional[FileSyntaxHighlighter] = None
 
         self._line_number_area = _LineNumberArea(self)
         self.blockCountChanged.connect(self._update_line_number_area_width)  # type: ignore[arg-type]
@@ -206,7 +210,9 @@ class FilePreviewWidget(QPlainTextEdit):
             elif ext in [".md"]:
                 language = "markdown"
             if language:
-                self._syntax_highlighter = FileSyntaxHighlighter(self.document(), language)
+                self._syntax_highlighter = FileSyntaxHighlighter(
+                    self.document(), language
+                )
             else:
                 self._syntax_highlighter = None
         except Exception as exc:  # pylint: disable=broad-except

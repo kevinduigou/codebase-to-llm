@@ -3,6 +3,8 @@
 
 **Give your AI assistant the context it needs to help you effectively. Quickly copy repository structures, coding guidelines, or file contents to your clipboard, then paste them directly into your AI chat.**
 
+![Main Window](./documentation/screenshot.png)
+
 🧠 **What It Does?**
 
 LLM Context Tool helps developers quickly extract and share meaningful context from their codebase to ChatBots like ChatGPT, Claude, or Gemini.

@@ -7,7 +7,8 @@
 ## 🚀 Quick Start
 
 1. **Launch the app**.
-2. **Select a root directory** via the "Choose Directory" toolbar button.
+2. **Select a root directory** via the **📂 Choose Directory** button or pick from
+   the **📁 Open Recently** menu. Click **🔍 Refresh View** if the file tree needs updating.
 3. **Drag files or select snippets** from the preview panel into the **Context Buffer**.
 4. Optionally:
    - Enable or disable specific **rules**.

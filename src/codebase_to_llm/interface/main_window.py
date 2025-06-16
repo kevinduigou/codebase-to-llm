@@ -15,7 +15,7 @@ from PySide6.QtCore import (
     QRect,
     QSize,
 )
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -240,15 +240,27 @@ class MainWindow(QMainWindow):
         toolbar = QToolBar()
         self.addToolBar(toolbar)
 
-        choose_dir_action = QAction("Choose Directory", self)
-        choose_dir_action.triggered.connect(self._choose_directory)  # type: ignore[arg-type]
-        toolbar.addAction(choose_dir_action)
+        choose_dir_icon = self.style().standardIcon(
+            self.style().StandardPixmap.SP_DirOpenIcon
+        )
+        choose_dir_button = QToolButton(self)
+        choose_dir_button.setIcon(choose_dir_icon)
+        choose_dir_button.setText("Choose Directory")
+        choose_dir_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+        choose_dir_button.clicked.connect(self._choose_directory)
+        toolbar.addWidget(choose_dir_button)
 
         self._recent_menu = QMenu(self)
         recent_button = QToolButton(self)
-        recent_button.setText("Open Recently")
+        recent_icon = self.style().standardIcon(
+            self.style().StandardPixmap.SP_DirHomeIcon
+        )
+
+        recent_button.setIcon(recent_icon)
+        recent_button.setText("Recently Used")
         recent_button.setMenu(self._recent_menu)
         recent_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        recent_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
         toolbar.addWidget(recent_button)
         self._populate_recent_menu()
 

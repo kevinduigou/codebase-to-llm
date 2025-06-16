@@ -100,6 +100,7 @@ dependencies = [
 dev = [
     { name = "build" },
     { name = "twine" },
+    { name = "types-pygments" },
 ]
 
 [package.metadata]
@@ -115,6 +116,7 @@ requires-dist = [
 dev = [
     { name = "build", specifier = ">=1.2.2.post1" },
     { name = "twine", specifier = ">=6.1.0" },
+    { name = "types-pygments", specifier = ">=2.19.0.20250516" },
 ]
 
 [[package]]
@@ -561,6 +563,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c8/a2/6df94fc5c8e2170d21d7134a565c3a8fb84f9797c1dd65a5976aaf714418/twine-6.1.0.tar.gz", hash = "sha256:be324f6272eff91d07ee93f251edf232fc647935dd585ac003539b42404a8dbd", size = 168404 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/b6/74e927715a285743351233f33ea3c684528a0d374d2e43ff9ce9585b73fe/twine-6.1.0-py3-none-any.whl", hash = "sha256:a47f973caf122930bf0fbbf17f80b83bc1602c9ce393c7845f289a3001dc5384", size = 40791 },
+]
+
+[[package]]
+name = "types-docutils"
+version = "0.21.0.20250604"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/d0/d28035370d669f14d4e23bd63d093207331f361afa24d2686d2c3fe6be8d/types_docutils-0.21.0.20250604.tar.gz", hash = "sha256:5a9cc7f5a4c5ef694aa0abc61111e0b1376a53dee90d65757f77f31acfcca8f2", size = 40953 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/91/887e9591c1ee50dfbf7c2fa2f3f51bc6db683013b6d2b0cd3983adf3d502/types_docutils-0.21.0.20250604-py3-none-any.whl", hash = "sha256:bfa8628176c06a80cdd1d6f3fb32e972e042db53538596488dfe0e9c5962b222", size = 65915 },
+]
+
+[[package]]
+name = "types-pygments"
+version = "2.19.0.20250516"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "types-docutils" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/71/9a/c1ea3f59001e9d13b93ec8acf02c75b47832423f17471295b8ceebc48a65/types_pygments-2.19.0.20250516.tar.gz", hash = "sha256:b53fd07e197f0e7be38ee19598bd99c78be5ca5f9940849c843be74a2f81ab58", size = 18485 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a7/0b/32ce3ad35983bf4f603c43cfb00559b37bb5ed90ac4ef9f1d5564b8e4034/types_pygments-2.19.0.20250516-py3-none-any.whl", hash = "sha256:db27de8b59591389cd7d14792483892c021c73b8389ef55fef40a48aa371fbcc", size = 25440 },
 ]
 
 [[package]]

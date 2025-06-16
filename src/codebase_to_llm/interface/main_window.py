@@ -15,7 +15,7 @@ from PySide6.QtCore import (
     QRect,
     QSize,
 )
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -223,28 +223,26 @@ class MainWindow(QMainWindow):
         choose_dir_icon = self.style().standardIcon(
             self.style().StandardPixmap.SP_DirOpenIcon
         )
-        choose_dir_action = QAction(choose_dir_icon, "Choose Directory", self)
-        choose_dir_action.triggered.connect(self._choose_directory)  # type: ignore[arg-type]
-        toolbar.addAction(choose_dir_action)
+        choose_dir_button = QToolButton(self)
+        choose_dir_button.setIcon(choose_dir_icon)
+        choose_dir_button.setText("Choose Directory")
+        choose_dir_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+        choose_dir_button.clicked.connect(self._choose_directory)
+        toolbar.addWidget(choose_dir_button)
 
         self._recent_menu = QMenu(self)
         recent_button = QToolButton(self)
         recent_icon = self.style().standardIcon(
             self.style().StandardPixmap.SP_DirHomeIcon
         )
+
         recent_button.setIcon(recent_icon)
-        recent_button.setText("Open Recently")
+        recent_button.setText("Recently Used")
         recent_button.setMenu(self._recent_menu)
         recent_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        recent_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
         toolbar.addWidget(recent_button)
         self._populate_recent_menu()
-
-        refresh_icon = self.style().standardIcon(
-            self.style().StandardPixmap.SP_BrowserReload
-        )
-        refresh_action = QAction(refresh_icon, "Refresh View", self)
-        refresh_action.triggered.connect(self._refresh_view)  # type: ignore[arg-type]
-        toolbar.addAction(refresh_action)
 
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -359,14 +357,6 @@ class MainWindow(QMainWindow):
         self._file_preview.clear()
         self._recent_service.add_path(path)
         self._populate_recent_menu()
-
-    def _refresh_view(self) -> None:
-        current_root = Path(self._model.rootPath())
-        self._model.setRootPath(str(current_root))
-        self._filter_model.invalidateFilter()
-        self._tree_view.setRootIndex(
-            self._filter_model.mapFromSource(self._model.index(str(current_root)))
-        )
 
     def _populate_recent_menu(self) -> None:
         self._recent_menu.clear()

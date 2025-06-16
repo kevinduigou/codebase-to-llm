@@ -23,6 +23,7 @@ codebase-to-llm = "codebase_to_llm.main:main"
 dev = [
     "build>=1.2.2.post1",
     "twine>=6.1.0",
+    "types-pygments>=2.19.0.20250516",
 ]
 
 [tool.setuptools]

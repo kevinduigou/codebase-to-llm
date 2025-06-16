@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/kevinduigou/CopyRepoToLLM"
+"Homepage" = "https://github.com/kevinduigou/codebase-to-llm"
 
 [project.scripts]
 codebase-to-llm = "codebase_to_llm.main:main"

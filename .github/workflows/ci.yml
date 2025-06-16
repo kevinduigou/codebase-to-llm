@@ -30,17 +30,17 @@ jobs:
       - name: Lint with Black
         run: |
           uv sync --dev
-          black --check .
+          uv run black --check .
 
       - name: Type check with mypy
         run: |
           uv sync --dev
-          mypy .
+          uv run mypy .
 
       - name: Run unit tests with pytest
         run: |
           uv sync --dev
-          PYTHONPATH=. pytest tests/
+          PYTHONPATH=. uv run pytest tests/
 
       - name: Run integration tests with Behave
         run: |

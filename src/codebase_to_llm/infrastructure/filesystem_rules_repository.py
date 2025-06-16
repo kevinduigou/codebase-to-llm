@@ -34,20 +34,21 @@ class FileSystemRulesRepository(RulesRepositoryPort):
                         description_raw = item.get("description")
                         content_raw = item.get("content")
                         description = (
-                            str(description_raw)
-                            if description_raw is not None
-                            else None
+                            str(description_raw) if description_raw is not None else None
                         )
-                        rule_result = Rule.try_create(name, content_raw, description)
+                        content = str(content_raw) if content_raw is not None else ""
+                        rule_result = Rule.try_create(name, content, description)
                         if rule_result.is_err():
-                            return Err(rule_result.err())
+                            return Err(rule_result.err() or "")
                         rule = rule_result.ok()
                         assert rule is not None
                         rules.append(rule)
             rules_result = Rules.try_create(rules)
             if rules_result.is_err():
-                return Err(rules_result.err())
-            return Ok(rules_result.ok())
+                return Err(rules_result.err() or "")
+            rules_value = rules_result.ok()
+            assert rules_value is not None
+            return Ok(rules_value)
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))
 

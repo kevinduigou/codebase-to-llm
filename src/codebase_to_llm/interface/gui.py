@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Final, List, Callable
+from typing import Final, List, Callable, cast
 import os
 import re
 
@@ -73,7 +73,7 @@ from codebase_to_llm.infrastructure.filesystem_directory_repository import (
 )
 from codebase_to_llm.domain.directory_tree import should_ignore, get_ignore_tokens
 from codebase_to_llm.domain.selected_text import SelectedText
-from codebase_to_llm.domain.rules import Rules
+from codebase_to_llm.domain.rules import Rule, Rules
 
 
 class _LineNumberArea(QWidget):
@@ -386,7 +386,7 @@ class RulesDialogForm(QDialog):
 
     def accept(self) -> None:
         # Save all fields (for now, only content is saved as before)
-        self._rules_repo.save_rules(self._edit.toPlainText())
+        # The dialog just collects the rule data; saving happens in the caller
         return super().accept()
 
 
@@ -398,13 +398,16 @@ class RulesManagerDialog(QDialog):
         self.setWindowTitle("Manage Rules")
         self._rules_repo = rules_repo
         self._selected_index: int | None = None
+        self._rules: list[Rule] = []
 
         # Main layout
         layout = QHBoxLayout(self)
 
         # Left: List of rules
         self._list_widget = QListWidget()
-        self._list_widget.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._list_widget.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
         self._list_widget.currentRowChanged.connect(self._on_rule_selected)
         layout.addWidget(self._list_widget, 1)
 
@@ -431,6 +434,7 @@ class RulesManagerDialog(QDialog):
         rules_result = self._rules_repo.load_rules()
         if rules_result.is_ok():
             rules_obj = rules_result.ok()
+            assert rules_obj is not None
             self._rules = list(rules_obj.rules())
         else:
             self._rules = []
@@ -467,7 +471,7 @@ class RulesManagerDialog(QDialog):
                     self, "Validation Error", rule_result.err() or "Invalid rule."
                 )
                 return
-            rule = rule_result.ok()
+            rule = cast(Rule, rule_result.ok())
             self._rules.append(rule)
             self._refresh_list()
             self._list_widget.setCurrentRow(len(self._rules) - 1)
@@ -506,7 +510,8 @@ class RulesManagerDialog(QDialog):
                         self, "Validation Error", rule_result.err() or "Invalid rule."
                     )
                     return
-                self._rules[idx] = rule_result.ok()
+                rule = cast(Rule, rule_result.ok())
+                self._rules[idx] = rule
                 self._refresh_list()
                 self._list_widget.setCurrentRow(idx)
                 # Save all rules
@@ -555,6 +560,7 @@ class MainWindow(QMainWindow):
         "_toggle_preview_btn",
         "_preview_panel",
         "_rules_checkbox_container",
+        "_rules_checkbox_layout",
     )
 
     def __init__(
@@ -576,10 +582,12 @@ class MainWindow(QMainWindow):
         self._recent_service = recent_service
 
         # Load persisted rules if available
-        self._rules = ""
+        self._rules: str = ""
         rules_result = self._rules_repo.load_rules()
         if rules_result.is_ok():
-            self._rules = rules_result.ok() or ""
+            rules_val = rules_result.ok()
+            assert rules_val is not None
+            self._rules = rules_val.to_text()
 
         splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -735,7 +743,7 @@ class MainWindow(QMainWindow):
         # --- Begin: rules checkboxes ---
         from codebase_to_llm.domain.rules import Rules
 
-        self._include_rules_checkboxes = {}  # name -> QCheckBox
+        self._include_rules_checkboxes: dict[str, QCheckBox] = {}
         self._rules_checkbox_container = QWidget()
         self._rules_checkbox_layout = QHBoxLayout(self._rules_checkbox_container)
         self._rules_checkbox_layout.setContentsMargins(0, 0, 0, 0)
@@ -888,6 +896,7 @@ class MainWindow(QMainWindow):
             rules_result = self._rules_repo.load_rules()
             if rules_result.is_ok():
                 all_rules_obj = rules_result.ok()
+                assert all_rules_obj is not None
                 # Only include checked rules
                 filtered_rules = tuple(
                     rule
@@ -909,11 +918,13 @@ class MainWindow(QMainWindow):
         self._file_list.delete_selected()
 
     def _open_settings(self) -> None:
-        result_load_rules: Result[str, str] = self._rules_repo.load_rules()
+        result_load_rules: Result[Rules, str] = self._rules_repo.load_rules()
         if result_load_rules.is_ok():
-            dialog = RulesManagerDialog(result_load_rules.ok() or "", self._rules_repo)
+            rules_val = result_load_rules.ok()
+            assert rules_val is not None
+            dialog = RulesManagerDialog(rules_val.to_text(), self._rules_repo)
         else:
-            dialog = RulesManagerDialog(None, self._rules_repo)
+            dialog = RulesManagerDialog("", self._rules_repo)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._rules = dialog.text()
             self._refresh_rules_checkboxes()
@@ -984,7 +995,7 @@ if __name__ == "__main__":
         repo=FileSystemDirectoryRepository(root),
         clipboard=QtClipboardService(),
         initial_root=root,
-        rules_reposiory=FileSystemRulesRepository(),
+        rules_repo=FileSystemRulesRepository(),
         recent_service=RecentRepositoryService(
             FileSystemRecentRepository(Path.home() / ".dcc_recent")
         ),

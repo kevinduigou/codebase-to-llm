@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QLineEdit,
     QLabel,
+    QFrame,
 )
 
 from codebase_to_llm.application.copy_context import CopyContextUseCase
@@ -142,9 +143,14 @@ class MainWindow(QMainWindow):
         self._name_filter_edit.setPlaceholderText("Filter files (regex)")
         self._name_filter_edit.textChanged.connect(self._filter_by_name)
 
-        left_panel = QWidget()
+        left_panel = QFrame()
+        left_panel.setFrameShape(QFrame.Shape.StyledPanel)
+        left_panel.setStyleSheet(
+            "background-color: #ffffff; border: 1px solid #ccc; border-radius: 6px;"
+        )
         left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setContentsMargins(10, 10, 10, 10)
+        left_layout.setSpacing(8)
 
         tree_title = QLabel("Directory Tree")
         tree_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
@@ -169,9 +175,14 @@ class MainWindow(QMainWindow):
         splitter.addWidget(left_panel)
 
         # --------------------------- right — dropped files list
-        right_panel = QWidget()
+        right_panel = QFrame()
+        right_panel.setFrameShape(QFrame.Shape.StyledPanel)
+        right_panel.setStyleSheet(
+            "background-color: #ffffff; border: 1px solid #ccc; border-radius: 6px;"
+        )
         right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setContentsMargins(10, 10, 10, 10)
+        right_layout.setSpacing(8)
 
         buffer_title = QLabel("Context Buffer")
         buffer_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
@@ -208,13 +219,26 @@ class MainWindow(QMainWindow):
 
         central = QWidget()
         layout = QVBoxLayout(central)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
         layout.addWidget(splitter)
+
+        feedback_frame = QFrame()
+        feedback_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        feedback_frame.setStyleSheet(
+            "background-color: #ffffff; border: 1px solid #ccc; border-radius: 6px;"
+        )
+        feedback_layout = QVBoxLayout(feedback_frame)
+        feedback_layout.setContentsMargins(10, 10, 10, 10)
+
         self.user_request_text_edit = QPlainTextEdit()
         self.user_request_text_edit.setPlaceholderText(
             "Describe your need or the bug here..."
         )
         self.user_request_text_edit.setFixedHeight(100)
-        layout.addWidget(self.user_request_text_edit)
+        feedback_layout.addWidget(self.user_request_text_edit)
+
+        layout.addWidget(feedback_frame)
         self.setCentralWidget(central)
 
         toolbar = QToolBar()
@@ -251,6 +275,8 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(settings_button)
 
         bottom_bar_layout = QHBoxLayout()
+        bottom_bar_layout.setContentsMargins(0, 10, 0, 0)
+        bottom_bar_layout.setSpacing(10)
         self._include_tree_checkbox = QCheckBox("Include Tree Context")
         self._include_tree_checkbox.setChecked(True)
         self._include_rules_actions: dict[str, QAction] = {}

@@ -28,8 +28,6 @@ from PySide6.QtWidgets import (
 from codebase_to_llm.domain.directory_tree import should_ignore, get_ignore_tokens
 
 
-
-
 class ContextBufferWidget(QListWidget):
     """Right panel list accepting drops from the tree view."""
 
@@ -124,6 +122,3 @@ class ContextBufferWidget(QListWidget):
             event.acceptProposedAction()
         else:
             super().dragMoveEvent(event)
-
-
-

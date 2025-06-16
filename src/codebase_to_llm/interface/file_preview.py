@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import os
@@ -11,15 +10,7 @@ from PySide6.QtGui import (
     QPainter,
     QFontMetrics,
 )
-from PySide6.QtWidgets import (
-    QPlainTextEdit,
-    QMenu,
-    QTextEdit,
-    QWidget
-)
-
-
-
+from PySide6.QtWidgets import QPlainTextEdit, QMenu, QTextEdit, QWidget
 
 
 class FilePreviewWidget(QPlainTextEdit):

@@ -9,14 +9,73 @@ from PySide6.QtGui import (
     QAction,
     QPainter,
     QFontMetrics,
+    QSyntaxHighlighter,
+    QTextCharFormat,
+    QColor,
+    QFont,
 )
 from PySide6.QtWidgets import QPlainTextEdit, QMenu, QTextEdit, QWidget
+from pygments import highlight, lex
+from pygments.lexers import PythonLexer, CppLexer, MarkdownLexer
+from pygments.formatter import Formatter
+from pygments.token import Token
+
+
+
+
+class FileSyntaxHighlighter(QSyntaxHighlighter):
+    def __init__(self, document, language: str):
+        super().__init__(document)
+        self.language = language
+        if language == "python":
+            self.lexer = PythonLexer()
+        elif language == "cpp":
+            self.lexer = CppLexer()
+        elif language == "markdown":
+            self.lexer = MarkdownLexer()
+        else:
+            self.lexer = None
+        self.formats = {}
+        self._init_formats()
+
+    def _init_formats(self):
+    # Basic mapping for a few token types
+        def make_format(color, bold=False, italic=False):
+            fmt = QTextCharFormat()
+            fmt.setForeground(QColor(color))
+            if bold:
+                fmt.setFontWeight(QFont.Bold)
+            if italic:
+                fmt.setFontItalic(True)
+            return fmt
+        self.formats = {
+            Token.Keyword: make_format("#007020", bold=True),
+            Token.Name: make_format("#000000"),
+            Token.Comment: make_format("#60a0b0", italic=True),
+            Token.String: make_format("#4070a0"),
+            Token.Number: make_format("#164", bold=True),
+            Token.Operator: make_format("#666666"),
+            Token.Punctuation: make_format("#666666"),
+            Token.Name.Function: make_format("#06287e", bold=True),
+            Token.Name.Class: make_format("#0e84b5", bold=True),
+        }
+
+    def highlightBlock(self, text):
+        if not self.lexer:
+            return
+        offset = 0
+        for token, value in lex(text, self.lexer):
+            length = len(value)
+            fmt = self.formats.get(token)
+            if fmt:
+                self.setFormat(offset, length, fmt)
+            offset += length
 
 
 class FilePreviewWidget(QPlainTextEdit):
     """Read-only file preview widget with line numbers."""
 
-    __slots__ = ("_line_number_area", "_add_snippet", "_current_path")
+    __slots__ = ("_line_number_area", "_add_snippet", "_current_path", "_syntax_highlighter")
 
     def __init__(self, add_snippet: Callable[[Path, int, int, str], None]):
         super().__init__()
@@ -25,6 +84,7 @@ class FilePreviewWidget(QPlainTextEdit):
 
         self._add_snippet = add_snippet
         self._current_path: Path | None = None
+        self._syntax_highlighter = None
 
         self._line_number_area = _LineNumberArea(self)
         self.blockCountChanged.connect(self._update_line_number_area_width)  # type: ignore[arg-type]
@@ -136,6 +196,19 @@ class FilePreviewWidget(QPlainTextEdit):
                 text = data.decode("latin-1", errors="replace")
             self.setPlainText(text)
             self._current_path = path
+            # Syntax highlighting
+            ext = path.suffix.lower()
+            language = None
+            if ext in [".py"]:
+                language = "python"
+            elif ext in [".cpp", ".cxx", ".cc", ".hpp", ".h", ".c"]:
+                language = "cpp"
+            elif ext in [".md"]:
+                language = "markdown"
+            if language:
+                self._syntax_highlighter = FileSyntaxHighlighter(self.document(), language)
+            else:
+                self._syntax_highlighter = None
         except Exception as exc:  # pylint: disable=broad-except
             self.setPlainText(f"<Could not preview file: {exc}>")
 

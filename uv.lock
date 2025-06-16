@@ -90,6 +90,7 @@ version = "0.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "mypy" },
+    { name = "pygments" },
     { name = "pyside6" },
     { name = "pyside6-stubs" },
     { name = "typing-extensions" },
@@ -104,6 +105,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "mypy", specifier = ">=1.0" },
+    { name = "pygments", specifier = ">=2.19.1" },
     { name = "pyside6", specifier = ">=6.6.0" },
     { name = "pyside6-stubs", specifier = ">=6.7.3.0" },
     { name = "typing-extensions", specifier = ">=4.14.0" },

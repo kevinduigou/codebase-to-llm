@@ -142,6 +142,9 @@ class MainWindow(QMainWindow):
         self._name_filter_edit.setPlaceholderText("Filter files (regex)")
         self._name_filter_edit.textChanged.connect(self._filter_by_name)
 
+        self._include_tree_checkbox = QCheckBox("Include Tree Context")
+        self._include_tree_checkbox.setChecked(True)
+
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
@@ -163,7 +166,12 @@ class MainWindow(QMainWindow):
         title_layout.addStretch()
 
         left_layout.addLayout(title_layout)
-        left_layout.addWidget(self._name_filter_edit)
+
+        filter_layout = QHBoxLayout()
+        filter_layout.addWidget(self._include_tree_checkbox)
+        filter_layout.addWidget(self._name_filter_edit)
+        filter_layout.addStretch()
+        left_layout.addLayout(filter_layout)
         left_layout.addWidget(self._tree_view)
 
         splitter.addWidget(left_panel)
@@ -251,8 +259,6 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(settings_button)
 
         bottom_bar_layout = QHBoxLayout()
-        self._include_tree_checkbox = QCheckBox("Include Tree Context")
-        self._include_tree_checkbox.setChecked(True)
         self._include_rules_actions: dict[str, QAction] = {}
         self._rules_menu = QMenu(self)
         self._rules_button = QToolButton(self)
@@ -264,7 +270,6 @@ class MainWindow(QMainWindow):
         copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
         delete_btn = QPushButton("Delete Selected")
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
-        bottom_bar_layout.addWidget(self._include_tree_checkbox)
         bottom_bar_layout.addWidget(self._rules_button)
         bottom_bar_layout.addStretch(1)
         bottom_bar_layout.addWidget(delete_btn)

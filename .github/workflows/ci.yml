@@ -29,22 +29,22 @@ jobs:
 
       - name: Lint with Black
         run: |
-          uv pip install --system black
+          uv sync --dev
           black --check .
 
       - name: Type check with mypy
         run: |
-          uv pip install --system mypy
+          uv sync --dev
           mypy .
 
       - name: Run unit tests with pytest
         run: |
-          uv pip install --system pytest
+          uv sync --dev
           PYTHONPATH=. pytest tests/
 
       - name: Run integration tests with Behave
         run: |
-          uv pip install --system behave
+          uv sync --dev
           if ls features/*.feature 1> /dev/null 2>&1; then behave; else echo "No feature files found, skipping Behave tests."; fi
       
       - name: Build distribution

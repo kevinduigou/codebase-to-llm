@@ -21,7 +21,11 @@ codebase-to-llm = "codebase_to_llm.main:main"
 
 [dependency-groups]
 dev = [
+    "behave>=1.2.6",
+    "black>=25.1.0",
     "build>=1.2.2.post1",
+    "mypy>=1.16.0",
+    "pytest>=8.4.0",
     "twine>=6.1.0",
     "types-pygments>=2.19.0.20250516",
 ]

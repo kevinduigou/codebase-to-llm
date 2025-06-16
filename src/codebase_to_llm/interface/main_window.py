@@ -179,8 +179,6 @@ class MainWindow(QMainWindow):
             "Files and text snippets that will be included in the context. Drag files from the directory tree to add them here."
         )
 
-        
-
         title_bar_layout = QHBoxLayout()
         title_bar_layout.addWidget(buffer_title)
         title_bar_layout.addStretch(1)
@@ -282,18 +280,20 @@ class MainWindow(QMainWindow):
         self._include_rules_actions: dict[str, QAction] = {}
         self._rules_menu = QMenu(self)
         self._rules_button = QToolButton(self)
-        self._rules_button.setIcon(self.style().standardIcon(
-            self.style().StandardPixmap.SP_DialogApplyButton
-        ))
+        self._rules_button.setIcon(
+            self.style().standardIcon(self.style().StandardPixmap.SP_DialogApplyButton)
+        )
         self._rules_button.setText("Rules")
         self._rules_button.setMenu(self._rules_menu)
         self._rules_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self._rules_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._rules_button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
         self._refresh_rules_checkboxes()
         bottom_bar_layout.addWidget(self._include_tree_checkbox)
         bottom_bar_layout.addWidget(self._rules_button)
         bottom_bar_layout.addStretch(1)
-        
+
         copy_icon = self.style().standardIcon(
             self.style().StandardPixmap.SP_DialogApplyButton
         )
@@ -312,7 +312,6 @@ class MainWindow(QMainWindow):
         delete_btn.setMinimumHeight(30)
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
 
-        
         bottom_bar_layout.addWidget(delete_btn)
         bottom_bar_layout.addWidget(copy_btn)
 

@@ -38,3 +38,13 @@ class RecentRepositoryPort(Protocol):
     def save_paths(
         self, paths: list[Path]
     ) -> Result[None, str]: ...  # pragma: no cover
+
+
+class ExternalSourceRepositoryPort(Protocol):
+    """Pure port to fetch data from external URLs."""
+
+    def fetch_web_page(self, url: str) -> Result[str, str]: ...  # pragma: no cover
+
+    def fetch_youtube_transcript(
+        self, url: str
+    ) -> Result[str, str]: ...  # pragma: no cover

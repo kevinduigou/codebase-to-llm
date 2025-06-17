@@ -19,6 +19,9 @@ from codebase_to_llm.infrastructure.filesystem_recent_repository import (
     FileSystemRecentRepository,
 )
 from codebase_to_llm.infrastructure.qt_clipboard_service import QtClipboardService
+from codebase_to_llm.infrastructure.url_external_source_repository import (
+    UrlExternalSourceRepository,
+)
 from codebase_to_llm.interface.main_window import MainWindow
 
 
@@ -38,6 +41,7 @@ def main() -> None:  # noqa: D401 (simple verb)
         root,
         rules_repo,
         recent_service,
+        UrlExternalSourceRepository(),
     )
     window.show()
     sys.exit(app.exec())

@@ -34,13 +34,18 @@ from PySide6.QtWidgets import (
     QToolButton,
     QPlainTextEdit,
     QHBoxLayout,
+    QInputDialog,
     QCheckBox,
     QLineEdit,
     QLabel,
 )
 
 from codebase_to_llm.application.copy_context import CopyContextUseCase
-from codebase_to_llm.application.ports import ClipboardPort, DirectoryRepositoryPort
+from codebase_to_llm.application.ports import (
+    ClipboardPort,
+    DirectoryRepositoryPort,
+    ExternalSourceRepositoryPort,
+)
 from codebase_to_llm.application.recent_repository_service import (
     RecentRepositoryService,
 )
@@ -52,6 +57,9 @@ from codebase_to_llm.infrastructure.filesystem_recent_repository import (
 )
 from codebase_to_llm.infrastructure.filesystem_rules_repository import (
     FileSystemRulesRepository,
+)
+from codebase_to_llm.infrastructure.url_external_source_repository import (
+    UrlExternalSourceRepository,
 )
 from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.selected_text import SelectedText
@@ -88,6 +96,7 @@ class MainWindow(QMainWindow):
         "_include_rules_actions",
         "_rules_menu",
         "_rules_button",
+        "_external_use_case",
     )
 
     def __init__(
@@ -97,6 +106,7 @@ class MainWindow(QMainWindow):
         initial_root: Path,
         rules_repo: FileSystemRulesRepository,
         recent_service: RecentRepositoryService,
+        external_repo: ExternalSourceRepositoryPort,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
@@ -107,6 +117,11 @@ class MainWindow(QMainWindow):
         self._copy_context_use_case = CopyContextUseCase(repo, clipboard)
         self._rules_repo = rules_repo
         self._recent_service = recent_service
+        from codebase_to_llm.application.load_external_source import (
+            LoadExternalSourceUseCase,
+        )
+
+        self._external_use_case = LoadExternalSourceUseCase(external_repo)
 
         self._rules: str = ""
         rules_result = self._rules_repo.load_rules()
@@ -312,7 +327,12 @@ class MainWindow(QMainWindow):
         delete_btn.setMinimumHeight(30)
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
 
+        external_btn = QPushButton("Add External Source")
+        external_btn.setMinimumHeight(30)
+        external_btn.clicked.connect(self._prompt_external_source)  # type: ignore[arg-type]
+
         bottom_bar_layout.addWidget(delete_btn)
+        bottom_bar_layout.addWidget(external_btn)
         bottom_bar_layout.addWidget(copy_btn)
 
         layout.addLayout(bottom_bar_layout)
@@ -456,6 +476,25 @@ class MainWindow(QMainWindow):
     def _delete_selected(self) -> None:
         self._file_list.delete_selected()
 
+    def _prompt_external_source(self) -> None:
+        url, ok = QInputDialog.getText(
+            self,
+            "Add External Source",
+            "Enter web page or YouTube URL:",
+        )
+        if not ok or not url.strip():
+            return
+        result = self._external_use_case.execute(url.strip())
+        if result.is_ok():
+            text = result.ok() or ""
+            self._file_list.add_external_source(url.strip(), text)
+        else:
+            QMessageBox.warning(
+                self,
+                "Load Error",
+                result.err() or "Could not load external source.",
+            )
+
     def _open_settings(self) -> None:
         from codebase_to_llm.domain.rules import Rules
 
@@ -527,6 +566,7 @@ if __name__ == "__main__":
         recent_service=RecentRepositoryService(
             FileSystemRecentRepository(Path.home() / ".dcc_recent")
         ),
+        external_repo=UrlExternalSourceRepository(),
     )
     window.show()
     sys.exit(app.exec())

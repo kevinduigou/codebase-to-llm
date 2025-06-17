@@ -78,6 +78,11 @@ class ContextBufferWidget(QListWidget):
         if not self.findItems(str(rel_path), Qt.MatchFlag.MatchExactly):
             self.addItem(str(rel_path))
 
+    def add_external_source(self, label: str, text: str) -> None:
+        item = QListWidgetItem(label)
+        item.setData(Qt.ItemDataRole.UserRole, text)
+        self.addItem(item)
+
     def _add_files_from_directory(self, directory: Path) -> None:
         ignore_tokens = get_ignore_tokens(directory)
         for root, dirs, files in os.walk(directory):

@@ -10,6 +10,7 @@
 2. **Select a root directory** via the **📂 Choose Directory** button or pick from
    the **📁 Open Recently** menu. Click **🔍 Refresh View** if the file tree needs updating.
 3. **Drag files or select snippets** from the preview panel into the **Context Buffer**.
+4. **Add external sources** via the **Add External Source** button to include web pages or YouTube transcripts.
 4. Optionally:
    - Enable or disable specific **rules**.
    - Add your **task description** in the input field.

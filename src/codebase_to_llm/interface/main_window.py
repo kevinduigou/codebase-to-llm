@@ -55,10 +55,12 @@ from codebase_to_llm.infrastructure.filesystem_rules_repository import (
 )
 from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.selected_text import SelectedText
+from codebase_to_llm.domain.screenshot import Screenshot
 
 from .context_buffer import ContextBufferWidget
 from .file_preview import FilePreviewWidget
 from .rules_dialogs import RulesManagerDialog
+from .screenshot_capture import ScreenSnippetOverlay
 
 
 class MainWindow(QMainWindow):
@@ -88,6 +90,7 @@ class MainWindow(QMainWindow):
         "_include_rules_actions",
         "_rules_menu",
         "_rules_button",
+        "_overlay",
     )
 
     def __init__(
@@ -107,6 +110,7 @@ class MainWindow(QMainWindow):
         self._copy_context_use_case = CopyContextUseCase(repo, clipboard)
         self._rules_repo = rules_repo
         self._recent_service = recent_service
+        self._overlay = None
 
         self._rules: str = ""
         rules_result = self._rules_repo.load_rules()
@@ -264,10 +268,13 @@ class MainWindow(QMainWindow):
         copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
         delete_btn = QPushButton("Delete Selected")
         delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
+        capture_btn = QPushButton("Capture Screenshot")
+        capture_btn.clicked.connect(self._capture_screenshot)  # type: ignore[arg-type]
         bottom_bar_layout.addWidget(self._include_tree_checkbox)
         bottom_bar_layout.addWidget(self._rules_button)
         bottom_bar_layout.addStretch(1)
         bottom_bar_layout.addWidget(delete_btn)
+        bottom_bar_layout.addWidget(capture_btn)
         bottom_bar_layout.addWidget(copy_btn)
 
         layout.addLayout(bottom_bar_layout)
@@ -360,23 +367,32 @@ class MainWindow(QMainWindow):
     def _copy_context(self) -> None:  # noqa: D401
         files: List[Path] = []
         snippets: List[SelectedText] = []
+        screenshots: List[Screenshot] = []
         for i in range(self._file_list.count()):
             item = self._file_list.item(i)
             data = item.data(Qt.ItemDataRole.UserRole)
+            label = item.text()
             if data:
-                text_data = str(data)
-                label = item.text()
-                try:
-                    path_str, start_str, end_str = label.rsplit(":", 2)
-                    snippet_result = SelectedText.try_create(
-                        Path(path_str), int(start_str), int(end_str), text_data
-                    )
-                    if snippet_result.is_ok():
-                        snippet = snippet_result.ok()
-                        assert snippet is not None
-                        snippets.append(snippet)
-                except Exception:
-                    continue
+                if isinstance(data, dict) and data.get("type") == "screenshot":
+                    desc = label.split(":", 1)[1] if ":" in label else "screenshot"
+                    shot_result = Screenshot.try_create(desc, str(data.get("data", "")))
+                    if shot_result.is_ok():
+                        shot = shot_result.ok()
+                        assert shot is not None
+                        screenshots.append(shot)
+                else:
+                    text_data = str(data)
+                    try:
+                        path_str, start_str, end_str = label.rsplit(":", 2)
+                        snippet_result = SelectedText.try_create(
+                            Path(path_str), int(start_str), int(end_str), text_data
+                        )
+                        if snippet_result.is_ok():
+                            snippet = snippet_result.ok()
+                            assert snippet is not None
+                            snippets.append(snippet)
+                    except Exception:
+                        continue
             else:
                 files.append(Path(item.text()))
         user_text = self.user_request_text_edit.toPlainText().strip()
@@ -402,7 +418,7 @@ class MainWindow(QMainWindow):
                     rules_obj = Rules(filtered_rules)
         include_tree = self._include_tree_checkbox.isChecked()
         result = self._copy_context_use_case.execute(
-            files, snippets, rules_obj, user_text, include_tree
+            files, snippets, screenshots, rules_obj, user_text, include_tree
         )
         if result.is_err():
             error: str = result.err() or ""
@@ -410,6 +426,27 @@ class MainWindow(QMainWindow):
 
     def _delete_selected(self) -> None:
         self._file_list.delete_selected()
+
+    def _capture_screenshot(self) -> None:
+        overlay = ScreenSnippetOverlay()
+        overlay.captured.connect(self._handle_captured_pixmap)  # type: ignore[arg-type]
+        overlay.show()
+        self._overlay = overlay
+
+    def _handle_captured_pixmap(self, pixmap) -> None:  # noqa: ANN001
+        from PySide6.QtCore import QBuffer, QByteArray, QIODevice
+        from datetime import datetime
+
+        buffer = QBuffer()
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        pixmap.save(buffer, "PNG")
+        data_b64 = bytes(QByteArray(buffer.data()).toBase64()).decode()
+        desc = datetime.now().strftime("%H:%M:%S")
+        shot_result = Screenshot.try_create(desc, data_b64)
+        if shot_result.is_ok():
+            shot = shot_result.ok()
+            assert shot is not None
+            self._file_list.add_screenshot(shot.description(), shot.data())
 
     def _open_settings(self) -> None:
         from codebase_to_llm.domain.rules import Rules

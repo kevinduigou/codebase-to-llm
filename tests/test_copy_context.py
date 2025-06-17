@@ -24,12 +24,12 @@ def test_include_tree_flag(tmp_path: Path):
     repo = FileSystemDirectoryRepository(tmp_path)
     clipboard = FakeClipboard()
     use_case = CopyContextUseCase(repo, clipboard)
-    use_case.execute([], [], include_tree=True)
+    use_case.execute([], [], [], include_tree=True)
     assert clipboard.text is not None
     assert "<tree_structure>" in clipboard.text
     clipboard2 = FakeClipboard()
     use_case2 = CopyContextUseCase(repo, clipboard2)
-    use_case2.execute([], [], include_tree=False)
+    use_case2.execute([], [], [], include_tree=False)
     assert clipboard2.text is not None
     assert "<tree_structure>" not in clipboard2.text
 
@@ -44,8 +44,24 @@ def test_selected_text(tmp_path: Path):
     assert snippet_result.is_ok()
     snippet = snippet_result.ok()
     assert snippet is not None
-    use_case.execute([], [snippet], include_tree=False)
+    use_case.execute([], [snippet], [], include_tree=False)
     assert clipboard.text is not None
     expected_tag = f"<{file_path}:1:2>"
     assert expected_tag in clipboard.text
     assert "line1" in clipboard.text
+
+def test_screenshot(tmp_path: Path):
+    repo = FileSystemDirectoryRepository(tmp_path)
+    clipboard = FakeClipboard()
+    use_case = CopyContextUseCase(repo, clipboard)
+    from codebase_to_llm.domain.screenshot import Screenshot
+
+    shot_result = Screenshot.try_create("snap", "BASE64DATA")
+    assert shot_result.is_ok()
+    shot = shot_result.ok()
+    assert shot is not None
+    use_case.execute([], [], [shot], include_tree=False)
+    assert clipboard.text is not None
+    assert "<screenshot:snap>" in clipboard.text
+    assert "BASE64DATA" in clipboard.text
+

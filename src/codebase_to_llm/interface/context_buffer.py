@@ -78,6 +78,12 @@ class ContextBufferWidget(QListWidget):
         if not self.findItems(str(rel_path), Qt.MatchFlag.MatchExactly):
             self.addItem(str(rel_path))
 
+    def add_screenshot(self, description: str, data_base64: str) -> None:
+        label = f"screenshot:{description}"
+        item = QListWidgetItem(label)
+        item.setData(Qt.ItemDataRole.UserRole, {"type": "screenshot", "data": data_base64})
+        self.addItem(item)
+
     def _add_files_from_directory(self, directory: Path) -> None:
         ignore_tokens = get_ignore_tokens(directory)
         for root, dirs, files in os.walk(directory):

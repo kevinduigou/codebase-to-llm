@@ -8,6 +8,7 @@ from codebase_to_llm.domain.selected_text import SelectedText
 
 from codebase_to_llm.domain.result import Err, Ok, Result
 from codebase_to_llm.domain.rules import Rules
+from codebase_to_llm.domain.screenshot import Screenshot
 
 from .ports import ClipboardPort, DirectoryRepositoryPort
 
@@ -24,6 +25,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
         self,
         files: List[Path],
         snippets: List[SelectedText] | None = None,
+        screenshots: List[Screenshot] | None = None,
         rules: Rules | None = None,
         user_request: str | None = None,
         include_tree: bool = True,
@@ -58,6 +60,14 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                 parts.append(tag)
                 parts.append(snippet.text)
                 parts.append(f"</{snippet.path}:{snippet.start}:{snippet.end}>")
+
+        if screenshots:
+            for shot in screenshots:
+                desc = shot.description()
+                tag = f"<screenshot:{desc}>"
+                parts.append(tag)
+                parts.append(shot.data())
+                parts.append(f"</screenshot:{desc}>")
 
         if rules and rules.rules():
             parts.append("<rules_to_follow>")

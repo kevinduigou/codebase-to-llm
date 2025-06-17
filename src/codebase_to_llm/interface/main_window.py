@@ -78,7 +78,7 @@ class MainWindow(QMainWindow):
         "user_request_text_edit",
         "_rules",
         "_include_rules_checkboxes",
-        "_include_tree_checkbox",
+        "include_project_structure_checkbox",
         "_filter_model",
         "_name_filter_edit",
         "_toggle_preview_btn",
@@ -275,8 +275,8 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(settings_button)
 
         bottom_bar_layout = QHBoxLayout()
-        self._include_tree_checkbox = QCheckBox("Include Tree Context")
-        self._include_tree_checkbox.setChecked(True)
+        self.include_project_structure_checkbox = QCheckBox("Include Project Structure")
+        self.include_project_structure_checkbox.setChecked(True)
         self._include_rules_actions: dict[str, QAction] = {}
         self._rules_menu = QMenu(self)
         self._rules_button = QToolButton(self)
@@ -285,12 +285,14 @@ class MainWindow(QMainWindow):
         )
         self._rules_button.setText("Rules")
         self._rules_button.setMenu(self._rules_menu)
+        self._rules_button.setMinimumHeight(30)
+        self._rules_button.setIconSize(QSize(24, 24))
         self._rules_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self._rules_button.setToolButtonStyle(
             Qt.ToolButtonStyle.ToolButtonTextBesideIcon
         )
         self._refresh_rules_checkboxes()
-        bottom_bar_layout.addWidget(self._include_tree_checkbox)
+        bottom_bar_layout.addWidget(self.include_project_structure_checkbox)
         bottom_bar_layout.addWidget(self._rules_button)
         bottom_bar_layout.addStretch(1)
 
@@ -445,7 +447,7 @@ class MainWindow(QMainWindow):
                 )
                 if filtered_rules:
                     rules_obj = Rules(filtered_rules)
-        include_tree = self._include_tree_checkbox.isChecked()
+        include_tree = self.include_project_structure_checkbox.isChecked()
         result = self._copy_context_use_case.execute(
             files, snippets, rules_obj, user_text, include_tree
         )

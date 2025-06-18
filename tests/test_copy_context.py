@@ -95,8 +95,6 @@ class FakeRulesRepo(RulesRepositoryPort):
     def save_rules(self, rules):
         return None
 
-    def load_in_memory_rules(self):
-        return self.load_rules()
 
     def update_rule_enabled(self, name, enabled):
         return None

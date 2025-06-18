@@ -23,5 +23,6 @@ class RemoveElementsFromContextBufferUseCase:  # noqa: D101
                     int(elmts.split(":")[3]),
                 )
             elif elmts.startswith("external_source:"):
-                self._context_buffer_port.remove_external_source(elmts.split(":")[1])
+                http_url = ":".join(elmts.split(":")[1:])
+                self._context_buffer_port.remove_external_source(http_url)
         return Ok(None)

@@ -20,10 +20,6 @@ class RulesRepository(RulesRepositoryPort):
         self._path: Final = path or default_path
         self._rules: Rules | None = None
 
-    def load_in_memory_rules(self) -> Result[Rules, str]:
-        if self._rules is not None:
-            return Ok(self._rules)
-        return self.load_rules()
 
     # -------------------------------------------------------------- public API
     def load_rules(self) -> Result[Rules, str]:
@@ -44,8 +40,9 @@ class RulesRepository(RulesRepositoryPort):
                             if description_raw is not None
                             else None
                         )
+                        enabled = item.get("enabled", True)
                         content = str(content_raw) if content_raw is not None else ""
-                        rule_result = Rule.try_create(name, content, description)
+                        rule_result = Rule.try_create(name, content, description, enabled)
                         if rule_result.is_err():
                             return Err(rule_result.err() or "")
                         rule = rule_result.ok()
@@ -70,6 +67,7 @@ class RulesRepository(RulesRepositoryPort):
                     "name": rule.name(),
                     "content": rule.content(),
                     "description": rule.description(),
+                    "enabled": rule.enabled(),
                 }
                 for rule in rules.rules()
             ]
@@ -84,5 +82,5 @@ class RulesRepository(RulesRepositoryPort):
         if self._rules is None:
             return Err("Rules not loaded")
         self._rules = self._rules.update_rule_enabled(name, enabled)
-
+        self.save_rules(self._rules)
         return Ok(None)

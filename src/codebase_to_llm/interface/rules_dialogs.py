@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from codebase_to_llm.domain.rules import Rule
+from codebase_to_llm.domain.rules import Rule, Rules
 from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepository
 
 
@@ -208,9 +208,18 @@ class RulesManagerDialog(QDialog):
     def _on_delete(self) -> None:
         idx = self._selected_index
         if idx is not None and 0 <= idx < len(self._rules):
+            rule_to_delete: Rule = self._rules[idx]
+            rule_to_delete_name = rule_to_delete.name()
             del self._rules[idx]
             self._refresh_list()
             self._selected_index = None
+        current_rules = self._rules_repo.load_rules()
+        if current_rules.is_ok():
+            new_rules: Rules = current_rules.ok()
+            new_rules = new_rules.remove_rule(rule_to_delete_name)
+            self._rules_repo.save_rules(new_rules)
+        else:
+            QMessageBox.critical(self, "Save Error", current_rules.err() or "Failed to save rules.")
 
     def text(self) -> str:
         from codebase_to_llm.domain.rules import Rules

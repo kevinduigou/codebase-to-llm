@@ -89,7 +89,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                 parts.append(external_source.content)
                 parts.append(f"</{external_source.url}>")
 
-        rules_result = self._rules_repo.load_in_memory_rules()
+        rules_result = self._rules_repo.load_rules()
         if rules_result.is_ok():
             rules_val = rules_result.ok()
             assert rules_val is not None

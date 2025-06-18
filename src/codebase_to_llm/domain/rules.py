@@ -90,3 +90,13 @@ class Rules(ValueObject):
             else:
                 new_rules = new_rules + (rule,)
         return Rules(new_rules)
+
+
+    def remove_rule(self, name: str) -> "Rules":
+        new_rules: tuple[Rule, ...] = tuple()
+        for rule in self._rules:
+            if rule.name() == name:
+                new_rules = new_rules
+            else:
+                new_rules = new_rules + (rule,)
+        return Rules(new_rules)

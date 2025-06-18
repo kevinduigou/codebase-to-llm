@@ -3,6 +3,10 @@ from __future__ import annotations
 import re
 import urllib.request
 
+import trafilatura
+
+import trafilatura
+
 from codebase_to_llm.application.ports import ExternalSourceRepositoryPort
 from codebase_to_llm.domain.result import Err, Ok, Result
 
@@ -14,11 +18,10 @@ class UrlExternalSourceRepository(ExternalSourceRepositoryPort):
 
     def fetch_web_page(self, url: str) -> Result[str, str]:
         try:
-            with urllib.request.urlopen(url) as response:
-                charset = response.headers.get_content_charset() or "utf-8"
-                data = response.read().decode(charset, errors="ignore")
-            text = re.sub(r"<[^>]+>", " ", data)
-            return Ok(text)
+            downloaded = trafilatura.fetch_url(url)
+            markdown_content = trafilatura.extract(downloaded, output_format='markdown')
+
+            return Ok(markdown_content)
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))
 

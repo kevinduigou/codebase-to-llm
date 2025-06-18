@@ -15,10 +15,10 @@ from PySide6.QtGui import (
     QFont,
 )
 from PySide6.QtWidgets import QPlainTextEdit, QMenu, QTextEdit, QWidget
-from pygments import highlight, lex
-from pygments.lexers import PythonLexer, CppLexer, MarkdownLexer
-from pygments.formatter import Formatter
-from pygments.token import Token
+from pygments import highlight, lex  # type: ignore
+from pygments.lexers import PythonLexer, CppLexer, MarkdownLexer  # type: ignore
+from pygments.formatter import Formatter  # type: ignore
+from pygments.token import Token  # type: ignore
 
 
 class FileSyntaxHighlighter(QSyntaxHighlighter):

@@ -30,6 +30,9 @@ Perfect for setting boundaries or nudging LLM behavior (naming conventions, fold
 Select specific pieces of code — functions, components, tests — and share only what matters.
 Ideal for focused debugging or feature walkthroughs.
 
+🌐 **Add External Sources**
+Include text from web pages or YouTube transcripts in your context buffer for richer prompts.
+
 📋 **Clipboard Ready**
 Everything is formatted for easy pasting into ChatBots.
 Clean, structured, and optimized for context-aware conversations.
@@ -61,11 +64,12 @@ To install uv, please refer to the official documentation https://docs.astral.sh
 ```shell
 git clone
 ```
-## Configure venv
+
+## Configure venv
 ```shell
 # Install dependencies with **uv**
 uv venv --python 3.12
-# Synchroniz Deps
+# Synchronize Deps
 uv sync
 # Run the application
 uv run ./src/codebase_to_llm/main.py

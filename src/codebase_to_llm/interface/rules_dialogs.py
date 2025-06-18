@@ -18,10 +18,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from codebase_to_llm.domain.rules import Rule
-from codebase_to_llm.infrastructure.filesystem_rules_repository import (
-    FileSystemRulesRepository,
-)
+from codebase_to_llm.domain.rules import Rule, Rules
+from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepository
 
 
 class RulesDialogForm(QDialog):
@@ -32,7 +30,7 @@ class RulesDialogForm(QDialog):
     def __init__(
         self,
         current_rules: str,
-        rules_repo: FileSystemRulesRepository,
+        rules_repo: RulesRepository,
         name: str = "",
         description: str = "",
     ) -> None:
@@ -84,7 +82,7 @@ class RulesDialogForm(QDialog):
 class RulesManagerDialog(QDialog):
     """Dialog to manage all rules."""
 
-    def __init__(self, current_rules: str, rules_repo: FileSystemRulesRepository):
+    def __init__(self, current_rules: str, rules_repo: RulesRepository):
         super().__init__()
         self.setWindowTitle("Manage Rules")
         self._rules_repo = rules_repo
@@ -210,9 +208,23 @@ class RulesManagerDialog(QDialog):
     def _on_delete(self) -> None:
         idx = self._selected_index
         if idx is not None and 0 <= idx < len(self._rules):
+            rule_to_delete: Rule = self._rules[idx]
+            rule_to_delete_name = rule_to_delete.name()
             del self._rules[idx]
             self._refresh_list()
             self._selected_index = None
+        current_rules = self._rules_repo.load_rules()
+        if current_rules.is_ok():
+            rules_obj = current_rules.ok()
+            if rules_obj is not None:
+                new_rules = rules_obj.remove_rule(rule_to_delete_name)
+                self._rules_repo.save_rules(new_rules)
+            else:
+                QMessageBox.critical(self, "Save Error", "Failed to load rules.")
+        else:
+            QMessageBox.critical(
+                self, "Save Error", current_rules.err() or "Failed to save rules."
+            )
 
     def text(self) -> str:
         from codebase_to_llm.domain.rules import Rules

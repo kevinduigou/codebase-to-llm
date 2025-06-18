@@ -67,7 +67,7 @@ class ContextBufferWidget(QListWidget):
         self._add_external_source_to_context_buffer = (
             add_external_source_to_context_buffer
         )
-        self._selected_elmts = []
+        self._selected_elmts: list = []
         self._add_code_snippet_to_context_buffer = add_code_snippet_to_context_buffer
 
     def set_root_path(self, root_path: Path) -> None:
@@ -127,13 +127,8 @@ class ContextBufferWidget(QListWidget):
             self.addItem(item)
 
     def add_external_source(self, label: str, text: str) -> str | None:
-
-        result = self._add_external_source_to_context_buffer.execute(label, text)
-        if result.is_err():
-            return result.err()
-        item = QListWidgetItem(label)
-        item.setData(Qt.ItemDataRole.UserRole, f"external_source:{text}")
-        self.addItem(item)
+        self._add_external_source_to_context_buffer.execute(label)
+        return None
 
     def _add_files_from_directory(self, directory: Path) -> str | None:
         ignore_tokens = get_ignore_tokens(directory)
@@ -156,6 +151,7 @@ class ContextBufferWidget(QListWidget):
                         item = QListWidgetItem(str(rel_path))
                         item.setData(Qt.ItemDataRole.UserRole, f"file:{str(file_path)}")
                         self.addItem(item)
+        return None
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
         if event.mimeData().hasUrls():
@@ -176,14 +172,12 @@ class ContextBufferWidget(QListWidget):
                     if not self.findItems(str(rel_path), Qt.MatchFlag.MatchExactly):
                         result = self._add_file_to_context_buffer.execute(path)
                         if result.is_err():
-                            return result.err()
+                            continue
                         item = QListWidgetItem(str(rel_path))
                         item.setData(Qt.ItemDataRole.UserRole, f"file:{str(path)}")
                         self.addItem(item)
             elif path.is_dir():
-                result = self._add_files_from_directory(path)
-                if result is not None:
-                    return result
+                self._add_files_from_directory(path)
         event.acceptProposedAction()
 
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:  # noqa: N802

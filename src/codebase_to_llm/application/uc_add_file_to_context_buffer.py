@@ -12,11 +12,13 @@ class AddFileToContextBufferUseCase:
         self._context_buffer = context_buffer
 
     def execute(self, path: Path) -> Result[None, str]:
-        file = File.try_from_path(path)
-        if file.is_err():
-            return Err(file.err())
-
-        result = self._context_buffer.add_file(file.ok())
+        file_result = File.try_from_path(path)
+        if file_result.is_err():
+            return Err(file_result.err() or "Unknown error")
+        file = file_result.ok()
+        if file is None:
+            return Err("File creation failed")
+        result = self._context_buffer.add_file(file)
         if result.is_err():
-            return Err(result.err())
+            return Err(result.err() or "Unknown error")
         return Ok(None)

@@ -11,7 +11,7 @@ from .ports import RecentRepositoryPort
 class AddPathToRecentRepositoryListUseCase:  # noqa: D101
 
     def execute(self, path: Path, repo: RecentRepositoryPort) -> Result[None, str]:
-        current_result = self._repo.load_paths()
+        current_result = repo.load_paths()
         if current_result.is_ok():
             history_result = RecentRepositories.try_create(current_result.ok() or [])
         else:

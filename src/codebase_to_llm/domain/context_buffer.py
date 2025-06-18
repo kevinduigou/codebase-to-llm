@@ -38,8 +38,8 @@ class Snippet:
             with open(path, "r") as file:
                 lines = file.readlines()
                 # Only keep the lines between start and end
-                content = "".join(lines[start - 1 : end])
-            return Ok(Snippet(path, start, end, content))
+                snippet_content = "".join(lines[start - 1 : end])
+            return Ok(Snippet(path, start, end, snippet_content))
         except Exception as e:
             return Err(str(e))
 
@@ -55,8 +55,9 @@ class ExternalSource:
     ) -> Result["ExternalSource", str]:
         result = get_text_from_url(url)
         if result.is_err():
-            return Err(result.err())
-        return Ok(ExternalSource(url, result.ok()))
+            return Err(result.err() or "Unknown error")
+        text = result.ok() or ""
+        return Ok(ExternalSource(url, text))
 
 
 @final
@@ -76,8 +77,8 @@ class ContextBuffer:
         self._external_sources = external_sources
 
     def add_file(self, file: File) -> Result[None, str]:
-        list_of_file_path = [file_.path() for file_ in self._files]
-        if file.path() in list_of_file_path:
+        list_of_file_path = [file_.path for file_ in self._files]
+        if file.path in list_of_file_path:
             return Err("File already in the context buffer")
         self._files.append(file)
         return Ok(None)

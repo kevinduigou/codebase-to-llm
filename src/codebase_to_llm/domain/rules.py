@@ -83,7 +83,7 @@ class Rules(ValueObject):
         return "\n".join(parts)
 
     def update_rule_enabled(self, name: str, enabled: bool) -> "Rules":
-        new_rules = tuple()
+        new_rules: tuple[Rule, ...] = tuple()
         for rule in self._rules:
             if rule.name() == name:
                 new_rules = new_rules + (rule.update_enabled(enabled),)

@@ -82,7 +82,7 @@ class RulesDialogForm(QDialog):
 class RulesManagerDialog(QDialog):
     """Dialog to manage all rules."""
 
-    def __init__(self, current_rules: str, rules_repo: FileSystemRulesRepository):
+    def __init__(self, current_rules: str, rules_repo: RulesRepository):
         super().__init__()
         self.setWindowTitle("Manage Rules")
         self._rules_repo = rules_repo

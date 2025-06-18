@@ -66,18 +66,19 @@ class InMemoryContextBufferRepository(ContextBufferPort):
         """Remove a text snippet from the context buffer."""
         removed_snippet_result = self._context_buffer.remove_snippet(path, start, end)
         if removed_snippet_result.is_err():
-            return Err(removed_snippet_result.err())
-        self._context_buffer = removed_snippet_result.ok()
+            return Err(removed_snippet_result.err() or "Unknown error")
+        new_buffer = removed_snippet_result.ok()
+        if new_buffer is None:
+            return Err("Failed to remove snippet")
+        self._context_buffer = new_buffer
         return Ok(None)
 
-    def add_external_source(self, external_source: ExternalSource) -> Result[None, str]:
+    def add_external_source(self, url: str, text: str) -> Result[None, str]:
         """Add an external source to the context buffer."""
         new_list_of_external_sources = [
-            external_source
-            for external_source in self._context_buffer.get_external_sources()
-            if external_source.url != external_source.url
+            es for es in self._context_buffer.get_external_sources() if es.url != url
         ]
-        new_list_of_external_sources.append(external_source)
+        new_list_of_external_sources.append(ExternalSource(url, text))
         self._context_buffer = ContextBuffer(
             files=self._context_buffer.get_files(),
             snippets=self._context_buffer.get_snippets(),

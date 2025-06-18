@@ -55,27 +55,41 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
             )
 
         for file_ in self._context_buffer.get_files():
-            tag = f"<{file_.path.relative_to(root_directory_path)}>"
+            if root_directory_path is not None:
+                root_path = Path(root_directory_path)
+                try:
+                    rel_path = file_.path.relative_to(root_path)
+                except ValueError:
+                    rel_path = file_.path
+            else:
+                rel_path = file_.path
+            tag = f"<{rel_path}>"
             parts.append(tag)
             parts.append(file_.content)
-            parts.append(f"</{file_.path.relative_to(root_directory_path)}>")
+            parts.append(f"</{rel_path}>")
 
         if self._context_buffer.get_snippets():
             for snippet in self._context_buffer.get_snippets():
-                tag = f"<{snippet.path.relative_to(root_directory_path)}:{snippet.start}:{snippet.end}>"
+                if root_directory_path is not None:
+                    root_path = Path(root_directory_path)
+                    try:
+                        rel_path = snippet.path.relative_to(root_path)
+                    except ValueError:
+                        rel_path = snippet.path
+                else:
+                    rel_path = snippet.path
+                tag = f"<{rel_path}:{snippet.start}:{snippet.end}>"
                 parts.append(tag)
                 parts.append(snippet.content)
-                parts.append(
-                    f"</{snippet.path.relative_to(root_directory_path)}:{snippet.start}:{snippet.end}>"
-                )
+                parts.append(f"</{rel_path}:{snippet.start}:{snippet.end}>")
         if self._context_buffer.get_external_sources():
             for external_source in self._context_buffer.get_external_sources():
                 tag = f"<{external_source.url}>"
                 parts.append(tag)
-                parts.append(external_source.text)
+                parts.append(external_source.content)
                 parts.append(f"</{external_source.url}>")
 
-        rules_result = self._rules_repo.load_in_memory_rules()
+        rules_result = self._rules_repo.load_rules()
         if rules_result.is_ok():
             rules_val = rules_result.ok()
             assert rules_val is not None
@@ -84,7 +98,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                 for rule in rules_val.rules():
                     if rule.enabled():
                         parts.append(rule.content())
-            parts.append("</rules_to_follow>")
+                parts.append("</rules_to_follow>")
 
         if user_request:
             parts.append("<user_request>")

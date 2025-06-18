@@ -79,6 +79,10 @@ from .rules_dialogs import RulesManagerDialog
 from codebase_to_llm.application.uc_add_external_source import (
     AddExternalSourceToContextBufferUseCase,
 )
+from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepository
+from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
+    InMemoryContextBufferRepository,
+)
 
 
 class MainWindow(QMainWindow):
@@ -91,7 +95,7 @@ class MainWindow(QMainWindow):
         "_repo",
         "_clipboard",
         "_copy_context_use_case",
-        "_recent_service",
+        "_recent_repo",
         "_rules_repo",
         "_recent_menu",
         "user_request_text_edit",
@@ -139,7 +143,7 @@ class MainWindow(QMainWindow):
             AddPathToRecentRepositoryListUseCase()
         )
         self._add_external_source_use_case = AddExternalSourceToContextBufferUseCase(
-            self._context_buffer
+            self._context_buffer, self._external_repo
         )
         self._add_file_to_context_buffer = AddFileToContextBufferUseCase(
             self._context_buffer
@@ -222,7 +226,7 @@ class MainWindow(QMainWindow):
 
         self._context_buffer_widget = ContextBufferWidget(
             initial_root,
-            self._copy_context,
+            lambda: self._handle_copy_context_widget(),
             self._add_file_to_context_buffer,
             self._remove_elmts_from_contxt_buffer,
             self._add_external_source_use_case,
@@ -413,11 +417,18 @@ class MainWindow(QMainWindow):
                 self._filter_model.mapFromSource(self._model.index(str(path)))
             )
             self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
-            self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
+            self._copy_context_use_case = CopyContextUseCase(
+                self._context_buffer, self._rules_repo, self._repo, self._clipboard
+            )
             self._context_buffer_widget.clear()
             self._context_buffer_widget.set_root_path(path)
             self._file_preview.clear()
-            self._recent_service.add_path(path)
+            # Save to recent repo
+            result = self._recent_repo.load_paths()
+            paths: list[Path] = result.ok() or []
+            if path not in paths:
+                paths.append(path)
+                self._recent_repo.save_paths(paths)
             self._populate_recent_menu()
 
     def _open_recent(self, path: Path) -> None:
@@ -427,11 +438,18 @@ class MainWindow(QMainWindow):
             self._filter_model.mapFromSource(self._model.index(str(path)))
         )
         self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
-        self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
+        self._copy_context_use_case = CopyContextUseCase(
+            self._context_buffer, self._rules_repo, self._repo, self._clipboard
+        )
         self._context_buffer_widget.clear()
         self._context_buffer_widget.set_root_path(path)
         self._file_preview.clear()
-        self._recent_service.add_path(path)
+        # Save to recent repo
+        result = self._recent_repo.load_paths()
+        paths: list[Path] = result.ok() or []
+        if path not in paths:
+            paths.append(path)
+            self._recent_repo.save_paths(paths)
         self._populate_recent_menu()
 
     def _populate_recent_menu(self) -> None:
@@ -453,7 +471,7 @@ class MainWindow(QMainWindow):
         )
         if result.is_err():
             error: str = result.err() or ""
-            QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", error)
+            QMessageBox.critical(self, "Copy Context Error", error)
 
     def _prompt_external_source(self) -> None:
         url, ok = QInputDialog.getText(
@@ -463,7 +481,7 @@ class MainWindow(QMainWindow):
         )
         if not ok or not url.strip():
             return
-        result = self._external_source_servcie.add_source(url.strip())
+        result = self._add_external_source_use_case.execute(url.strip())
         if result.is_ok():
             text = result.ok() or ""
             self._context_buffer_widget.add_external_source(url.strip(), text)
@@ -481,9 +499,24 @@ class MainWindow(QMainWindow):
         if result_load_rules.is_ok():
             rules_val = result_load_rules.ok()
             assert rules_val is not None
-            dialog = RulesManagerDialog(rules_val.to_text(), self._rules_repo)
+            # Only pass if self._rules_repo is a RulesRepository, else skip
+            from codebase_to_llm.infrastructure.filesystem_rules_repository import (
+                RulesRepository,
+            )
+
+            if isinstance(self._rules_repo, RulesRepository):
+                dialog = RulesManagerDialog(rules_val.to_text(), self._rules_repo)
+            else:
+                dialog = RulesManagerDialog(rules_val.to_text(), RulesRepository())
         else:
-            dialog = RulesManagerDialog("", self._rules_repo)
+            from codebase_to_llm.infrastructure.filesystem_rules_repository import (
+                RulesRepository,
+            )
+
+            if isinstance(self._rules_repo, RulesRepository):
+                dialog = RulesManagerDialog("", self._rules_repo)
+            else:
+                dialog = RulesManagerDialog("", RulesRepository())
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._refresh_rules_checkboxes()
 
@@ -513,7 +546,7 @@ class MainWindow(QMainWindow):
 
         rules_obj = None
         if self._rules_repo:
-            rules_result = self._rules_repo.load_in_memory_rules()
+            rules_result = self._rules_repo.load_rules()
             if rules_result.is_ok():
                 rules_obj = rules_result.ok()
         if rules_obj:
@@ -522,17 +555,36 @@ class MainWindow(QMainWindow):
                 action.setCheckable(True)
                 action.setChecked(rule.enabled())
                 action.setToolTip(rule.description() or "")
-                action.triggered.connect(
-                    lambda checked=False, rule=rule: self._rules_repo.update_rule_enabled(
-                        rule.name(), checked
+
+                def on_toggle(checked, rule=rule):
+                    # Update enabled state and save
+                    rules = list(rules_obj.rules())
+                    idx = rules.index(rule)
+                    rules[idx] = rule.update_enabled(checked)
+                    new_rules_result = rules_obj.__class__.try_create(rules)
+                    new_rules = (
+                        new_rules_result.ok() if new_rules_result.is_ok() else None
                     )
-                )
+                    if new_rules is not None:
+                        self._rules_repo.save_rules(new_rules)
+
+                action.triggered.connect(on_toggle)
                 self._rules_menu.addAction(action)
                 self._include_rules_actions[rule.name()] = action
         else:
             action = QAction("No Rules Available", self)
             action.setEnabled(False)
             self._rules_menu.addAction(action)
+
+    def _handle_copy_context_widget(self) -> None:
+        result = self._copy_context_use_case.execute(
+            self.user_request_text_edit.toPlainText(),
+            self._include_tree_checkbox.isChecked(),
+            self._model.rootPath(),
+        )
+        if result.is_err():
+            error: str = result.err() or ""
+            QMessageBox.critical(self, "Copy Context Error", error)
 
 
 if __name__ == "__main__":
@@ -544,11 +596,10 @@ if __name__ == "__main__":
         repo=FileSystemDirectoryRepository(root),
         clipboard=QtClipboardService(),
         initial_root=root,
-        rules_repo=FileSystemRulesRepository(),
-        recent_service=RecentRepositoryService(
-            FileSystemRecentRepository(Path.home() / ".dcc_recent")
-        ),
+        rules_repo=RulesRepository(),
+        recent_repo=FileSystemRecentRepository(Path.home() / ".dcc_recent"),
         external_repo=UrlExternalSourceRepository(),
+        context_buffer=InMemoryContextBufferRepository(),
     )
     window.show()
     sys.exit(app.exec())

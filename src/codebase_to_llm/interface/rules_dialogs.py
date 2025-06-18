@@ -220,9 +220,7 @@ class RulesManagerDialog(QDialog):
                 new_rules = rules_obj.remove_rule(rule_to_delete_name)
                 self._rules_repo.save_rules(new_rules)
             else:
-                QMessageBox.critical(
-                    self, "Save Error", "Failed to load rules."
-                )
+                QMessageBox.critical(self, "Save Error", "Failed to load rules.")
         else:
             QMessageBox.critical(
                 self, "Save Error", current_rules.err() or "Failed to save rules."

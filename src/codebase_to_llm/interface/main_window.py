@@ -99,7 +99,6 @@ class MainWindow(QMainWindow):
         "_rules_repo",
         "_recent_menu",
         "user_request_text_edit",
-        "_rules",
         "_include_rules_checkboxes",
         "_include_tree_checkbox",
         "_filter_model",
@@ -481,11 +480,12 @@ class MainWindow(QMainWindow):
         )
         if not ok or not url.strip():
             return
-        result = self._add_external_source_use_case.execute(url.strip())
-        if result.is_ok():
-            text = result.ok() or ""
-            self._context_buffer_widget.add_external_source(url.strip(), text)
-        else:
+
+        result = self._context_buffer_widget.add_external_source(url.strip())
+
+        # Update the graphical model
+
+        if result.is_err():
             QMessageBox.warning(
                 self,
                 "Load Error",
@@ -556,19 +556,11 @@ class MainWindow(QMainWindow):
                 action.setChecked(rule.enabled())
                 action.setToolTip(rule.description() or "")
 
-                def on_toggle(checked, rule=rule):
-                    # Update enabled state and save
-                    rules = list(rules_obj.rules())
-                    idx = rules.index(rule)
-                    rules[idx] = rule.update_enabled(checked)
-                    new_rules_result = rules_obj.__class__.try_create(rules)
-                    new_rules = (
-                        new_rules_result.ok() if new_rules_result.is_ok() else None
+                action.triggered.connect(
+                    lambda checked=False, rule=rule: self._rules_repo.update_rule_enabled(
+                        rule.name(), checked
                     )
-                    if new_rules is not None:
-                        self._rules_repo.save_rules(new_rules)
-
-                action.triggered.connect(on_toggle)
+                )
                 self._rules_menu.addAction(action)
                 self._include_rules_actions[rule.name()] = action
         else:

@@ -89,11 +89,11 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                 parts.append(external_source.content)
                 parts.append(f"</{external_source.url}>")
 
-        rules_result = self._rules_repo.load_rules()
+        rules_result = self._rules_repo.load_in_memory_rules()
         if rules_result.is_ok():
             rules_val = rules_result.ok()
             assert rules_val is not None
-            if rules_val.rules():
+            if rules_val.rules() and len(rules_val.rules()) > 0:
                 parts.append("<rules_to_follow>")
                 for rule in rules_val.rules():
                     if rule.enabled():

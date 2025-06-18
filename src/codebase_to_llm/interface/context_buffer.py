@@ -33,6 +33,7 @@ from codebase_to_llm.application.uc_remove_elmts_from_context_buffer import (
     RemoveElementsFromContextBufferUseCase,
 )
 from codebase_to_llm.domain.directory_tree import should_ignore, get_ignore_tokens
+from codebase_to_llm.domain.result import Result
 
 
 class ContextBufferWidget(QListWidget):
@@ -126,9 +127,13 @@ class ContextBufferWidget(QListWidget):
             )  # or just path if you want
             self.addItem(item)
 
-    def add_external_source(self, label: str, text: str) -> str | None:
-        self._add_external_source_to_context_buffer.execute(label)
-        return None
+    def add_external_source(self, url: str) -> Result[str, str]:
+        result = self._add_external_source_to_context_buffer.execute(url.strip())
+        if result.is_ok():
+            item = QListWidgetItem(url)
+            item.setData(Qt.ItemDataRole.UserRole, f"external_source:{url}")
+            self.addItem(item)
+        return result
 
     def _add_files_from_directory(self, directory: Path) -> str | None:
         ignore_tokens = get_ignore_tokens(directory)

@@ -95,6 +95,12 @@ class FakeRulesRepo(RulesRepositoryPort):
     def save_rules(self, rules):
         return None
 
+    def load_in_memory_rules(self):
+        return self.load_rules()
+
+    def update_rule_enabled(self, name, enabled):
+        return None
+
 
 def test_include_tree_flag(tmp_path: Path):
     (tmp_path / "file.txt").write_text("hello")

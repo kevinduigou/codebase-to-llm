@@ -85,6 +85,20 @@ from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
 )
 
 
+class RulesMenu(QMenu):
+    """A QMenu that does not close when a checkable action is toggled (for rules toggling)."""
+    def mouseReleaseEvent(self, event):
+        action = self.actionAt(event.pos())
+        if action and action.isCheckable():
+            # Toggle the action manually
+            action.setChecked(not action.isChecked())
+            # Emit the triggered signal manually (no arguments)
+            action.triggered.emit()
+            # Do NOT call super().mouseReleaseEvent(event) to prevent menu from closing
+            return
+        super().mouseReleaseEvent(event)
+
+
 class MainWindow(QMainWindow):
     """Qt main window binding infrastructure to application layer."""
 
@@ -324,7 +338,7 @@ class MainWindow(QMainWindow):
         self.include_project_structure_checkbox = QCheckBox("Include Project Structure")
         self.include_project_structure_checkbox.setChecked(True)
         self._include_rules_actions: dict[str, QAction] = {}
-        self._rules_menu = QMenu(self)
+        self._rules_menu = RulesMenu(self)
         self._rules_button = QToolButton(self)
         self._rules_button.setIcon(
             self.style().standardIcon(self.style().StandardPixmap.SP_DialogApplyButton)

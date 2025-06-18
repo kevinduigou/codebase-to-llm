@@ -37,7 +37,6 @@ class RulesRepositoryPort(Protocol):
     def load_rules(self) -> Result[Rules, str]: ...  # pragma: no cover
     def save_rules(self, rules: Rules) -> Result[None, str]: ...  # pragma: no cover
 
-
     def update_rule_enabled(
         self, name: str, enabled: bool
     ) -> Result[None, str]: ...  # pragma: no cover

@@ -91,7 +91,6 @@ class Rules(ValueObject):
                 new_rules = new_rules + (rule,)
         return Rules(new_rules)
 
-
     def remove_rule(self, name: str) -> "Rules":
         new_rules: tuple[Rule, ...] = tuple()
         for rule in self._rules:

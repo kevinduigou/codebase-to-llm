@@ -19,7 +19,7 @@ class UrlExternalSourceRepository(ExternalSourceRepositoryPort):
     def fetch_web_page(self, url: str) -> Result[str, str]:
         try:
             downloaded = trafilatura.fetch_url(url)
-            markdown_content = trafilatura.extract(downloaded, output_format='markdown')
+            markdown_content = trafilatura.extract(downloaded, output_format="markdown")
 
             return Ok(markdown_content)
         except Exception as exc:  # noqa: BLE001

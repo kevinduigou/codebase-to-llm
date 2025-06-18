@@ -219,7 +219,9 @@ class RulesManagerDialog(QDialog):
             new_rules = new_rules.remove_rule(rule_to_delete_name)
             self._rules_repo.save_rules(new_rules)
         else:
-            QMessageBox.critical(self, "Save Error", current_rules.err() or "Failed to save rules.")
+            QMessageBox.critical(
+                self, "Save Error", current_rules.err() or "Failed to save rules."
+            )
 
     def text(self) -> str:
         from codebase_to_llm.domain.rules import Rules

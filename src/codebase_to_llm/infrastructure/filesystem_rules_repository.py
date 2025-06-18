@@ -20,7 +20,6 @@ class RulesRepository(RulesRepositoryPort):
         self._path: Final = path or default_path
         self._rules: Rules | None = None
 
-
     # -------------------------------------------------------------- public API
     def load_rules(self) -> Result[Rules, str]:
         try:  # I/O happens in infra, so a *try* is acceptable here
@@ -42,7 +41,9 @@ class RulesRepository(RulesRepositoryPort):
                         )
                         enabled = item.get("enabled", True)
                         content = str(content_raw) if content_raw is not None else ""
-                        rule_result = Rule.try_create(name, content, description, enabled)
+                        rule_result = Rule.try_create(
+                            name, content, description, enabled
+                        )
                         if rule_result.is_err():
                             return Err(rule_result.err() or "")
                         rule = rule_result.ok()

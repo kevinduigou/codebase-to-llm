@@ -467,7 +467,7 @@ class MainWindow(QMainWindow):
     def _copy_context(self) -> None:  # noqa: D401
         result = self._copy_context_use_case.execute(
             self.user_request_text_edit.toPlainText(),
-            self._include_tree_checkbox.isChecked(),
+            self.include_project_structure_checkbox.isChecked(),
             self._model.rootPath(),
         )
         if result.is_err():
@@ -573,7 +573,7 @@ class MainWindow(QMainWindow):
     def _handle_copy_context_widget(self) -> None:
         result = self._copy_context_use_case.execute(
             self.user_request_text_edit.toPlainText(),
-            self._include_tree_checkbox.isChecked(),
+            self.include_project_structure_checkbox.isChecked(),
             self._model.rootPath(),
         )
         if result.is_err():

@@ -93,7 +93,11 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
         if rules_result.is_ok():
             rules_val = rules_result.ok()
             assert rules_val is not None
-            if rules_val.rules() and len(rules_val.rules()) > 0:
+            if (
+                rules_val.rules()
+                and len(list(filter(lambda x: x.enabled() == True, rules_val.rules())))
+                > 0
+            ):
                 parts.append("<rules_to_follow>")
                 for rule in rules_val.rules():
                     if rule.enabled():

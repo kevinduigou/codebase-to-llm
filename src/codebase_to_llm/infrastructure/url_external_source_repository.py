@@ -20,7 +20,8 @@ class UrlExternalSourceRepository(ExternalSourceRepositoryPort):
         try:
             downloaded = trafilatura.fetch_url(url)
             markdown_content = trafilatura.extract(downloaded, output_format="markdown")
-
+            if markdown_content is None:
+                return Err("Failed to extract content from the web page.")
             return Ok(markdown_content)
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))

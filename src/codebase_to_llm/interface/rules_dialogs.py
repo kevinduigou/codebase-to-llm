@@ -215,9 +215,14 @@ class RulesManagerDialog(QDialog):
             self._selected_index = None
         current_rules = self._rules_repo.load_rules()
         if current_rules.is_ok():
-            new_rules: Rules = current_rules.ok()
-            new_rules = new_rules.remove_rule(rule_to_delete_name)
-            self._rules_repo.save_rules(new_rules)
+            rules_obj = current_rules.ok()
+            if rules_obj is not None:
+                new_rules = rules_obj.remove_rule(rule_to_delete_name)
+                self._rules_repo.save_rules(new_rules)
+            else:
+                QMessageBox.critical(
+                    self, "Save Error", "Failed to load rules."
+                )
         else:
             QMessageBox.critical(
                 self, "Save Error", current_rules.err() or "Failed to save rules."

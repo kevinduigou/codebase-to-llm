@@ -27,7 +27,10 @@ class UrlExternalSourceRepository(ExternalSourceRepositoryPort):
 
         try:
             video_id = _extract_video_id(url)
-            transcript = YouTubeTranscriptApi.get_transcript(video_id)
+            languages = ["en", "fr"]
+            transcript = YouTubeTranscriptApi.get_transcript(
+                video_id, languages=languages
+            )
             lines = [item.get("text", "") for item in transcript]
             return Ok("\n".join(lines))
         except Exception as exc:  # noqa: BLE001

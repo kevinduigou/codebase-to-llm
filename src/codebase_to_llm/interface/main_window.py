@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
-from typing import Final, List, Callable, cast
+from typing import Final, List
 
 from PySide6.QtCore import (
     Qt,
@@ -40,14 +39,26 @@ from PySide6.QtWidgets import (
     QLabel,
 )
 
-from codebase_to_llm.application.copy_context import CopyContextUseCase
+from codebase_to_llm.application.uc_add_code_snippet_to_context_buffer import (
+    AddCodeSnippetToContextBufferUseCase,
+)
+from codebase_to_llm.application.uc_copy_context import CopyContextUseCase
 from codebase_to_llm.application.ports import (
     ClipboardPort,
+    ContextBufferPort,
     DirectoryRepositoryPort,
     ExternalSourceRepositoryPort,
+    RecentRepositoryPort,
+    RulesRepositoryPort,
 )
-from codebase_to_llm.application.recent_repository_service import (
-    RecentRepositoryService,
+from codebase_to_llm.application.uc_add_path_recent_repository_loaded_list import (
+    AddPathToRecentRepositoryListUseCase,
+)
+from codebase_to_llm.application.uc_add_file_to_context_buffer import (
+    AddFileToContextBufferUseCase,
+)
+from codebase_to_llm.application.uc_remove_elmts_from_context_buffer import (
+    RemoveElementsFromContextBufferUseCase,
 )
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
@@ -55,18 +66,19 @@ from codebase_to_llm.infrastructure.filesystem_directory_repository import (
 from codebase_to_llm.infrastructure.filesystem_recent_repository import (
     FileSystemRecentRepository,
 )
-from codebase_to_llm.infrastructure.filesystem_rules_repository import (
-    FileSystemRulesRepository,
-)
+
 from codebase_to_llm.infrastructure.url_external_source_repository import (
     UrlExternalSourceRepository,
 )
 from codebase_to_llm.domain.result import Result
-from codebase_to_llm.domain.selected_text import SelectedText
 
 from .context_buffer import ContextBufferWidget
 from .file_preview import FilePreviewWidget
 from .rules_dialogs import RulesManagerDialog
+
+from codebase_to_llm.application.uc_add_external_source import (
+    AddExternalSourceToContextBufferUseCase,
+)
 
 
 class MainWindow(QMainWindow):
@@ -75,7 +87,6 @@ class MainWindow(QMainWindow):
     __slots__ = (
         "_tree_view",
         "_file_preview",
-        "_file_list",
         "_model",
         "_repo",
         "_clipboard",
@@ -96,7 +107,7 @@ class MainWindow(QMainWindow):
         "_include_rules_actions",
         "_rules_menu",
         "_rules_button",
-        "_external_use_case",
+        "_context_buffer",
     )
 
     def __init__(
@@ -104,9 +115,10 @@ class MainWindow(QMainWindow):
         repo: DirectoryRepositoryPort,
         clipboard: ClipboardPort,
         initial_root: Path,
-        rules_repo: FileSystemRulesRepository,
-        recent_service: RecentRepositoryService,
+        rules_repo: RulesRepositoryPort,
+        recent_repo: RecentRepositoryPort,
         external_repo: ExternalSourceRepositoryPort,
+        context_buffer: ContextBufferPort,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
@@ -114,21 +126,30 @@ class MainWindow(QMainWindow):
 
         self._repo = repo
         self._clipboard: Final = clipboard
-        self._copy_context_use_case = CopyContextUseCase(repo, clipboard)
         self._rules_repo = rules_repo
-        self._recent_service = recent_service
-        from codebase_to_llm.application.load_external_source import (
-            LoadExternalSourceUseCase,
+        self._recent_repo = recent_repo
+        self._context_buffer = context_buffer
+        self._external_repo = external_repo
+
+        # Use cases Initialization
+        self._copy_context_use_case = CopyContextUseCase(
+            self._context_buffer, self._rules_repo, self._repo, self._clipboard
         )
-
-        self._external_use_case = LoadExternalSourceUseCase(external_repo)
-
-        self._rules: str = ""
-        rules_result = self._rules_repo.load_rules()
-        if rules_result.is_ok():
-            rules_val = rules_result.ok()
-            assert rules_val is not None
-            self._rules = rules_val.to_text()
+        self._add_path_recent_repository_loaded_list_use_case = (
+            AddPathToRecentRepositoryListUseCase()
+        )
+        self._add_external_source_use_case = AddExternalSourceToContextBufferUseCase(
+            self._context_buffer
+        )
+        self._add_file_to_context_buffer = AddFileToContextBufferUseCase(
+            self._context_buffer
+        )
+        self._add_code_snippet_to_context_buffer = AddCodeSnippetToContextBufferUseCase(
+            self._context_buffer
+        )
+        self._remove_elmts_from_contxt_buffer = RemoveElementsFromContextBufferUseCase(
+            self._context_buffer
+        )
 
         splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -199,13 +220,20 @@ class MainWindow(QMainWindow):
         title_bar_layout.addStretch(1)
         right_layout.addLayout(title_bar_layout)
 
-        self._file_list = ContextBufferWidget(initial_root, self._copy_context)
-        right_layout.addWidget(self._file_list)
+        self._context_buffer_widget = ContextBufferWidget(
+            initial_root,
+            self._copy_context,
+            self._add_file_to_context_buffer,
+            self._remove_elmts_from_contxt_buffer,
+            self._add_external_source_use_case,
+            self._add_code_snippet_to_context_buffer,
+        )
+        right_layout.addWidget(self._context_buffer_widget)
 
         splitter.addWidget(right_panel)
 
         # --------------------------- middle — file preview
-        self._file_preview = FilePreviewWidget(self._file_list.add_snippet)
+        self._file_preview = FilePreviewWidget(self._context_buffer_widget.add_snippet)
         self._preview_panel = QWidget()
         preview_layout = QVBoxLayout(self._preview_panel)
         preview_layout.setContentsMargins(0, 0, 0, 0)
@@ -318,20 +346,15 @@ class MainWindow(QMainWindow):
         copy_btn.setMinimumHeight(30)
         copy_btn.clicked.connect(self._copy_context)  # type: ignore[arg-type]
 
-        delete_icon = self.style().standardIcon(
-            self.style().StandardPixmap.SP_TrashIcon
+        external_icon = self.style().standardIcon(
+            self.style().StandardPixmap.SP_FileDialogNewFolder
         )
-        delete_btn = QPushButton("Delete Selected")
-        delete_btn.setIcon(delete_icon)
-        delete_btn.setIconSize(QSize(24, 24))
-        delete_btn.setMinimumHeight(30)
-        delete_btn.clicked.connect(self._delete_selected)  # type: ignore[arg-type]
-
         external_btn = QPushButton("Add External Source")
+        external_btn.setIcon(external_icon)
+        external_btn.setIconSize(QSize(24, 24))
         external_btn.setMinimumHeight(30)
         external_btn.clicked.connect(self._prompt_external_source)  # type: ignore[arg-type]
 
-        bottom_bar_layout.addWidget(delete_btn)
         bottom_bar_layout.addWidget(external_btn)
         bottom_bar_layout.addWidget(copy_btn)
 
@@ -375,7 +398,7 @@ class MainWindow(QMainWindow):
         menu.addAction(preview_action)
         add_action = QAction("Add to Context Buffer", self)
         add_action.triggered.connect(
-            lambda checked=False, p=file_path: self._file_list.add_file(p)
+            lambda checked=False, p=file_path: self._context_buffer_widget.add_file(p)
         )
         menu.addAction(add_action)
         menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
@@ -391,8 +414,8 @@ class MainWindow(QMainWindow):
             )
             self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
             self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
-            self._file_list.clear()
-            self._file_list.set_root_path(path)
+            self._context_buffer_widget.clear()
+            self._context_buffer_widget.set_root_path(path)
             self._file_preview.clear()
             self._recent_service.add_path(path)
             self._populate_recent_menu()
@@ -405,15 +428,15 @@ class MainWindow(QMainWindow):
         )
         self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
         self._copy_context_use_case = CopyContextUseCase(self._repo, self._clipboard)  # type: ignore[assignment]
-        self._file_list.clear()
-        self._file_list.set_root_path(path)
+        self._context_buffer_widget.clear()
+        self._context_buffer_widget.set_root_path(path)
         self._file_preview.clear()
         self._recent_service.add_path(path)
         self._populate_recent_menu()
 
     def _populate_recent_menu(self) -> None:
         self._recent_menu.clear()
-        result = self._recent_service.load_recent()
+        result = self._recent_repo.load_paths()
         if result.is_err():
             return
         paths = result.ok() or []
@@ -423,58 +446,14 @@ class MainWindow(QMainWindow):
             self._recent_menu.addAction(action)
 
     def _copy_context(self) -> None:  # noqa: D401
-        files: List[Path] = []
-        snippets: List[SelectedText] = []
-        for i in range(self._file_list.count()):
-            item = self._file_list.item(i)
-            data = item.data(Qt.ItemDataRole.UserRole)
-            if data:
-                text_data = str(data)
-                label = item.text()
-                try:
-                    path_str, start_str, end_str = label.rsplit(":", 2)
-                    snippet_result = SelectedText.try_create(
-                        Path(path_str), int(start_str), int(end_str), text_data
-                    )
-                    if snippet_result.is_ok():
-                        snippet = snippet_result.ok()
-                        assert snippet is not None
-                        snippets.append(snippet)
-                except Exception:
-                    continue
-            else:
-                files.append(Path(item.text()))
-        user_text = self.user_request_text_edit.toPlainText().strip()
-        from codebase_to_llm.domain.rules import Rules
-
-        checked_rule_names = [
-            name
-            for name, action in self._include_rules_actions.items()
-            if action.isChecked()
-        ]
-        rules_obj = None
-        if self._rules:
-            rules_result = self._rules_repo.load_rules()
-            if rules_result.is_ok():
-                all_rules_obj = rules_result.ok()
-                assert all_rules_obj is not None
-                filtered_rules = tuple(
-                    rule
-                    for rule in all_rules_obj.rules()
-                    if rule.name() in checked_rule_names
-                )
-                if filtered_rules:
-                    rules_obj = Rules(filtered_rules)
-        include_tree = self._include_tree_checkbox.isChecked()
         result = self._copy_context_use_case.execute(
-            files, snippets, rules_obj, user_text, include_tree
+            self.user_request_text_edit.toPlainText(),
+            self._include_tree_checkbox.isChecked(),
+            self._model.rootPath(),
         )
         if result.is_err():
             error: str = result.err() or ""
             QMessageBox.critical(self, "Copy\u00a0Context\u00a0Error", error)
-
-    def _delete_selected(self) -> None:
-        self._file_list.delete_selected()
 
     def _prompt_external_source(self) -> None:
         url, ok = QInputDialog.getText(
@@ -484,10 +463,10 @@ class MainWindow(QMainWindow):
         )
         if not ok or not url.strip():
             return
-        result = self._external_use_case.execute(url.strip())
+        result = self._external_source_servcie.add_source(url.strip())
         if result.is_ok():
             text = result.ok() or ""
-            self._file_list.add_external_source(url.strip(), text)
+            self._context_buffer_widget.add_external_source(url.strip(), text)
         else:
             QMessageBox.warning(
                 self,
@@ -506,7 +485,6 @@ class MainWindow(QMainWindow):
         else:
             dialog = RulesManagerDialog("", self._rules_repo)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self._rules = dialog.text()
             self._refresh_rules_checkboxes()
 
     def _show_user_request_context_menu(self, pos) -> None:
@@ -532,19 +510,23 @@ class MainWindow(QMainWindow):
     def _refresh_rules_checkboxes(self) -> None:
         self._rules_menu.clear()
         self._include_rules_actions.clear()
-        from codebase_to_llm.domain.rules import Rules
 
         rules_obj = None
-        if self._rules:
-            rules_result = self._rules_repo.load_rules()
+        if self._rules_repo:
+            rules_result = self._rules_repo.load_in_memory_rules()
             if rules_result.is_ok():
                 rules_obj = rules_result.ok()
         if rules_obj:
             for rule in rules_obj.rules():
                 action = QAction(rule.name(), self)
                 action.setCheckable(True)
-                action.setChecked(True)
+                action.setChecked(rule.enabled())
                 action.setToolTip(rule.description() or "")
+                action.triggered.connect(
+                    lambda checked=False, rule=rule: self._rules_repo.update_rule_enabled(
+                        rule.name(), checked
+                    )
+                )
                 self._rules_menu.addAction(action)
                 self._include_rules_actions[rule.name()] = action
         else:

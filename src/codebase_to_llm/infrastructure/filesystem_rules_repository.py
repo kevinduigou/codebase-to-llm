@@ -10,7 +10,7 @@ from codebase_to_llm.application.ports import RulesRepositoryPort
 from codebase_to_llm.domain.rules import Rule, Rules
 
 
-class FileSystemRulesRepository(RulesRepositoryPort):
+class RulesRepository(RulesRepositoryPort):
     """Reads / writes the rules text in the user’s home directory."""
 
     __slots__ = ("_path",)
@@ -18,6 +18,12 @@ class FileSystemRulesRepository(RulesRepositoryPort):
     def __init__(self, path: Path | None = None):
         default_path = Path.home() / ".copy_to_llm" / "rules"
         self._path: Final = path or default_path
+        self._rules: Rules | None = None
+
+    def load_in_memory_rules(self) -> Result[Rules, str]:
+        if self._rules is not None:
+            return Ok(self._rules)
+        return self.load_rules()
 
     # -------------------------------------------------------------- public API
     def load_rules(self) -> Result[Rules, str]:
@@ -50,6 +56,8 @@ class FileSystemRulesRepository(RulesRepositoryPort):
                 return Err(rules_result.err() or "")
             rules_value = rules_result.ok()
             assert rules_value is not None
+            # Keep rules in memory for faster access
+            self._rules = rules_value
             return Ok(rules_value)
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))
@@ -71,3 +79,10 @@ class FileSystemRulesRepository(RulesRepositoryPort):
             return Ok(None)
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))
+
+    def update_rule_enabled(self, name: str, enabled: bool) -> Result[None, str]:
+        if self._rules is None:
+            return Err("Rules not loaded")
+        self._rules = self._rules.update_rule_enabled(name, enabled)
+
+        return Ok(None)

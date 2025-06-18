@@ -2,13 +2,14 @@ from pathlib import Path
 
 import sys
 
+from codebase_to_llm.domain.context_buffer import Snippet
+
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-from codebase_to_llm.application.copy_context import CopyContextUseCase
+from codebase_to_llm.application.uc_copy_context import CopyContextUseCase
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
-from codebase_to_llm.domain.selected_text import SelectedText
 
 
 class FakeClipboard:
@@ -40,7 +41,7 @@ def test_selected_text(tmp_path: Path):
     repo = FileSystemDirectoryRepository(tmp_path)
     clipboard = FakeClipboard()
     use_case = CopyContextUseCase(repo, clipboard)
-    snippet_result = SelectedText.try_create(file_path, 1, 2, "line1\nline2\n")
+    snippet_result = Snippet.try_create(file_path, 1, 2, "line1\nline2\n")
     assert snippet_result.is_ok()
     snippet = snippet_result.ok()
     assert snippet is not None

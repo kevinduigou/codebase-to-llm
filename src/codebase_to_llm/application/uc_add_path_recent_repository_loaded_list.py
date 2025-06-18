@@ -8,18 +8,9 @@ from codebase_to_llm.domain.recent_repositories import RecentRepositories
 from .ports import RecentRepositoryPort
 
 
-class RecentRepositoryService:  # noqa: D101
-    __slots__ = ("_repo",)
+class AddPathToRecentRepositoryListUseCase:  # noqa: D101
 
-    def __init__(self, repo: RecentRepositoryPort) -> None:
-        self._repo: Final = repo
-
-    # -------------------------------------------------------------- queries
-    def load_recent(self) -> Result[List[Path], str]:
-        return self._repo.load_paths()
-
-    # -------------------------------------------------------------- commands
-    def add_path(self, path: Path) -> Result[None, str]:
+    def execute(self, path: Path, repo: RecentRepositoryPort) -> Result[None, str]:
         current_result = self._repo.load_paths()
         if current_result.is_ok():
             history_result = RecentRepositories.try_create(current_result.ok() or [])
@@ -29,4 +20,4 @@ class RecentRepositoryService:  # noqa: D101
         if history is None:
             return Err("Failed to load history")
         updated = history.add(path)
-        return self._repo.save_paths(list(updated.paths()))
+        return repo.save_paths(list(updated.paths()))

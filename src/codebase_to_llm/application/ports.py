@@ -3,6 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
+from codebase_to_llm.domain.context_buffer import (
+    ContextBuffer,
+    ExternalSource,
+    File,
+    Snippet,
+)
+
 from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.rules import Rules
 
@@ -48,3 +55,35 @@ class ExternalSourceRepositoryPort(Protocol):
     def fetch_youtube_transcript(
         self, url: str
     ) -> Result[str, str]: ...  # pragma: no cover
+
+
+class ContextBufferPort(Protocol):
+    """Pure port to manage the context buffer."""
+
+    def add_external_source(
+        self, url: str, text: str
+    ) -> Result[None, str]: ...  # pragma: no cover
+    def remove_external_source(
+        self, url: str
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def add_file(self, file: File) -> Result[None, str]: ...  # pragma: no cover
+    def remove_file(self, path: Path) -> Result[None, str]: ...  # pragma: no cover
+
+    def add_snippet(
+        self, snippet: Snippet
+    ) -> Result[None, str]: ...  # pragma: no cover
+    def remove_snippet(
+        self, path: Path, start: int, end: int
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def get_external_sources(
+        self,
+    ) -> list[ExternalSource]: ...  # pragma: no cover
+    def get_files(self) -> list[File]: ...  # pragma: no cover
+    def get_snippets(self) -> list[Snippet]: ...  # pragma: no cover
+    def get_context_buffer(self) -> ContextBuffer: ...  # pragma: no cover
+
+    def clear(self) -> Result[None, str]: ...  # pragma: no cover
+    def is_empty(self) -> bool: ...  # pragma: no cover
+    def count_items(self) -> int: ...  # pragma: no cover

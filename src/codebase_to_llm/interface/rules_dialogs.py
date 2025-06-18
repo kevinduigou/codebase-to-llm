@@ -19,9 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from codebase_to_llm.domain.rules import Rule
-from codebase_to_llm.infrastructure.filesystem_rules_repository import (
-    FileSystemRulesRepository,
-)
+from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepository
 
 
 class RulesDialogForm(QDialog):
@@ -32,7 +30,7 @@ class RulesDialogForm(QDialog):
     def __init__(
         self,
         current_rules: str,
-        rules_repo: FileSystemRulesRepository,
+        rules_repo: RulesRepository,
         name: str = "",
         description: str = "",
     ) -> None:

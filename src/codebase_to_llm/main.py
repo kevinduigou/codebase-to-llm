@@ -5,18 +5,23 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from codebase_to_llm.application.ports import ClipboardPort, DirectoryRepositoryPort
-from codebase_to_llm.application.recent_repository_service import (
-    RecentRepositoryService,
+from codebase_to_llm.application.ports import (
+    ClipboardPort,
+    ContextBufferPort,
+    DirectoryRepositoryPort,
+    ExternalSourceRepositoryPort,
 )
+
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
-from codebase_to_llm.infrastructure.filesystem_rules_repository import (
-    FileSystemRulesRepository,
-)
+
 from codebase_to_llm.infrastructure.filesystem_recent_repository import (
     FileSystemRecentRepository,
+)
+from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepository
+from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
+    InMemoryContextBufferRepository,
 )
 from codebase_to_llm.infrastructure.qt_clipboard_service import QtClipboardService
 from codebase_to_llm.infrastructure.url_external_source_repository import (
@@ -29,19 +34,21 @@ def main() -> None:  # noqa: D401 (simple verb)
     app = QApplication(sys.argv)
 
     root = Path.cwd()
+    #
     repo: DirectoryRepositoryPort = FileSystemDirectoryRepository(root)
-    rules_repo = FileSystemRulesRepository()
+    rules_repo = RulesRepository()
     recent_repo = FileSystemRecentRepository()
-    recent_service = RecentRepositoryService(recent_repo)
     clipboard: ClipboardPort = QtClipboardService()
-
+    context_buffer: ContextBufferPort = InMemoryContextBufferRepository()
+    external_repo: ExternalSourceRepositoryPort = UrlExternalSourceRepository()
     window = MainWindow(
         repo,
         clipboard,
         root,
         rules_repo,
-        recent_service,
-        UrlExternalSourceRepository(),
+        recent_repo,
+        external_repo,
+        context_buffer,
     )
     window.show()
     sys.exit(app.exec())

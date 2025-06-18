@@ -87,6 +87,7 @@ from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
 
 class RulesMenu(QMenu):
     """A QMenu that does not close when a checkable action is toggled (for rules toggling)."""
+
     def mouseReleaseEvent(self, event):
         action = self.actionAt(event.pos())
         if action and action.isCheckable():

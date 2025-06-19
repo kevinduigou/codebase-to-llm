@@ -51,4 +51,3 @@ class FavoritePrompts(ValueObject):
     def remove_prompt(self, name: str) -> "FavoritePrompts":
         new_prompts = tuple(p for p in self._prompts if p.name() != name)
         return FavoritePrompts(new_prompts)
-

@@ -25,7 +25,9 @@ from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository impor
 class PromptDialogForm(QDialog):
     """Dialog to edit a single prompt."""
 
-    def __init__(self, current_content: str, repo: FavoritePromptsRepository, name: str = "") -> None:
+    def __init__(
+        self, current_content: str, repo: FavoritePromptsRepository, name: str = ""
+    ) -> None:
         super().__init__()
         self.setWindowTitle("Edit Prompt")
         self._repo = repo
@@ -44,7 +46,8 @@ class PromptDialogForm(QDialog):
         layout.addWidget(self._edit)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.button(QDialogButtonBox.StandardButton.Save).setText("Save")
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancel")
@@ -67,12 +70,14 @@ class PromptsManagerDialog(QDialog):
         self.setWindowTitle("Manage Favorite Prompts")
         self._repo = repo
         self._selected_index: int | None = None
-        self._prompts: List[FavoritePrompt] = []
+        self._favorie_prompts: List[FavoritePrompt] = []
 
         layout = QHBoxLayout(self)
 
         self._list_widget = QListWidget()
-        self._list_widget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._list_widget.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
         self._list_widget.currentRowChanged.connect(self._on_selected)
         layout.addWidget(self._list_widget, 1)
 
@@ -96,20 +101,20 @@ class PromptsManagerDialog(QDialog):
         if result.is_ok():
             val = result.ok()
             assert val is not None
-            self._prompts = list(val.prompts())
+            self._favorie_prompts = list(val.prompts())
         else:
-            self._prompts = []
+            self._favorie_prompts = []
         self._refresh_list()
-        if self._prompts:
+        if self._favorie_prompts:
             self._list_widget.setCurrentRow(0)
 
     def _refresh_list(self) -> None:
         self._list_widget.clear()
-        for prompt in self._prompts:
+        for prompt in self._favorie_prompts:
             self._list_widget.addItem(prompt.name())
 
     def _on_selected(self, idx: int) -> None:
-        self._selected_index = idx if 0 <= idx < len(self._prompts) else None
+        self._selected_index = idx if 0 <= idx < len(self._favorie_prompts) else None
 
     def _on_new(self) -> None:
         dialog = PromptDialogForm("", self._repo, name="")
@@ -117,52 +122,79 @@ class PromptsManagerDialog(QDialog):
             name = dialog.name().strip()
             content = dialog.text()
             if not name:
-                QMessageBox.warning(self, "Validation Error", "Prompt name cannot be empty.")
+                QMessageBox.warning(
+                    self, "Validation Error", "Prompt name cannot be empty."
+                )
                 return
             result = FavoritePrompt.try_create(name, content)
             if result.is_err():
-                QMessageBox.warning(self, "Validation Error", result.err() or "Invalid prompt.")
+                QMessageBox.warning(
+                    self, "Validation Error", result.err() or "Invalid prompt."
+                )
                 return
-            self._prompts.append(result.ok())
+            prompt = result.ok()
+            try:
+                assert prompt is not None
+            except AssertionError:
+                QMessageBox.critical(self, "Save Error", "Failed to save prompts.")
+                return
+            self._favorie_prompts.append(prompt)
             self._refresh_list()
-            self._list_widget.setCurrentRow(len(self._prompts) - 1)
-            prompts_obj = FavoritePrompts(tuple(self._prompts))
+            self._list_widget.setCurrentRow(len(self._favorie_prompts) - 1)
+            prompts_obj = FavoritePrompts(tuple(self._favorie_prompts))
             save_result = self._repo.save_prompts(prompts_obj)
             if save_result.is_err():
-                QMessageBox.critical(self, "Save Error", save_result.err() or "Failed to save prompts.")
+                QMessageBox.critical(
+                    self, "Save Error", save_result.err() or "Failed to save prompts."
+                )
 
     def _on_modify(self) -> None:
         idx = self._selected_index
-        if idx is not None and 0 <= idx < len(self._prompts):
-            prompt = self._prompts[idx]
-            dialog = PromptDialogForm(prompt.content(), self._repo, name=prompt.name())
+        if idx is not None and 0 <= idx < len(self._favorie_prompts):
+            favorite_prompt: FavoritePrompt = self._favorie_prompts[idx]
+            dialog = PromptDialogForm(
+                favorite_prompt.content(), self._repo, name=favorite_prompt.name()
+            )
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 name = dialog.name().strip()
                 content = dialog.text()
                 if not name:
-                    QMessageBox.warning(self, "Validation Error", "Prompt name cannot be empty.")
+                    QMessageBox.warning(
+                        self, "Validation Error", "Prompt name cannot be empty."
+                    )
                     return
                 result = FavoritePrompt.try_create(name, content)
                 if result.is_err():
-                    QMessageBox.warning(self, "Validation Error", result.err() or "Invalid prompt.")
+                    QMessageBox.warning(
+                        self, "Validation Error", result.err() or "Invalid prompt."
+                    )
                     return
-                self._prompts[idx] = result.ok()
+                if result.ok() is None:
+                    QMessageBox.critical(self, "Save Error", "Failed to save prompts.")
+                    return
+                favorite_prompt_saved: FavoritePrompt = result.ok()  # type: ignore
+                self._favorie_prompts[idx] = favorite_prompt_saved
+
                 self._refresh_list()
                 self._list_widget.setCurrentRow(idx)
-                prompts_obj = FavoritePrompts(tuple(self._prompts))
+                prompts_obj = FavoritePrompts(tuple(self._favorie_prompts))
                 save_result = self._repo.save_prompts(prompts_obj)
                 if save_result.is_err():
-                    QMessageBox.critical(self, "Save Error", save_result.err() or "Failed to save prompts.")
+                    QMessageBox.critical(
+                        self,
+                        "Save Error",
+                        save_result.err() or "Failed to save prompts.",
+                    )
 
     def _on_delete(self) -> None:
         idx = self._selected_index
-        if idx is not None and 0 <= idx < len(self._prompts):
-            del self._prompts[idx]
+        if idx is not None and 0 <= idx < len(self._favorie_prompts):
+            del self._favorie_prompts[idx]
             self._refresh_list()
             self._selected_index = None
-            prompts_obj = FavoritePrompts(tuple(self._prompts))
+            prompts_obj = FavoritePrompts(tuple(self._favorie_prompts))
             save_result = self._repo.save_prompts(prompts_obj)
             if save_result.is_err():
-                QMessageBox.critical(self, "Save Error", save_result.err() or "Failed to save prompts.")
-
-
+                QMessageBox.critical(
+                    self, "Save Error", save_result.err() or "Failed to save prompts."
+                )

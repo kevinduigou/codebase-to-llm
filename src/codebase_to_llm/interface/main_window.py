@@ -91,6 +91,9 @@ from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
     InMemoryContextBufferRepository,
 )
 from codebase_to_llm.application.ports import PromptRepositoryPort
+from codebase_to_llm.application.uc_set_prompt_from_favorite import (
+    AddPromptFromFavoriteLisUseCase,
+)
 
 
 class RulesMenu(QMenu):
@@ -136,6 +139,7 @@ class MainWindow(QMainWindow):
         "_context_buffer",
         "_prompt_repo",
         "_add_prompt_from_file_use_case",
+        "_add_prompt_from_favorite_list_use_case",
     )
 
     def __init__(
@@ -183,6 +187,9 @@ class MainWindow(QMainWindow):
             self._context_buffer
         )
         self._add_prompt_from_file_use_case = AddPromptFromFileUseCase(
+            self._prompt_repo
+        )
+        self._add_prompt_from_favorite_list_use_case = AddPromptFromFavoriteLisUseCase(
             self._prompt_repo
         )
 
@@ -577,6 +584,7 @@ class MainWindow(QMainWindow):
         from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository import (
             FavoritePromptsRepository,
         )
+
         if result.is_ok():
             prompts_val = result.ok()
             assert prompts_val is not None
@@ -605,12 +613,27 @@ class MainWindow(QMainWindow):
                 menu.addSeparator()
                 for prompt in prompts_obj.prompts():
                     action = QAction(prompt.name(), self)
-                    action.triggered.connect(
-                        lambda checked=False, text=prompt.content(): self.user_request_text_edit.insertPlainText(text)
-                    )
+
+                    def make_triggered_action(content):
+                        return (
+                            lambda checked=False: self._handle_set_prompt_from_favorite(
+                                content
+                            )
+                        )
+
+                    action.triggered.connect(make_triggered_action(prompt.content()))
                     menu.addAction(action)
 
         menu.exec_(self.user_request_text_edit.mapToGlobal(pos))
+
+    def _handle_set_prompt_from_favorite(self, content: str) -> None:
+        result = self._add_prompt_from_favorite_list_use_case.execute(content)
+        if result.is_err():
+            QMessageBox.warning(
+                self, "Prompt Error", result.err() or "Could not set prompt."
+            )
+        else:
+            self.user_request_text_edit.setPlainText(content)
 
     def _filter_by_name(self, text: str) -> None:
         self._filter_model.setFilterRegularExpression(QRegularExpression(text))
@@ -670,6 +693,7 @@ if __name__ == "__main__":
     from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository import (
         FavoritePromptsRepository,
     )
+
     root = Path.cwd()
     window = MainWindow(
         repo=FileSystemDirectoryRepository(root),

@@ -54,8 +54,9 @@ class FavoritePromptsRepository(FavoritePromptsRepositoryPort):
             data = [
                 {"name": p.name(), "content": p.content()} for p in prompts.prompts()
             ]
-            self._path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            self._path.write_text(
+                json.dumps(data, ensure_ascii=False), encoding="utf-8"
+            )
             return Ok(None)
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))
-

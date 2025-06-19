@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Final, Set
+from typing import Final
 
 from codebase_to_llm.domain.result import Err, Ok, Result
 from codebase_to_llm.domain.directory_tree import build_tree as domain_build_tree

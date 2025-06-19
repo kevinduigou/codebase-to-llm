@@ -3,11 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Final, List, final
+from typing import List, final
 
 
 from codebase_to_llm.domain.result import Err, Ok, Result
-from codebase_to_llm.domain.rules import Rules
 
 from .ports import (
     ClipboardPort,
@@ -95,8 +94,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
             assert rules_val is not None
             if (
                 rules_val.rules()
-                and len(list(filter(lambda x: x.enabled() == True, rules_val.rules())))
-                > 0
+                and len(list(filter(lambda x: x.enabled(), rules_val.rules()))) > 0
             ):
                 parts.append("<rules_to_follow>")
                 for rule in rules_val.rules():

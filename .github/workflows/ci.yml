@@ -36,6 +36,11 @@ jobs:
         run: |
           uv sync --dev
           uv run mypy .
+      
+      - name: Type check with mypy
+        run: |
+          uv sync --dev
+          uv run ruff check
 
       - name: Run unit tests with pytest
         run: |

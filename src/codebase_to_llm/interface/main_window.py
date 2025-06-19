@@ -4,17 +4,16 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Final, List
+from typing import Final
 
 from PySide6.QtCore import (
     Qt,
     QDir,
     QSortFilterProxyModel,
     QRegularExpression,
-    QRect,
     QSize,
 )
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -70,6 +69,9 @@ from codebase_to_llm.infrastructure.filesystem_recent_repository import (
     FileSystemRecentRepository,
 )
 
+from codebase_to_llm.infrastructure.in_memory_prompt_repository import (
+    InMemoryPromptRepository,
+)
 from codebase_to_llm.infrastructure.url_external_source_repository import (
     UrlExternalSourceRepository,
 )
@@ -635,6 +637,7 @@ if __name__ == "__main__":
         recent_repo=FileSystemRecentRepository(Path.home() / ".dcc_recent"),
         external_repo=UrlExternalSourceRepository(),
         context_buffer=InMemoryContextBufferRepository(),
+        prompt_repo=InMemoryPromptRepository(),
     )
     window.show()
     sys.exit(app.exec())

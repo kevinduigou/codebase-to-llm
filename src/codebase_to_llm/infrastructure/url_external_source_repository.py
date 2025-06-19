@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import re
-import urllib.request
 
 import trafilatura
 
-import trafilatura
 
 from codebase_to_llm.application.ports import ExternalSourceRepositoryPort
 from codebase_to_llm.domain.result import Err, Ok, Result

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Final
 from typing_extensions import final
 
 from codebase_to_llm.application.ports import ContextBufferPort

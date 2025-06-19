@@ -4,7 +4,9 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from codebase_to_llm.application.uc_add_prompt_from_file import AddPromptFromFileUseCase
-from codebase_to_llm.infrastructure.in_memory_prompt_repository import InMemoryPromptRepository
+from codebase_to_llm.infrastructure.in_memory_prompt_repository import (
+    InMemoryPromptRepository,
+)
 from codebase_to_llm.domain.prompt import Prompt
 
 
@@ -38,4 +40,3 @@ def test_execute_file_error(tmp_path: Path):
     use_case = AddPromptFromFileUseCase(repo)
     result = use_case.execute(file_path)
     assert result.is_err()
-

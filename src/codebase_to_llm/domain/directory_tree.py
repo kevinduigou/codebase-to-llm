@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Final, Iterable, List, Set
+from typing import Final, List, Set
 
 from .result import Err, Ok, Result
 

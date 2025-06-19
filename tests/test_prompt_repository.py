@@ -4,7 +4,9 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from codebase_to_llm.domain.prompt import Prompt
-from codebase_to_llm.infrastructure.in_memory_prompt_repository import InMemoryPromptRepository
+from codebase_to_llm.infrastructure.in_memory_prompt_repository import (
+    InMemoryPromptRepository,
+)
 
 
 def test_set_and_get_prompt():

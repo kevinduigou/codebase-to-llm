@@ -16,7 +16,8 @@
    - Enable or disable specific **rules**.
    - Add your **task description** in the input field.
    - Choose whether to **include the directory tree**.
-7. Click **"Copy Context"**.
+5. Click **"Copy Context"**.
+6. Or use **"Go To"** to copy the context and open ChatGPT or Claude directly in your browser.
 8. **Paste the result into your LLM tool** to get coding assistance.
 
 ---

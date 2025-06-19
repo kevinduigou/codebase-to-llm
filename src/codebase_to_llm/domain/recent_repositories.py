@@ -6,7 +6,7 @@ from typing import Iterable, List, Tuple, Final
 from typing_extensions import final
 
 from .value_object import ValueObject
-from .result import Result, Ok, Err
+from .result import Result, Ok
 
 MAX_HISTORY: Final[int] = 10
 

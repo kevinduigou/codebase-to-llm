@@ -11,12 +11,13 @@
    the **📁 Open Recently** menu. Click **🔍 Refresh View** if the file tree needs updating.
 3. **Drag files or select snippets** from the preview panel into the **Context Buffer**.
 4. **Add external sources** via the **Add External Source** button to include web pages or YouTube transcripts.
-4. Optionally:
+5. **Use "Add as Prompt"** by right-clicking a file in the tree to fill the prompt box with its content.
+6. Optionally:
    - Enable or disable specific **rules**.
    - Add your **task description** in the input field.
    - Choose whether to **include the directory tree**.
-5. Click **"Copy Context"**.
-6. **Paste the result into your LLM tool** to get coding assistance.
+7. Click **"Copy Context"**.
+8. **Paste the result into your LLM tool** to get coding assistance.
 
 ---
 
@@ -73,6 +74,7 @@
 
 - 🔍 **Regex file filter**: Use the input above the tree to filter visible files. Try `.*\.py$` to show only Python files.
 - 🖱️ **Right-click power**: Right-click on tree items, file preview, or buffer items for advanced actions.
+- ✏️ **Add as Prompt**: Use the tree view context menu to load a file's text directly into the prompt box.
 - 📎 **Context is copied in plain text**: You can paste it directly into any chat with an LLM, or save it to a file for later use.
 - 🧠 **LLM prompt hint**: Begin your prompt like this for better results:  
   > "Here's my code context for reference. Please help me [describe task]..."

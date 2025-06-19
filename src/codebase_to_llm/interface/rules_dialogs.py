@@ -114,7 +114,6 @@ class RulesManagerDialog(QDialog):
         self._load_rules()
 
     def _load_rules(self) -> None:
-        from codebase_to_llm.domain.rules import Rules
 
         rules_result = self._rules_repo.load_rules()
         if rules_result.is_ok():
@@ -227,7 +226,6 @@ class RulesManagerDialog(QDialog):
             )
 
     def text(self) -> str:
-        from codebase_to_llm.domain.rules import Rules
 
         rules_obj = Rules(tuple(self._rules))
         return rules_obj.to_text()

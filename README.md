@@ -30,6 +30,10 @@ Perfect for setting boundaries or nudging LLM behavior (naming conventions, fold
 Select specific pieces of code — functions, components, tests — and share only what matters.
 Ideal for focused debugging or feature walkthroughs.
 
+✏️ **Add as Prompt**
+Right-click any file and instantly load its content as your prompt text.
+Great for turning documentation or examples into your request.
+
 🌐 **Add External Sources**
 Include text from web pages or YouTube transcripts in your context buffer for richer prompts.
 

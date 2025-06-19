@@ -58,6 +58,9 @@ from codebase_to_llm.application.uc_add_path_recent_repository_loaded_list impor
 from codebase_to_llm.application.uc_add_file_to_context_buffer import (
     AddFileToContextBufferUseCase,
 )
+from codebase_to_llm.application.uc_create_file import CreateFileUseCase
+from codebase_to_llm.application.uc_create_directory import CreateDirectoryUseCase
+from codebase_to_llm.application.uc_delete_path import DeletePathUseCase
 from codebase_to_llm.application.uc_remove_elmts_from_context_buffer import (
     RemoveElementsFromContextBufferUseCase,
 )
@@ -141,6 +144,9 @@ class MainWindow(QMainWindow):
         "_prompt_repo",
         "_add_prompt_from_file_use_case",
         "_add_prompt_from_favorite_list_use_case",
+        "_create_file_use_case",
+        "_create_directory_use_case",
+        "_delete_path_use_case",
     )
 
     def __init__(
@@ -193,6 +199,9 @@ class MainWindow(QMainWindow):
         self._add_prompt_from_favorite_list_use_case = AddPromptFromFavoriteLisUseCase(
             self._prompt_repo
         )
+        self._create_file_use_case = CreateFileUseCase(self._repo)
+        self._create_directory_use_case = CreateDirectoryUseCase(self._repo)
+        self._delete_path_use_case = DeletePathUseCase(self._repo)
 
         splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -452,24 +461,43 @@ class MainWindow(QMainWindow):
             return
         source_index = self._filter_model.mapToSource(index)
         file_path = Path(self._model.filePath(source_index))
-        if not file_path.is_file():
-            return
         menu = QMenu(self)
-        preview_action = QAction("Open Preview", self)
-        preview_action.triggered.connect(
-            lambda checked=False, p=file_path: self._file_preview.load_file(p)
+
+        if file_path.is_file():
+            preview_action = QAction("Open Preview", self)
+            preview_action.triggered.connect(
+                lambda checked=False, p=file_path: self._file_preview.load_file(p)
+            )
+            menu.addAction(preview_action)
+            prompt_action = QAction("Add as Prompt", self)
+            prompt_action.triggered.connect(
+                lambda checked=False, p=file_path: self._add_prompt_from_file(p)
+            )
+            menu.addAction(prompt_action)
+            add_action = QAction("Add to Context Buffer", self)
+            add_action.triggered.connect(
+                lambda checked=False, p=file_path: self._context_buffer_widget.add_file(
+                    p
+                )
+            )
+            menu.addAction(add_action)
+        else:
+            new_file_action = QAction("New File", self)
+            new_file_action.triggered.connect(
+                lambda checked=False, p=file_path: self._prompt_new_file(p)
+            )
+            menu.addAction(new_file_action)
+            new_dir_action = QAction("New Folder", self)
+            new_dir_action.triggered.connect(
+                lambda checked=False, p=file_path: self._prompt_new_directory(p)
+            )
+            menu.addAction(new_dir_action)
+
+        delete_action = QAction("Delete", self)
+        delete_action.triggered.connect(
+            lambda checked=False, p=file_path: self._delete_tree_path(p)
         )
-        menu.addAction(preview_action)
-        prompt_action = QAction("Add as Prompt", self)
-        prompt_action.triggered.connect(
-            lambda checked=False, p=file_path: self._add_prompt_from_file(p)
-        )
-        menu.addAction(prompt_action)
-        add_action = QAction("Add to Context Buffer", self)
-        add_action.triggered.connect(
-            lambda checked=False, p=file_path: self._context_buffer_widget.add_file(p)
-        )
-        menu.addAction(add_action)
+        menu.addAction(delete_action)
         menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
 
     def _add_prompt_from_file(self, path: Path) -> None:
@@ -495,6 +523,9 @@ class MainWindow(QMainWindow):
             self._copy_context_use_case = CopyContextUseCase(
                 self._context_buffer, self._rules_repo, self._repo, self._clipboard
             )
+            self._create_file_use_case = CreateFileUseCase(self._repo)
+            self._create_directory_use_case = CreateDirectoryUseCase(self._repo)
+            self._delete_path_use_case = DeletePathUseCase(self._repo)
             self._context_buffer_widget.clear()
             self._context_buffer_widget.set_root_path(path)
             self._file_preview.clear()
@@ -516,6 +547,9 @@ class MainWindow(QMainWindow):
         self._copy_context_use_case = CopyContextUseCase(
             self._context_buffer, self._rules_repo, self._repo, self._clipboard
         )
+        self._create_file_use_case = CreateFileUseCase(self._repo)
+        self._create_directory_use_case = CreateDirectoryUseCase(self._repo)
+        self._delete_path_use_case = DeletePathUseCase(self._repo)
         self._context_buffer_widget.clear()
         self._context_buffer_widget.set_root_path(path)
         self._file_preview.clear()
@@ -692,6 +726,37 @@ class MainWindow(QMainWindow):
             action = QAction("No Rules Available", self)
             action.setEnabled(False)
             self._rules_menu.addAction(action)
+
+    def _prompt_new_file(self, directory: Path) -> None:
+        name, ok = QInputDialog.getText(self, "New File", "Enter file name:")
+        if not ok or not name.strip():
+            return
+        base_dir = directory if directory.is_dir() else directory.parent
+        rel_path = base_dir.relative_to(Path(self._model.rootPath())) / name
+        result = self._create_file_use_case.execute(rel_path)
+        if result.is_err():
+            QMessageBox.warning(self, "File Error", result.err() or "")
+        self._model.refresh(self._model.index(str(base_dir)))
+
+    def _prompt_new_directory(self, directory: Path) -> None:
+        name, ok = QInputDialog.getText(self, "New Folder", "Enter folder name:")
+        if not ok or not name.strip():
+            return
+        base_dir = directory if directory.is_dir() else directory.parent
+        rel_path = base_dir.relative_to(Path(self._model.rootPath())) / name
+        result = self._create_directory_use_case.execute(rel_path)
+        if result.is_err():
+            QMessageBox.warning(self, "Folder Error", result.err() or "")
+        self._model.refresh(self._model.index(str(base_dir)))
+
+    def _delete_tree_path(self, path: Path) -> None:
+        rel_path = path.relative_to(Path(self._model.rootPath()))
+        result = self._delete_path_use_case.execute(rel_path)
+        if result.is_err():
+            QMessageBox.warning(self, "Delete Error", result.err() or "")
+            return
+        parent_index = self._model.index(str(path.parent))
+        self._model.refresh(parent_index)
 
     def _handle_copy_context_widget(self) -> None:
         result = self._copy_context_use_case.execute(

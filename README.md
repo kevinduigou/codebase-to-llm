@@ -37,6 +37,9 @@ Great for turning documentation or examples into your request.
 🌐 **Add External Sources**
 Include text from web pages or YouTube transcripts in your context buffer for richer prompts.
 
+🗄️ **Create & Delete**
+Quickly create new files or folders or remove existing ones directly in the tree view.
+
 📋 **Clipboard Ready**
 Everything is formatted for easy pasting into ChatBots.
 Clean, structured, and optimized for context-aware conversations.

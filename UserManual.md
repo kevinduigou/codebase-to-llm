@@ -75,6 +75,7 @@
 
 - 🔍 **Regex file filter**: Use the input above the tree to filter visible files. Try `.*\.py$` to show only Python files.
 - 🖱️ **Right-click power**: Right-click on tree items, file preview, or buffer items for advanced actions.
+- 🗄️ **Manage files**: Create or delete files and folders directly from the tree view's context menu.
 - ✏️ **Add as Prompt**: Use the tree view context menu to load a file's text directly into the prompt box.
 - 📎 **Context is copied in plain text**: You can paste it directly into any chat with an LLM, or save it to a file for later use.
 - 🧠 **LLM prompt hint**: Begin your prompt like this for better results:  

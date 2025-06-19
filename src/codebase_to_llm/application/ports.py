@@ -32,6 +32,18 @@ class DirectoryRepositoryPort(Protocol):
         self, relative_path: Path
     ) -> Result[str, str]: ...  # pragma: no cover
 
+    def create_file(
+        self, relative_path: Path
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def create_directory(
+        self, relative_path: Path
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def delete_path(
+        self, relative_path: Path
+    ) -> Result[None, str]: ...  # pragma: no cover
+
 
 class RulesRepositoryPort(Protocol):
     """Pure port for persisting / loading the user’s custom rules."""

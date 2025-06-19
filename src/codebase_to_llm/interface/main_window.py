@@ -60,6 +60,9 @@ from codebase_to_llm.application.uc_add_file_to_context_buffer import (
 from codebase_to_llm.application.uc_remove_elmts_from_context_buffer import (
     RemoveElementsFromContextBufferUseCase,
 )
+from codebase_to_llm.application.uc_add_prompt_from_file import (
+    AddPromptFromFileUseCase,
+)
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
@@ -84,7 +87,6 @@ from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
     InMemoryContextBufferRepository,
 )
 from codebase_to_llm.application.ports import PromptRepositoryPort
-from codebase_to_llm.domain.prompt import Prompt
 
 
 class RulesMenu(QMenu):
@@ -129,6 +131,7 @@ class MainWindow(QMainWindow):
         "_rules_button",
         "_context_buffer",
         "_prompt_repo",
+        "_add_prompt_from_file_use_case",
     )
 
     def __init__(
@@ -172,6 +175,9 @@ class MainWindow(QMainWindow):
         )
         self._remove_elmts_from_contxt_buffer = RemoveElementsFromContextBufferUseCase(
             self._context_buffer
+        )
+        self._add_prompt_from_file_use_case = AddPromptFromFileUseCase(
+            self._prompt_repo
         )
 
         splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
@@ -434,19 +440,13 @@ class MainWindow(QMainWindow):
         menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
 
     def _add_prompt_from_file(self, path: Path) -> None:
-        try:
-            text = path.read_text(encoding="utf-8", errors="ignore")
-        except Exception as exc:  # noqa: BLE001
-            QMessageBox.warning(self, "Load Error", str(exc))
-            return
-        result = Prompt.try_create(text)
+        result = self._add_prompt_from_file_use_case.execute(path)
         if result.is_err():
             QMessageBox.warning(self, "Prompt Error", result.err() or "")
             return
         prompt = result.ok()
         if prompt is None:
             return
-        self._prompt_repo.set_prompt(prompt)
         self.user_request_text_edit.setPlainText(prompt.content)
 
     def _choose_directory(self) -> None:

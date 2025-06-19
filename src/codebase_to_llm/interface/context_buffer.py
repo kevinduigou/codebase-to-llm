@@ -58,7 +58,7 @@ class ContextBufferWidget(QListWidget):
     ):
         super().__init__()
         self.setAcceptDrops(True)
-        self.setSelectionMode(QAbstractItemView.ExtendedSelection)  # type: ignore[attr-defined]
+        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)  # type: ignore[attr-defined]
         self._root_path = root_path
         self._copy_context = copy_context
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)

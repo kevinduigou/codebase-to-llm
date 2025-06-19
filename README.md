@@ -45,7 +45,7 @@ Clean, structured, and optimized for context-aware conversations.
 
 1. Browse any directory from the **left panel** (tree view).
 2. Drag‑and‑drop files into the **right panel** for context "buffering".
-3. Hit **Copy Context** to send to the clipboard:
+3. Hit **Copy Context** to send to the clipboard:
    * the filtered directory tree (tagged `<tree_structure>`), and
    * the full contents of every collected file (tagged by path).
 4. Use **Go To** to copy the context and open ChatGPT or Claude in your browser.

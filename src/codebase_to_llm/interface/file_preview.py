@@ -13,8 +13,9 @@ from PySide6.QtGui import (
     QTextCharFormat,
     QColor,
     QFont,
+    QKeyEvent,
 )
-from PySide6.QtWidgets import QPlainTextEdit, QMenu, QTextEdit, QWidget
+from PySide6.QtWidgets import QPlainTextEdit, QMenu, QTextEdit, QWidget, QMessageBox
 from pygments import lex  # type: ignore
 from pygments.lexers import PythonLexer, CppLexer, MarkdownLexer  # type: ignore
 from pygments.token import Token  # type: ignore
@@ -71,34 +72,86 @@ class FileSyntaxHighlighter(QSyntaxHighlighter):
 
 
 class FilePreviewWidget(QPlainTextEdit):
-    """Read-only file preview widget with line numbers."""
+    """File preview and editing widget with line numbers."""
 
     __slots__ = (
         "_line_number_area",
         "_add_snippet",
         "_current_path",
         "_syntax_highlighter",
+        "_is_modified",
     )
 
     def __init__(self, add_snippet: Callable[[Path, int, int, str], None]):
         super().__init__()
-        self.setReadOnly(True)
         self.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
         self._add_snippet = add_snippet
         self._current_path: Path | None = None
         self._syntax_highlighter: Optional[FileSyntaxHighlighter] = None
+        self._is_modified = False
 
         self._line_number_area = _LineNumberArea(self)
         self.blockCountChanged.connect(self._update_line_number_area_width)  # type: ignore[arg-type]
         self.updateRequest.connect(self._update_line_number_area)  # type: ignore[arg-type]
         self.cursorPositionChanged.connect(self._highlight_current_line)  # type: ignore[arg-type]
+        self.textChanged.connect(self._handle_text_changed)  # type: ignore[arg-type]
 
         self._update_line_number_area_width(0)
         self._highlight_current_line()
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
+
+    def _handle_text_changed(self) -> None:
+        self._is_modified = True
+
+    def save_file(self) -> bool:
+        if self._current_path is None:
+            return False
+
+        try:
+            text = self.toPlainText()
+            self._current_path.write_text(text, encoding="utf-8")
+            self._is_modified = False
+            return True
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Save Error",
+                f"Failed to save file: {str(e)}",
+                QMessageBox.StandardButton.Ok,
+            )
+            return False
+
+    def _show_context_menu(self, pos) -> None:
+        menu = QMenu(self)
+
+        if self.textCursor().hasSelection():
+            copy_action = QAction("Copy Selected", self)
+            copy_action.triggered.connect(self.copy)  # type: ignore[arg-type]
+            menu.addAction(copy_action)
+
+            add_action = QAction("Add to Context Buffer", self)
+            add_action.triggered.connect(self._handle_add_to_buffer)  # type: ignore[arg-type]
+            menu.addAction(add_action)
+
+        if self._is_modified:
+            save_action = QAction("Save", self)
+            save_action.triggered.connect(self.save_file)  # type: ignore[arg-type]
+            menu.addAction(save_action)
+
+        menu.exec_(self.mapToGlobal(pos))
+
+    def _highlight_current_line(self) -> None:
+        extra_selections = []
+        selection = QTextEdit.ExtraSelection()  # type: ignore[attr-defined]
+        line_color = self.palette().alternateBase().color().lighter(120)
+        selection.format.setBackground(line_color)
+        selection.cursor = self.textCursor()
+        selection.cursor.clearSelection()
+        extra_selections.append(selection)
+        self.setExtraSelections(extra_selections)
 
     def _line_number_area_width(self) -> int:
         digits = max(3, len(str(max(1, self.blockCount()))))
@@ -153,30 +206,6 @@ class FilePreviewWidget(QPlainTextEdit):
             bottom = top + int(self.blockBoundingRect(block).height())
             block_number += 1
 
-    def _highlight_current_line(self) -> None:
-        extra_selections = []
-        if not self.isReadOnly():
-            return
-        selection = QTextEdit.ExtraSelection()  # type: ignore[attr-defined]
-        line_color = self.palette().alternateBase().color().lighter(120)
-        selection.format.setBackground(line_color)
-        selection.cursor = self.textCursor()
-        selection.cursor.clearSelection()
-        extra_selections.append(selection)
-        self.setExtraSelections(extra_selections)
-
-    def _show_context_menu(self, pos) -> None:
-        if not self.textCursor().hasSelection():
-            return
-        menu = QMenu(self)
-        copy_action = QAction("Copy Selected", self)
-        copy_action.triggered.connect(self.copy)  # type: ignore[arg-type]
-        menu.addAction(copy_action)
-        add_action = QAction("Add to Context Buffer", self)
-        add_action.triggered.connect(self._handle_add_to_buffer)  # type: ignore[arg-type]
-        menu.addAction(add_action)
-        menu.exec_(self.mapToGlobal(pos))
-
     def _handle_add_to_buffer(self) -> None:
         if self._current_path is None:
             return
@@ -216,6 +245,17 @@ class FilePreviewWidget(QPlainTextEdit):
                 self._syntax_highlighter = None
         except Exception as exc:  # pylint: disable=broad-except
             self.setPlainText(f"<Could not preview file: {exc}>")
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if (
+            event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            and event.key() == Qt.Key.Key_S
+        ):
+            if self._is_modified:
+                self.save_file()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
 
 class _LineNumberArea(QWidget):

@@ -14,7 +14,6 @@ from PySide6.QtCore import (
     QSortFilterProxyModel,
     QRegularExpression,
     QSize,
-    QMimeData,
 )
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
@@ -98,17 +97,22 @@ from codebase_to_llm.application.uc_set_prompt_from_favorite import (
     AddPromptFromFavoriteLisUseCase,
 )
 
+
 class DragDropFileSystemModel(QFileSystemModel):
     """Custom file system model that supports drag and drop operations."""
-    
+
     def flags(self, index):
         default_flags = super().flags(index)
         if index.isValid():
-            return default_flags | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
-        return default_flags | Qt.ItemIsDropEnabled
+            return (
+                default_flags
+                | Qt.ItemFlag.ItemIsDragEnabled
+                | Qt.ItemFlag.ItemIsDropEnabled
+            )
+        return default_flags | Qt.ItemFlag.ItemIsDropEnabled
 
     def supportedDropActions(self):
-        return Qt.MoveAction | Qt.CopyAction
+        return Qt.DropAction.MoveAction | Qt.DropAction.CopyAction
 
     def canDropMimeData(self, data, action, row, column, parent):
         if not data.hasUrls():
@@ -119,7 +123,7 @@ class DragDropFileSystemModel(QFileSystemModel):
         if not self.canDropMimeData(data, action, row, column, parent):
             return False
 
-        if action == Qt.IgnoreAction:
+        if action == Qt.DropAction.IgnoreAction:
             return True
 
         target_dir = self.filePath(parent)
@@ -133,11 +137,13 @@ class DragDropFileSystemModel(QFileSystemModel):
 
             # Prevent overwriting
             if Path(target_path).exists():
-                QMessageBox.warning(None, "Warning", f"{file_name} already exists in target directory.")
+                QMessageBox.warning(
+                    None, "Warning", f"{file_name} already exists in target directory."
+                )
                 continue
 
             try:
-                if action == Qt.MoveAction:
+                if action == Qt.DropAction.MoveAction:
                     shutil.move(source_path, target_path)
                 else:
                     shutil.copy2(source_path, target_path)
@@ -146,6 +152,7 @@ class DragDropFileSystemModel(QFileSystemModel):
                 return False
 
         return True
+
 
 class RulesMenu(QMenu):
     """A QMenu that does not close when a checkable action is toggled (for rules toggling)."""
@@ -244,12 +251,12 @@ class MainWindow(QMainWindow):
             self._prompt_repo
         )
 
-        splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
+        splitter = QSplitter(Qt.Orientation.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
 
         # --------------------------- left — directory tree
         self._model = DragDropFileSystemModel()
-        self._model.setFilter(QDir.Dirs | QDir.Files | QDir.Hidden)  # type: ignore[attr-defined]
+        self._model.setFilter(QDir.Filter.Dirs | QDir.Filter.Files | QDir.Filter.Hidden)  # type: ignore[attr-defined]
         self._model.setRootPath(str(initial_root))
 
         self._filter_model = QSortFilterProxyModel()
@@ -265,7 +272,7 @@ class MainWindow(QMainWindow):
         )
         self._tree_view.setDragEnabled(True)
         self._tree_view.setAcceptDrops(True)
-        self._tree_view.setDragDropMode(QTreeView.DragDrop)
+        self._tree_view.setDragDropMode(QTreeView.DragDropMode.DragDrop)
         self._tree_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._tree_view.customContextMenuRequested.connect(self._show_tree_context_menu)
 
@@ -514,9 +521,9 @@ class MainWindow(QMainWindow):
 
         source_index = self._filter_model.mapToSource(index)
         file_path = Path(self._model.filePath(source_index))
-        
+
         menu = QMenu(self)
-        
+
         # Add file management actions
         new_file_action = QAction("New File", self)
         new_file_action.triggered.connect(lambda: self._create_item(index, False))
@@ -526,7 +533,7 @@ class MainWindow(QMainWindow):
         rename_action.triggered.connect(lambda: self._rename_item(index))
         delete_action = QAction("Delete", self)
         delete_action.triggered.connect(lambda: self._delete_item(index))
-        
+
         menu.addAction(new_file_action)
         menu.addAction(new_folder_action)
         menu.addSeparator()
@@ -548,7 +555,9 @@ class MainWindow(QMainWindow):
             menu.addAction(prompt_action)
             add_action = QAction("Add to Context Buffer", self)
             add_action.triggered.connect(
-                lambda checked=False, p=file_path: self._context_buffer_widget.add_file(p)
+                lambda checked=False, p=file_path: self._context_buffer_widget.add_file(
+                    p
+                )
             )
             menu.addAction(add_action)
 
@@ -585,19 +594,25 @@ class MainWindow(QMainWindow):
 
         source_index = self._filter_model.mapToSource(index)
         path = Path(self._model.filePath(source_index))
-        
+
         # Confirm deletion
         msg = f"Are you sure you want to delete '{path.name}'?"
         if path.is_dir():
             msg += "\nThis will delete the folder and all its contents!"
-            
-        reply = QMessageBox.question(self, 'Confirm Delete', msg, 
-                                   QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        
-        if reply == QMessageBox.Yes:
+
+        reply = QMessageBox.question(
+            self,
+            "Confirm Delete",
+            msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
             try:
                 if path.is_dir():
                     import shutil
+
                     shutil.rmtree(path)
                 else:
                     path.unlink()
@@ -610,12 +625,12 @@ class MainWindow(QMainWindow):
 
         source_index = self._filter_model.mapToSource(index)
         old_path = Path(self._model.filePath(source_index))
-        
+
         # Get new name from user
         new_name, ok = QInputDialog.getText(
             self, "Rename", "Enter new name:", text=old_path.name
         )
-        
+
         if ok and new_name and new_name != old_path.name:
             try:
                 new_path = old_path.parent / new_name

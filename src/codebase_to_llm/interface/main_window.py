@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import webbrowser
+import shutil
 from pathlib import Path
 from typing import Final
 
@@ -13,6 +14,7 @@ from PySide6.QtCore import (
     QSortFilterProxyModel,
     QRegularExpression,
     QSize,
+    QMimeData,
 )
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
@@ -96,6 +98,54 @@ from codebase_to_llm.application.uc_set_prompt_from_favorite import (
     AddPromptFromFavoriteLisUseCase,
 )
 
+class DragDropFileSystemModel(QFileSystemModel):
+    """Custom file system model that supports drag and drop operations."""
+    
+    def flags(self, index):
+        default_flags = super().flags(index)
+        if index.isValid():
+            return default_flags | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+        return default_flags | Qt.ItemIsDropEnabled
+
+    def supportedDropActions(self):
+        return Qt.MoveAction | Qt.CopyAction
+
+    def canDropMimeData(self, data, action, row, column, parent):
+        if not data.hasUrls():
+            return False
+        return True
+
+    def dropMimeData(self, data, action, row, column, parent):
+        if not self.canDropMimeData(data, action, row, column, parent):
+            return False
+
+        if action == Qt.IgnoreAction:
+            return True
+
+        target_dir = self.filePath(parent)
+        if not Path(target_dir).is_dir():
+            target_dir = str(Path(target_dir).parent)
+
+        for url in data.urls():
+            source_path = url.toLocalFile()
+            file_name = Path(source_path).name
+            target_path = str(Path(target_dir) / file_name)
+
+            # Prevent overwriting
+            if Path(target_path).exists():
+                QMessageBox.warning(None, "Warning", f"{file_name} already exists in target directory.")
+                continue
+
+            try:
+                if action == Qt.MoveAction:
+                    shutil.move(source_path, target_path)
+                else:
+                    shutil.copy2(source_path, target_path)
+            except Exception as e:
+                QMessageBox.critical(None, "Error", str(e))
+                return False
+
+        return True
 
 class RulesMenu(QMenu):
     """A QMenu that does not close when a checkable action is toggled (for rules toggling)."""
@@ -198,7 +248,7 @@ class MainWindow(QMainWindow):
         splitter.setChildrenCollapsible(False)
 
         # --------------------------- left — directory tree
-        self._model = QFileSystemModel()
+        self._model = DragDropFileSystemModel()
         self._model.setFilter(QDir.Dirs | QDir.Files | QDir.Hidden)  # type: ignore[attr-defined]
         self._model.setRootPath(str(initial_root))
 
@@ -214,6 +264,8 @@ class MainWindow(QMainWindow):
             self._filter_model.mapFromSource(self._model.index(str(initial_root)))
         )
         self._tree_view.setDragEnabled(True)
+        self._tree_view.setAcceptDrops(True)
+        self._tree_view.setDragDropMode(QTreeView.DragDrop)
         self._tree_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._tree_view.customContextMenuRequested.connect(self._show_tree_context_menu)
 
@@ -449,28 +501,127 @@ class MainWindow(QMainWindow):
     def _show_tree_context_menu(self, pos) -> None:
         index = self._tree_view.indexAt(pos)
         if not index.isValid():
+            # Show menu for creating new items when clicking empty space
+            menu = QMenu(self)
+            new_file_action = QAction("New File", self)
+            new_file_action.triggered.connect(lambda: self._create_item(index, False))
+            new_folder_action = QAction("New Folder", self)
+            new_folder_action.triggered.connect(lambda: self._create_item(index, True))
+            menu.addAction(new_file_action)
+            menu.addAction(new_folder_action)
+            menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
             return
+
         source_index = self._filter_model.mapToSource(index)
         file_path = Path(self._model.filePath(source_index))
-        if not file_path.is_file():
-            return
+        
         menu = QMenu(self)
-        preview_action = QAction("Open Preview", self)
-        preview_action.triggered.connect(
-            lambda checked=False, p=file_path: self._file_preview.load_file(p)
-        )
-        menu.addAction(preview_action)
-        prompt_action = QAction("Add as Prompt", self)
-        prompt_action.triggered.connect(
-            lambda checked=False, p=file_path: self._add_prompt_from_file(p)
-        )
-        menu.addAction(prompt_action)
-        add_action = QAction("Add to Context Buffer", self)
-        add_action.triggered.connect(
-            lambda checked=False, p=file_path: self._context_buffer_widget.add_file(p)
-        )
-        menu.addAction(add_action)
+        
+        # Add file management actions
+        new_file_action = QAction("New File", self)
+        new_file_action.triggered.connect(lambda: self._create_item(index, False))
+        new_folder_action = QAction("New Folder", self)
+        new_folder_action.triggered.connect(lambda: self._create_item(index, True))
+        rename_action = QAction("Rename", self)
+        rename_action.triggered.connect(lambda: self._rename_item(index))
+        delete_action = QAction("Delete", self)
+        delete_action.triggered.connect(lambda: self._delete_item(index))
+        
+        menu.addAction(new_file_action)
+        menu.addAction(new_folder_action)
+        menu.addSeparator()
+        menu.addAction(rename_action)
+        menu.addAction(delete_action)
+        menu.addSeparator()
+
+        # Add existing actions if it's a file
+        if file_path.is_file():
+            preview_action = QAction("Open Preview", self)
+            preview_action.triggered.connect(
+                lambda checked=False, p=file_path: self._file_preview.load_file(p)
+            )
+            menu.addAction(preview_action)
+            prompt_action = QAction("Add as Prompt", self)
+            prompt_action.triggered.connect(
+                lambda checked=False, p=file_path: self._add_prompt_from_file(p)
+            )
+            menu.addAction(prompt_action)
+            add_action = QAction("Add to Context Buffer", self)
+            add_action.triggered.connect(
+                lambda checked=False, p=file_path: self._context_buffer_widget.add_file(p)
+            )
+            menu.addAction(add_action)
+
         menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
+
+    def _create_item(self, parent_index, is_folder: bool) -> None:
+        # Get the parent directory path
+        if parent_index.isValid():
+            source_index = self._filter_model.mapToSource(parent_index)
+            parent_path = Path(self._model.filePath(source_index))
+            if parent_path.is_file():
+                parent_path = parent_path.parent
+        else:
+            parent_path = Path(self._model.rootPath())
+
+        # Get the new item name from user
+        item_type = "folder" if is_folder else "file"
+        name, ok = QInputDialog.getText(self, f"Create {item_type}", "Enter name:")
+        if not ok or not name:
+            return
+
+        try:
+            new_path = parent_path / name
+            if is_folder:
+                new_path.mkdir(exist_ok=False)
+            else:
+                new_path.touch(exist_ok=False)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
+    def _delete_item(self, index) -> None:
+        if not index.isValid():
+            return
+
+        source_index = self._filter_model.mapToSource(index)
+        path = Path(self._model.filePath(source_index))
+        
+        # Confirm deletion
+        msg = f"Are you sure you want to delete '{path.name}'?"
+        if path.is_dir():
+            msg += "\nThis will delete the folder and all its contents!"
+            
+        reply = QMessageBox.question(self, 'Confirm Delete', msg, 
+                                   QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        
+        if reply == QMessageBox.Yes:
+            try:
+                if path.is_dir():
+                    import shutil
+                    shutil.rmtree(path)
+                else:
+                    path.unlink()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
+
+    def _rename_item(self, index) -> None:
+        if not index.isValid():
+            return
+
+        source_index = self._filter_model.mapToSource(index)
+        old_path = Path(self._model.filePath(source_index))
+        
+        # Get new name from user
+        new_name, ok = QInputDialog.getText(
+            self, "Rename", "Enter new name:", text=old_path.name
+        )
+        
+        if ok and new_name and new_name != old_path.name:
+            try:
+                new_path = old_path.parent / new_name
+                old_path.rename(new_path)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
 
     def _add_prompt_from_file(self, path: Path) -> None:
         result = self._add_prompt_from_file_use_case.execute(path)

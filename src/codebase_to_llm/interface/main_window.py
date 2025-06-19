@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import webbrowser
 from pathlib import Path
 from typing import Final, List
 
@@ -375,8 +376,24 @@ class MainWindow(QMainWindow):
         external_btn.setMinimumHeight(30)
         external_btn.clicked.connect(self._prompt_external_source)  # type: ignore[arg-type]
 
+        goto_menu = QMenu(self)
+        goto_btn = QToolButton(self)
+        goto_btn.setText("Go To")
+        goto_btn.setMenu(goto_menu)
+        goto_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        goto_btn.setMinimumHeight(30)
+
+        chatgpt_action = QAction("ChatGPT", self)
+        chatgpt_action.triggered.connect(self._open_chatgpt)  # type: ignore[arg-type]
+        goto_menu.addAction(chatgpt_action)
+
+        claude_action = QAction("Claude", self)
+        claude_action.triggered.connect(self._open_claude)  # type: ignore[arg-type]
+        goto_menu.addAction(claude_action)
+
         bottom_bar_layout.addWidget(external_btn)
         bottom_bar_layout.addWidget(copy_btn)
+        bottom_bar_layout.addWidget(goto_btn)
 
         layout.addLayout(bottom_bar_layout)
 
@@ -594,6 +611,16 @@ class MainWindow(QMainWindow):
         if result.is_err():
             error: str = result.err() or ""
             QMessageBox.critical(self, "Copy Context Error", error)
+
+    def _open_chatgpt(self) -> None:
+        """Copy context then open ChatGPT in the browser."""
+        self._copy_context()
+        webbrowser.open("https://chat.openai.com/")
+
+    def _open_claude(self) -> None:
+        """Copy context then open Claude in the browser."""
+        self._copy_context()
+        webbrowser.open("https://claude.ai/")
 
 
 if __name__ == "__main__":

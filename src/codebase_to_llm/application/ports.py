@@ -9,6 +9,7 @@ from codebase_to_llm.domain.context_buffer import (
     File,
     Snippet,
 )
+from codebase_to_llm.domain.prompt import Prompt
 
 from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.rules import Rules
@@ -91,3 +92,10 @@ class ContextBufferPort(Protocol):
     def clear(self) -> Result[None, str]: ...  # pragma: no cover
     def is_empty(self) -> bool: ...  # pragma: no cover
     def count_items(self) -> int: ...  # pragma: no cover
+
+
+class PromptRepositoryPort(Protocol):
+    """Pure port to persist and retrieve the user prompt."""
+
+    def set_prompt(self, prompt: Prompt) -> Result[None, str]: ...  # pragma: no cover
+    def get_prompt(self) -> Result[Prompt | None, str]: ...  # pragma: no cover

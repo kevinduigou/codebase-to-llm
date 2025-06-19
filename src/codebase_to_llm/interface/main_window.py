@@ -83,6 +83,8 @@ from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepo
 from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
     InMemoryContextBufferRepository,
 )
+from codebase_to_llm.application.ports import PromptRepositoryPort
+from codebase_to_llm.domain.prompt import Prompt
 
 
 class RulesMenu(QMenu):
@@ -126,6 +128,7 @@ class MainWindow(QMainWindow):
         "_rules_menu",
         "_rules_button",
         "_context_buffer",
+        "_prompt_repo",
     )
 
     def __init__(
@@ -137,6 +140,7 @@ class MainWindow(QMainWindow):
         recent_repo: RecentRepositoryPort,
         external_repo: ExternalSourceRepositoryPort,
         context_buffer: ContextBufferPort,
+        prompt_repo: PromptRepositoryPort,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
@@ -148,6 +152,7 @@ class MainWindow(QMainWindow):
         self._recent_repo = recent_repo
         self._context_buffer = context_buffer
         self._external_repo = external_repo
+        self._prompt_repo = prompt_repo
 
         # Use cases Initialization
         self._copy_context_use_case = CopyContextUseCase(
@@ -416,12 +421,33 @@ class MainWindow(QMainWindow):
             lambda checked=False, p=file_path: self._file_preview.load_file(p)
         )
         menu.addAction(preview_action)
+        prompt_action = QAction("Add as Prompt", self)
+        prompt_action.triggered.connect(
+            lambda checked=False, p=file_path: self._add_prompt_from_file(p)
+        )
+        menu.addAction(prompt_action)
         add_action = QAction("Add to Context Buffer", self)
         add_action.triggered.connect(
             lambda checked=False, p=file_path: self._context_buffer_widget.add_file(p)
         )
         menu.addAction(add_action)
         menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
+
+    def _add_prompt_from_file(self, path: Path) -> None:
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.warning(self, "Load Error", str(exc))
+            return
+        result = Prompt.try_create(text)
+        if result.is_err():
+            QMessageBox.warning(self, "Prompt Error", result.err() or "")
+            return
+        prompt = result.ok()
+        if prompt is None:
+            return
+        self._prompt_repo.set_prompt(prompt)
+        self.user_request_text_edit.setPlainText(prompt.content)
 
     def _choose_directory(self) -> None:
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")

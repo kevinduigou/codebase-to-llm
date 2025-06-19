@@ -1,0 +1,1 @@
+from .filesystem_favorite_prompts_repository import FavoritePromptsRepository

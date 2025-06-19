@@ -50,6 +50,7 @@ from codebase_to_llm.application.ports import (
     ExternalSourceRepositoryPort,
     RecentRepositoryPort,
     RulesRepositoryPort,
+    FavoritePromptsRepositoryPort,
 )
 from codebase_to_llm.application.uc_add_path_recent_repository_loaded_list import (
     AddPathToRecentRepositoryListUseCase,
@@ -75,6 +76,7 @@ from codebase_to_llm.domain.result import Result
 from .context_buffer import ContextBufferWidget
 from .file_preview import FilePreviewWidget
 from .rules_dialogs import RulesManagerDialog
+from .prompts_dialogs import PromptsManagerDialog
 
 from codebase_to_llm.application.uc_add_external_source import (
     AddExternalSourceToContextBufferUseCase,
@@ -126,6 +128,7 @@ class MainWindow(QMainWindow):
         "_rules_menu",
         "_rules_button",
         "_context_buffer",
+        "_prompts_repo",
     )
 
     def __init__(
@@ -134,6 +137,7 @@ class MainWindow(QMainWindow):
         clipboard: ClipboardPort,
         initial_root: Path,
         rules_repo: RulesRepositoryPort,
+        prompts_repo: FavoritePromptsRepositoryPort,
         recent_repo: RecentRepositoryPort,
         external_repo: ExternalSourceRepositoryPort,
         context_buffer: ContextBufferPort,
@@ -145,6 +149,7 @@ class MainWindow(QMainWindow):
         self._repo = repo
         self._clipboard: Final = clipboard
         self._rules_repo = rules_repo
+        self._prompts_repo = prompts_repo
         self._recent_repo = recent_repo
         self._context_buffer = context_buffer
         self._external_repo = external_repo
@@ -328,6 +333,9 @@ class MainWindow(QMainWindow):
         edit_rules_action = QAction("Edit Rules", self)
         edit_rules_action.triggered.connect(self._open_settings)  # type: ignore[arg-type]
         settings_menu.addAction(edit_rules_action)
+        edit_prompts_action = QAction("Edit Favorite Prompts", self)
+        edit_prompts_action.triggered.connect(self._open_prompts_settings)  # type: ignore[arg-type]
+        settings_menu.addAction(edit_prompts_action)
         settings_button = QToolButton(self)
         settings_button.setIcon(settings_icon)
         settings_button.setMenu(settings_menu)
@@ -537,11 +545,44 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._refresh_rules_checkboxes()
 
+    def _open_prompts_settings(self) -> None:
+        result = self._prompts_repo.load_prompts()
+        from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository import (
+            FavoritePromptsRepository,
+        )
+        if result.is_ok():
+            prompts_val = result.ok()
+            assert prompts_val is not None
+            if isinstance(self._prompts_repo, FavoritePromptsRepository):
+                dialog = PromptsManagerDialog(self._prompts_repo)
+            else:
+                dialog = PromptsManagerDialog(FavoritePromptsRepository())
+        else:
+            if isinstance(self._prompts_repo, FavoritePromptsRepository):
+                dialog = PromptsManagerDialog(self._prompts_repo)
+            else:
+                dialog = PromptsManagerDialog(FavoritePromptsRepository())
+        dialog.exec()
+
     def _show_user_request_context_menu(self, pos) -> None:
         menu = QMenu(self)
         copy_context_action = QAction("Copy Context", self)
         copy_context_action.triggered.connect(self._copy_context)  # type: ignore[arg-type]
         menu.addAction(copy_context_action)
+
+        prompts_result = self._prompts_repo.load_prompts()
+        if prompts_result.is_ok():
+            prompts_obj = prompts_result.ok()
+            assert prompts_obj is not None
+            if prompts_obj.prompts():
+                menu.addSeparator()
+                for prompt in prompts_obj.prompts():
+                    action = QAction(prompt.name(), self)
+                    action.triggered.connect(
+                        lambda checked=False, text=prompt.content(): self.user_request_text_edit.insertPlainText(text)
+                    )
+                    menu.addAction(action)
+
         menu.exec_(self.user_request_text_edit.mapToGlobal(pos))
 
     def _filter_by_name(self, text: str) -> None:
@@ -599,13 +640,16 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     from codebase_to_llm.infrastructure.qt_clipboard_service import QtClipboardService
-
+    from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository import (
+        FavoritePromptsRepository,
+    )
     root = Path.cwd()
     window = MainWindow(
         repo=FileSystemDirectoryRepository(root),
         clipboard=QtClipboardService(),
         initial_root=root,
         rules_repo=RulesRepository(),
+        prompts_repo=FavoritePromptsRepository(),
         recent_repo=FileSystemRecentRepository(Path.home() / ".dcc_recent"),
         external_repo=UrlExternalSourceRepository(),
         context_buffer=InMemoryContextBufferRepository(),

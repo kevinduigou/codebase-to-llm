@@ -12,6 +12,7 @@ from codebase_to_llm.domain.context_buffer import (
 
 from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.rules import Rules
+from codebase_to_llm.domain.favorite_prompts import FavoritePrompts
 
 
 class ClipboardPort(Protocol):
@@ -91,3 +92,9 @@ class ContextBufferPort(Protocol):
     def clear(self) -> Result[None, str]: ...  # pragma: no cover
     def is_empty(self) -> bool: ...  # pragma: no cover
     def count_items(self) -> int: ...  # pragma: no cover
+
+class FavoritePromptsRepositoryPort(Protocol):
+    """Pure port for persisting favorite prompts."""
+
+    def load_prompts(self) -> Result[FavoritePrompts, str]: ...  # pragma: no cover
+    def save_prompts(self, prompts: FavoritePrompts) -> Result[None, str]: ...  # pragma: no cover

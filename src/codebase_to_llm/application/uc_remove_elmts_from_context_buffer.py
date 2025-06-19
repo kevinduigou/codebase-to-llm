@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from codebase_to_llm.application.ports import ContextBufferPort
-from codebase_to_llm.domain.context_buffer import Snippet
 from codebase_to_llm.domain.result import Ok, Result
 
 

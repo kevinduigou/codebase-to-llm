@@ -1,6 +1,5 @@
 from typing import Callable, final
 
-from codebase_to_llm.domain.value_object import ValueObject
 
 from dataclasses import dataclass
 from pathlib import Path

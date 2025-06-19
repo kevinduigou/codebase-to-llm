@@ -9,6 +9,7 @@ from codebase_to_llm.domain.context_buffer import (
     File,
     Snippet,
 )
+from codebase_to_llm.domain.prompt import Prompt
 
 from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.rules import Rules
@@ -98,3 +99,9 @@ class FavoritePromptsRepositoryPort(Protocol):
 
     def load_prompts(self) -> Result[FavoritePrompts, str]: ...  # pragma: no cover
     def save_prompts(self, prompts: FavoritePrompts) -> Result[None, str]: ...  # pragma: no cover
+
+class PromptRepositoryPort(Protocol):
+    """Pure port to persist and retrieve the user prompt."""
+
+    def set_prompt(self, prompt: Prompt) -> Result[None, str]: ...  # pragma: no cover
+    def get_prompt(self) -> Result[Prompt | None, str]: ...  # pragma: no cover

@@ -2,10 +2,10 @@ from pathlib import Path
 
 import sys
 
+sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
+
 from codebase_to_llm.domain.context_buffer import Snippet
 from codebase_to_llm.application.ports import ContextBufferPort, RulesRepositoryPort
-
-sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from codebase_to_llm.application.uc_copy_context import CopyContextUseCase
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (

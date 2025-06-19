@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar, Union, Final
+from typing import Generic, TypeVar, Union
 from typing_extensions import final
 
 T = TypeVar("T")

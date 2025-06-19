@@ -26,6 +26,9 @@ from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository impor
 from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
     InMemoryContextBufferRepository,
 )
+from codebase_to_llm.infrastructure.in_memory_prompt_repository import (
+    InMemoryPromptRepository,
+)
 from codebase_to_llm.infrastructure.qt_clipboard_service import QtClipboardService
 from codebase_to_llm.infrastructure.url_external_source_repository import (
     UrlExternalSourceRepository,
@@ -44,6 +47,7 @@ def main() -> None:  # noqa: D401 (simple verb)
     recent_repo = FileSystemRecentRepository()
     clipboard: ClipboardPort = QtClipboardService()
     context_buffer: ContextBufferPort = InMemoryContextBufferRepository()
+    prompt_repo = InMemoryPromptRepository()
     external_repo: ExternalSourceRepositoryPort = UrlExternalSourceRepository()
     window = MainWindow(
         repo,
@@ -54,6 +58,7 @@ def main() -> None:  # noqa: D401 (simple verb)
         recent_repo,
         external_repo,
         context_buffer,
+        prompt_repo,
     )
     window.show()
     sys.exit(app.exec())

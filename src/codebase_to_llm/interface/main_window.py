@@ -4,17 +4,16 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Final, List
+from typing import Final
 
 from PySide6.QtCore import (
     Qt,
     QDir,
     QSortFilterProxyModel,
     QRegularExpression,
-    QRect,
     QSize,
 )
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -61,6 +60,9 @@ from codebase_to_llm.application.uc_add_file_to_context_buffer import (
 from codebase_to_llm.application.uc_remove_elmts_from_context_buffer import (
     RemoveElementsFromContextBufferUseCase,
 )
+from codebase_to_llm.application.uc_add_prompt_from_file import (
+    AddPromptFromFileUseCase,
+)
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
@@ -68,6 +70,9 @@ from codebase_to_llm.infrastructure.filesystem_recent_repository import (
     FileSystemRecentRepository,
 )
 
+from codebase_to_llm.infrastructure.in_memory_prompt_repository import (
+    InMemoryPromptRepository,
+)
 from codebase_to_llm.infrastructure.url_external_source_repository import (
     UrlExternalSourceRepository,
 )
@@ -85,6 +90,7 @@ from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepo
 from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
     InMemoryContextBufferRepository,
 )
+from codebase_to_llm.application.ports import PromptRepositoryPort
 
 
 class RulesMenu(QMenu):
@@ -128,7 +134,8 @@ class MainWindow(QMainWindow):
         "_rules_menu",
         "_rules_button",
         "_context_buffer",
-        "_prompts_repo",
+        "_prompt_repo",
+        "_add_prompt_from_file_use_case",
     )
 
     def __init__(
@@ -141,6 +148,7 @@ class MainWindow(QMainWindow):
         recent_repo: RecentRepositoryPort,
         external_repo: ExternalSourceRepositoryPort,
         context_buffer: ContextBufferPort,
+        prompt_repo: PromptRepositoryPort,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
@@ -153,6 +161,7 @@ class MainWindow(QMainWindow):
         self._recent_repo = recent_repo
         self._context_buffer = context_buffer
         self._external_repo = external_repo
+        self._prompt_repo = prompt_repo
 
         # Use cases Initialization
         self._copy_context_use_case = CopyContextUseCase(
@@ -172,6 +181,9 @@ class MainWindow(QMainWindow):
         )
         self._remove_elmts_from_contxt_buffer = RemoveElementsFromContextBufferUseCase(
             self._context_buffer
+        )
+        self._add_prompt_from_file_use_case = AddPromptFromFileUseCase(
+            self._prompt_repo
         )
 
         splitter = QSplitter(Qt.Horizontal, self)  # type: ignore[attr-defined]
@@ -424,12 +436,27 @@ class MainWindow(QMainWindow):
             lambda checked=False, p=file_path: self._file_preview.load_file(p)
         )
         menu.addAction(preview_action)
+        prompt_action = QAction("Add as Prompt", self)
+        prompt_action.triggered.connect(
+            lambda checked=False, p=file_path: self._add_prompt_from_file(p)
+        )
+        menu.addAction(prompt_action)
         add_action = QAction("Add to Context Buffer", self)
         add_action.triggered.connect(
             lambda checked=False, p=file_path: self._context_buffer_widget.add_file(p)
         )
         menu.addAction(add_action)
         menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
+
+    def _add_prompt_from_file(self, path: Path) -> None:
+        result = self._add_prompt_from_file_use_case.execute(path)
+        if result.is_err():
+            QMessageBox.warning(self, "Prompt Error", result.err() or "")
+            return
+        prompt = result.ok()
+        if prompt is None:
+            return
+        self.user_request_text_edit.setPlainText(prompt.content)
 
     def _choose_directory(self) -> None:
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
@@ -653,6 +680,7 @@ if __name__ == "__main__":
         recent_repo=FileSystemRecentRepository(Path.home() / ".dcc_recent"),
         external_repo=UrlExternalSourceRepository(),
         context_buffer=InMemoryContextBufferRepository(),
+        prompt_repo=InMemoryPromptRepository(),
     )
     window.show()
     sys.exit(app.exec())

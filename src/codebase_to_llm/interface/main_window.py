@@ -848,8 +848,8 @@ class MainWindow(QMainWindow):
                 action.setToolTip(rule.description() or "")
 
                 action.triggered.connect(
-                    lambda checked=False, rule=rule: self._rules_repo.update_rule_enabled(
-                        rule.name(), checked
+                    lambda checked=None, rule=rule, action=action: self._rules_repo.update_rule_enabled(
+                        rule.name(), action.isChecked()
                     )
                 )
                 self._rules_menu.addAction(action)

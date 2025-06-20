@@ -162,8 +162,8 @@ class RulesMenu(QMenu):
         if action and action.isCheckable():
             # Toggle the action manually
             action.setChecked(not action.isChecked())
-            # Emit the triggered signal manually (no arguments)
-            action.triggered.emit()
+            # Emit the triggered signal manually with new checked state
+            action.triggered.emit(action.isChecked())
             # Do NOT call super().mouseReleaseEvent(event) to prevent menu from closing
             return
         super().mouseReleaseEvent(event)
@@ -848,7 +848,7 @@ class MainWindow(QMainWindow):
                 action.setToolTip(rule.description() or "")
 
                 action.triggered.connect(
-                    lambda checked=False, rule=rule: self._rules_repo.update_rule_enabled(
+                    lambda checked, rule=rule: self._rules_repo.update_rule_enabled(
                         rule.name(), checked
                     )
                 )

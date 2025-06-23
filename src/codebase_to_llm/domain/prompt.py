@@ -63,9 +63,6 @@ class Prompt(ValueObject):
                 if variable.key == key_from_prompt:
                     # Use Previous Variable
                     new_variables.append(variable)
-                    content = content.replace(
-                        f"{{{{{key_from_prompt}}}}}", variable.content
-                    )
                     break
             else:
                 # runs only if no break occurred in the for loop above,

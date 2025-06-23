@@ -68,6 +68,7 @@ from codebase_to_llm.application.uc_remove_elmts_from_context_buffer import (
 from codebase_to_llm.application.uc_add_prompt_from_file import (
     AddPromptFromFileUseCase,
 )
+from codebase_to_llm.application.uc_modify_prompt import ModifyPromptUseCase
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
@@ -201,6 +202,7 @@ class MainWindow(QMainWindow):
         "_prompt_repo",
         "_add_prompt_from_file_use_case",
         "_add_prompt_from_favorite_list_use_case",
+        "_modify_prompt_use_case",
     )
 
     def __init__(
@@ -256,6 +258,7 @@ class MainWindow(QMainWindow):
         self._add_key_variable_from_file_use_case = AddFileAsPromptVariableUseCase(
             self._prompt_repo
         )
+        self._modify_prompt_use_case = ModifyPromptUseCase(self._prompt_repo)
 
         splitter = QSplitter(Qt.Orientation.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -371,6 +374,9 @@ class MainWindow(QMainWindow):
         self.user_request_text_edit = QPlainTextEdit()
         self.user_request_text_edit.setPlaceholderText(
             "Describe your need or the bug here, LLM User Request..."
+        )
+        self.user_request_text_edit.textChanged.connect(
+            self._handle_user_request_modification
         )
         # Remove fixed height to allow resizing
         # self.user_request_text_edit.setFixedHeight(100)
@@ -506,6 +512,13 @@ class MainWindow(QMainWindow):
         )
 
         self._tree_view.doubleClicked.connect(self._handle_tree_double_click)  # type: ignore[arg-type]
+
+    def _handle_user_request_modification(self) -> None:
+        new_content = self.user_request_text_edit.toPlainText()
+        result = self._modify_prompt_use_case.execute(new_content)
+        if result.is_err():
+            # For now, we can just print the error. A status bar could be better.
+            print(f"Error modifying prompt: {result.err()}")
 
     # ---------------------------------------------------------------------
     # Preview logic
@@ -967,6 +980,7 @@ class MainWindow(QMainWindow):
             webbrowser.open("https://gemini.google.com/")
         else:
             QMessageBox.critical(self, "Copy Context Error", result.err() or "")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

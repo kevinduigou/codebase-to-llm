@@ -9,7 +9,14 @@ from .value_object import ValueObject
 from .result import Result, Ok, Err
 
 
-@dataclass
+@dataclass(frozen=True)
+class PromptHasBeenModifiedEvent:
+    """Event indicating that the prompt has been modified."""
+
+    new_prompt: Prompt
+
+
+@dataclass(frozen=True)
 class FileAddedAsPromptVariableEvent:
     """Event indicating that a file has been added as a prompt variable."""
 
@@ -43,14 +50,30 @@ class Prompt(ValueObject):
     _variables: list[PromptVariable]
 
     @staticmethod
-    def try_create(content: str) -> Result["Prompt", str]:
+    def try_create(
+        content: str, variables: list[PromptVariable] = []
+    ) -> Result["Prompt", str]:
         if not content or not content.strip():
             return Err("Prompt cannot be empty")
 
         keys = sorted(list(set(re.findall(r"\{\{(.*?)\}\}", content))))
-        variables = [PromptVariable(key, "") for key in keys]
+        new_variables = []
+        for key_from_prompt in keys:
+            for variable in variables:
+                if variable.key == key_from_prompt:
+                    # Use Previous Variable
+                    new_variables.append(variable)
+                    content = content.replace(
+                        f"{{{{{key_from_prompt}}}}}", variable.content
+                    )
+                    break
+            else:
+                # runs only if no break occurred in the for loop above,
+                # i.e., no variable with a matching key was found.
+                # Create a new variable with empty content
+                new_variables.append(PromptVariable(key_from_prompt, ""))
 
-        return Ok(Prompt(content, variables))
+        return Ok(Prompt(content, new_variables))
 
     def get_variables(self) -> list[PromptVariable]:
         return deepcopy(self._variables)

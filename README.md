@@ -12,7 +12,7 @@ codebase-to-llm helps developers quickly extract and share meaningful context fr
 🎯 **Why You Need It?**
 
 ChatBots are only as smart as the context you give them.
-codebase-to-llm makes that easy by solving common pain points:
+**codebase-to-llm** is about eliminating the hidden frustrations that stifle your productivity:
 - Manually copying repo trees or files? 🐌 Slow and error prone.
 - ChatBot not helping? 😫 Lacks rules, structure, or dependencies to make sense of your code.
 

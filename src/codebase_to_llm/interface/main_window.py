@@ -360,7 +360,9 @@ class MainWindow(QMainWindow):
 
         # Add file name label
         self._preview_file_name_label = QLabel("")
-        self._preview_file_name_label.setStyleSheet("font-style: italic; color: #555; padding-left: 8px; padding-bottom: 2px;")
+        self._preview_file_name_label.setStyleSheet(
+            "font-style: italic; color: #555; padding-left: 8px; padding-bottom: 2px;"
+        )
         preview_layout.addWidget(self._preview_file_name_label)
 
         preview_layout.addWidget(self._file_preview)

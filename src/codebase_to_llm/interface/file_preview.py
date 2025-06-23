@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Callable, Any, Optional
 
-from PySide6.QtCore import Qt, QRect, QSize
+from PySide6.QtCore import Qt, QRect, QSize, Signal
 from PySide6.QtGui import (
     QAction,
     QPainter,
@@ -82,6 +82,8 @@ class FilePreviewWidget(QPlainTextEdit):
         "_is_modified",
     )
 
+    modificationChanged = Signal(bool)
+
     def __init__(self, add_snippet: Callable[[Path, int, int, str], None]):
         super().__init__()
         self.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
@@ -104,7 +106,10 @@ class FilePreviewWidget(QPlainTextEdit):
         self.customContextMenuRequested.connect(self._show_context_menu)
 
     def _handle_text_changed(self) -> None:
+        was_modified = self._is_modified
         self._is_modified = True
+        if not was_modified:
+            self.modificationChanged.emit(True)
 
     def save_file(self) -> bool:
         if self._current_path is None:
@@ -113,7 +118,10 @@ class FilePreviewWidget(QPlainTextEdit):
         try:
             text = self.toPlainText()
             self._current_path.write_text(text, encoding="utf-8")
+            was_modified = self._is_modified
             self._is_modified = False
+            if was_modified:
+                self.modificationChanged.emit(False)
             return True
         except Exception as e:
             QMessageBox.critical(

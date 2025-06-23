@@ -347,6 +347,7 @@ class MainWindow(QMainWindow):
 
         # --------------------------- middle — file preview
         self._file_preview = FilePreviewWidget(self._context_buffer_widget.add_snippet)
+        self._file_preview.modificationChanged.connect(self._update_preview_file_name_label)
         self._preview_panel = QWidget()
         preview_layout = QVBoxLayout(self._preview_panel)
         preview_layout.setContentsMargins(0, 0, 0, 0)
@@ -539,7 +540,7 @@ class MainWindow(QMainWindow):
             if hasattr(self, "_toggle_preview_btn"):
                 self._toggle_preview_btn.setChecked(True)
             # Update file name label
-            self._preview_file_name_label.setText(str(file_path))
+            self._update_preview_file_name_label()
         else:
             self._file_preview.clear()
             self._preview_file_name_label.setText("")
@@ -991,6 +992,16 @@ class MainWindow(QMainWindow):
             webbrowser.open("https://gemini.google.com/")
         else:
             QMessageBox.critical(self, "Copy Context Error", result.err() or "")
+
+    def _update_preview_file_name_label(self):
+        path = self._file_preview._current_path
+        if path is None:
+            self._preview_file_name_label.setText("")
+            return
+        label = str(path)
+        if getattr(self._file_preview, '_is_modified', False):
+            label += " (modification not saved)"
+        self._preview_file_name_label.setText(label)
 
 
 if __name__ == "__main__":

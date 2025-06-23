@@ -11,14 +11,15 @@
    the **📁 Open Recently** menu. Click **🔍 Refresh View** if the file tree needs updating.
 3. **Drag files or select snippets** from the preview panel into the **Context Buffer**.
 4. **Add external sources** via the **Add External Source** button to include web pages or YouTube transcripts.
-5. **Use "Add as Prompt"** by right-clicking a file in the tree to fill the prompt box with its content.
+5. **Use "Add as Prompt** by right-clicking a file in the tree to fill the prompt box with its content.
+6. **Add File as Prompt** Variable: If your prompt contains variables (e.g., {{fileName}}), right-click a file in the directory tree and select "Load as content for [variable_key]" to populate that variable with the file's content.
 6. Optionally:
    - Enable or disable specific **rules**.
    - Add your **task description** in the input field.
    - Choose whether to **include the directory tree**.
 5. Click **"Copy Context"**.
 6. Or use **"Go To"** to copy the context and open ChatGPT or Claude directly in your browser.
-8. **Paste the result into your LLM tool** to get coding assistance.
+8. **Paste the result into your LLM tool** to get results.
 
 ---
 
@@ -91,6 +92,4 @@
 | Nothing copied after pressing "Copy"?  | Make sure you've added files/snippets and filled in the user request.    |
 
 ---
-
-## 🧾 Example Output (Context Format)
 

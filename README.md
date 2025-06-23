@@ -34,6 +34,9 @@ Ideal for focused debugging or feature walkthroughs.
 Right-click any file and instantly load its content as your prompt text.
 Great for turning documentation or examples into your request.
 
+📝 **Add File as Prompt Variable**
+Define variables in your prompts (e.g., {{file_content}}). Right-click a file in the directory tree to directly load its content into that variable within your prompt. This allows for dynamic prompt creation based on specific file contents.
+
 🌐 **Add External Sources**
 Include text from web pages or YouTube transcripts in your context buffer for richer prompts.
 

@@ -203,6 +203,7 @@ class MainWindow(QMainWindow):
         "_add_prompt_from_file_use_case",
         "_add_prompt_from_favorite_list_use_case",
         "_modify_prompt_use_case",
+        "_preview_file_name_label",
     )
 
     def __init__(
@@ -356,6 +357,11 @@ class MainWindow(QMainWindow):
             "View and select text from files. Double-click files in the directory tree to preview them here. Selected text can be added to the context buffer."
         )
         preview_layout.addWidget(preview_title)
+
+        # Add file name label
+        self._preview_file_name_label = QLabel("")
+        self._preview_file_name_label.setStyleSheet("font-style: italic; color: #555; padding-left: 8px; padding-bottom: 2px;")
+        preview_layout.addWidget(self._preview_file_name_label)
 
         preview_layout.addWidget(self._file_preview)
         splitter.insertWidget(1, self._preview_panel)
@@ -530,8 +536,11 @@ class MainWindow(QMainWindow):
             self._preview_panel.setVisible(True)
             if hasattr(self, "_toggle_preview_btn"):
                 self._toggle_preview_btn.setChecked(True)
+            # Update file name label
+            self._preview_file_name_label.setText(str(file_path))
         else:
             self._file_preview.clear()
+            self._preview_file_name_label.setText("")
 
     def _show_tree_context_menu(self, pos) -> None:
         index = self._tree_view.indexAt(pos)

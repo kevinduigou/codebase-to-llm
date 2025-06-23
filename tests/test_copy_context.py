@@ -5,7 +5,17 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from codebase_to_llm.domain.context_buffer import Snippet
-from codebase_to_llm.application.ports import ContextBufferPort, RulesRepositoryPort
+from codebase_to_llm.application.ports import (
+    ContextBufferPort,
+    RulesRepositoryPort,
+    PromptRepositoryPort,
+)
+from codebase_to_llm.domain.prompt import (
+    Prompt,
+    PromptVariable,
+    set_prompt_variable as domain_set_prompt_variable,
+)
+from codebase_to_llm.domain.result import Ok, Result
 
 from codebase_to_llm.application.uc_copy_context import CopyContextUseCase
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
@@ -99,19 +109,44 @@ class FakeRulesRepo(RulesRepositoryPort):
         return None
 
 
+class FakePromptRepo(PromptRepositoryPort):
+    def __init__(self):
+        self._prompt = None
+
+    def get_prompt(self) -> Result[Prompt | None, str]:
+        return Ok(self._prompt)
+
+    def set_prompt(self, prompt: Prompt) -> Result[None, str]:
+        self._prompt = prompt
+        return Ok(None)
+
+    def get_variables_in_prompt(self) -> Result[list[PromptVariable], str]:
+        if self._prompt:
+            return Ok(self._prompt.get_variables())
+        return Ok([])
+
+    def set_prompt_variable(self, variable_key: str, content: str) -> Result[None, str]:
+        if self._prompt:
+            self._prompt = domain_set_prompt_variable(
+                self._prompt, variable_key, content
+            )
+        return Ok(None)
+
+
 def test_include_tree_flag(tmp_path: Path):
     (tmp_path / "file.txt").write_text("hello")
     repo = FileSystemDirectoryRepository(tmp_path)
     clipboard = FakeClipboard()
     context_buffer = FakeContextBuffer()
     rules_repo = FakeRulesRepo()
-    use_case = CopyContextUseCase(context_buffer, rules_repo, repo, clipboard)
-    use_case.execute()
+    prompt_repo = FakePromptRepo()
+    use_case = CopyContextUseCase(context_buffer, rules_repo, clipboard)
+    use_case.execute(repo, prompt_repo)
     assert clipboard.text is not None
     assert "<tree_structure>" in clipboard.text
     clipboard2 = FakeClipboard()
-    use_case2 = CopyContextUseCase(context_buffer, rules_repo, repo, clipboard2)
-    use_case2.execute(include_tree=False)
+    use_case2 = CopyContextUseCase(context_buffer, rules_repo, clipboard2)
+    use_case2.execute(repo, prompt_repo, include_tree=False)
     assert clipboard2.text is not None
     assert "<tree_structure>" not in clipboard2.text
 
@@ -123,13 +158,14 @@ def test_selected_text(tmp_path: Path):
     clipboard = FakeClipboard()
     context_buffer = FakeContextBuffer()
     rules_repo = FakeRulesRepo()
-    use_case = CopyContextUseCase(context_buffer, rules_repo, repo, clipboard)
+    prompt_repo = FakePromptRepo()
+    use_case = CopyContextUseCase(context_buffer, rules_repo, clipboard)
     snippet_result = Snippet.try_create_from_path(file_path, 1, 2, "line1\nline2\n")
     assert snippet_result.is_ok()
     snippet = snippet_result.ok()
     assert snippet is not None
     context_buffer.add_snippet(snippet)
-    use_case.execute()
+    use_case.execute(repo, prompt_repo)
     assert clipboard.text is not None
     expected_tag = f"<{file_path}:1:2>"
     assert expected_tag in clipboard.text

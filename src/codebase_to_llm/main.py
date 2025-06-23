@@ -43,9 +43,12 @@ def main() -> None:  # noqa: D401 (simple verb)
     prompts_repo = FavoritePromptsRepository()
     recent_repo = FileSystemRecentRepository()
 
-    if recent_repo.get_latest_repo().is_ok():
-        root = recent_repo.get_latest_repo().ok()
-    else:
+    root: Path | None = None
+    latest_repo_result = recent_repo.get_latest_repo()
+    if latest_repo_result.is_ok():
+        root = latest_repo_result.ok()
+
+    if root is None or not root.exists():
         # Default to current working directory
         root = Path.cwd()
 

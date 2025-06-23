@@ -30,14 +30,12 @@ class FileSystemRecentRepository(RecentRepositoryPort):
                 f"Corrupted files, please delete the file and try again! {self._path} {str(exc)}"
             )
 
-    def save_paths(
-        self, latest_repo: Path, paths: List[Path]
-    ) -> Result[None, str]:  # noqa: D401
+    def save_paths(self, paths: List[Path]) -> Result[None, str]:  # noqa: D401
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
-            latest_repo = str(paths[0]) if paths else None
+            latest_repo_path = str(paths[0]) if paths else None
             data = {
-                "latest_repo": latest_repo,
+                "latest_repo": latest_repo_path,
                 "paths": [str(p) for p in paths],
             }
             content = json.dumps(data, indent=2)

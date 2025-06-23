@@ -570,23 +570,26 @@ class MainWindow(QMainWindow):
             )
             menu.addAction(add_action)
 
-            if self._prompt_repo.get_prompt().is_ok():
-                relative_path = file_path.relative_to(Path(self._model.rootPath()))
-                prompt_variables = (
-                    self._prompt_repo.get_variables_in_prompt().ok() or []
-                )
-                for var in prompt_variables:
-                    if var.content == "":
-                        action_text = f"Load as content for {var.key}"
-                    else:
-                        action_text = f"Update content for {var.key} (Already Loaded)"
-                    action = QAction(action_text, self)
-                    action.triggered.connect(
-                        lambda checked, v=var.key, p=relative_path: self._add_key_variable_from_file(
-                            v, p
+            prompt_result = self._prompt_repo.get_prompt()
+            if prompt_result.is_ok():
+                prompt = prompt_result.ok()
+                if prompt:
+                    relative_path = file_path.relative_to(Path(self._model.rootPath()))
+                    prompt_variables = prompt.get_variables() or []
+                    for var in prompt_variables:
+                        if var.content == "":
+                            action_text = f"Load as content for {var.key}"
+                        else:
+                            action_text = (
+                                f"Update content for {var.key} (Already Loaded)"
+                            )
+                        action = QAction(action_text, self)
+                        action.triggered.connect(
+                            lambda checked, v=var.key, p=relative_path: self._add_key_variable_from_file(
+                                v, p
+                            )
                         )
-                    )
-                    menu.addAction(action)
+                        menu.addAction(action)
 
         menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
 
@@ -709,7 +712,7 @@ class MainWindow(QMainWindow):
             paths: list[Path] = result.ok() or []
             if path not in paths:
                 paths.append(path)
-                self._recent_repo.save_paths(path, paths)
+                self._recent_repo.save_paths(paths)
             self._populate_recent_menu()
 
     def _open_recent(self, path: Path) -> None:
@@ -737,7 +740,8 @@ class MainWindow(QMainWindow):
         self._recent_menu.clear()
         result = self._recent_repo.load_paths()
         if result.is_err():
-            return QMessageBox.warning(self, "Recent Repos Error", result.err() or "")
+            QMessageBox.warning(self, "Recent Repos Error", result.err() or "")
+            return
         paths = result.ok() or []
         for path in paths:
             action = QAction(str(path), self)
@@ -898,7 +902,8 @@ class MainWindow(QMainWindow):
 
     def _handle_copy_context_widget(self) -> None:
         result = self._copy_context_use_case.execute(
-            self.user_request_text_edit.toPlainText(),
+            self._repo,
+            self._prompt_repo,
             self.include_project_structure_checkbox.isChecked(),
             self._model.rootPath(),
         )

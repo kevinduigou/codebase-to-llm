@@ -44,7 +44,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
         if include_tree:
             tree_result = repo.build_tree()
             if tree_result.is_err():
-                return Err(tree_result.err())  # type: ignore[arg-type]
+                return Err(tree_result.err() or "Error building tree")
 
             parts.extend(
                 [
@@ -110,12 +110,15 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                 user_prompt_full_text_result: Result[str, str] = user_prompt.full_text()
                 if user_prompt_full_text_result.is_ok():
                     parts.append("<user_request>")
-                    parts.append(user_prompt_full_text_result.ok())
+                    parts.append(user_prompt_full_text_result.ok() or "")
                     parts.append("</user_request>")
                 else:
-                    return Err(user_prompt_full_text_result.err())
+                    return Err(
+                        user_prompt_full_text_result.err()
+                        or "Error getting prompt full text"
+                    )
         else:
-            return Err(prompt_repo.get_prompt().err())
+            return Err(prompt_repo.get_prompt().err() or "Error getting prompt")
 
         self._clipboard.set_text(os.linesep.join(parts))
         return Ok(None)

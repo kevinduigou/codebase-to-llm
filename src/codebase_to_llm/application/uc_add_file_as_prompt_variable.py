@@ -35,13 +35,15 @@ class AddFileAsPromptVariableUseCase:
         """
         file_content_result = file_repository.read_file(relative_path)
         if file_content_result.is_err():
-            return file_content_result
+            return Err(file_content_result.err() or "Could not read file content")
 
         file_content = file_content_result.ok()
+        if file_content is None:
+            return Err(f"File is empty: {relative_path}")
 
         prompt_result = self.prompt_repository.get_prompt()
         if prompt_result.is_err():
-            return prompt_result
+            return Err(prompt_result.err() or "Could not get prompt")
 
         prompt = prompt_result.ok()
 
@@ -51,7 +53,7 @@ class AddFileAsPromptVariableUseCase:
         new_prompt = set_prompt_variable(prompt, variable_key, file_content)
         prompt_variable_result = self.prompt_repository.set_prompt(new_prompt)
         if prompt_variable_result.is_err():
-            return prompt_variable_result
+            return Err(prompt_variable_result.err() or "Could not set prompt variable")
         return Ok(
             FileAddedAsPromptVariableEvent(
                 str(relative_path), variable_key, file_content

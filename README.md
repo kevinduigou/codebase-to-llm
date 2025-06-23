@@ -12,7 +12,7 @@ codebase-to-llm helps developers quickly extract and share meaningful context fr
 🎯 **Why You Need It?**
 
 ChatBots are only as smart as the context you give them.
-codebase-to-llm makes that easy by solving common pain points:
+**codebase-to-llm** is about eliminating the hidden frustrations that stifle your productivity:
 - Manually copying repo trees or files? 🐌 Slow and error prone.
 - ChatBot not helping? 😫 Lacks rules, structure, or dependencies to make sense of your code.
 
@@ -33,6 +33,9 @@ Ideal for focused debugging or feature walkthroughs.
 ✏️ **Add as Prompt**
 Right-click any file and instantly load its content as your prompt text.
 Great for turning documentation or examples into your request.
+
+📝 **Add File as Prompt Variable**
+Define variables in your prompts (e.g., {{file_content}}). Right-click a file in the directory tree to directly load its content into that variable within your prompt. This allows for dynamic prompt creation based on specific file contents.
 
 🌐 **Add External Sources**
 Include text from web pages or YouTube transcripts in your context buffer for richer prompts.

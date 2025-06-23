@@ -24,6 +24,7 @@ class FileSystemDirectoryRepository(DirectoryRepositoryPort):
         self, relative_path: Path
     ) -> Result[str, str]:  # noqa: D401 (simple verb)
         full_path = (self._root / relative_path).resolve()
+
         if not full_path.exists() or not full_path.is_file():
             return Err(f"File not found: {relative_path}")
         try:

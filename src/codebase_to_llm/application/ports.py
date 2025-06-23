@@ -9,7 +9,7 @@ from codebase_to_llm.domain.context_buffer import (
     File,
     Snippet,
 )
-from codebase_to_llm.domain.prompt import Prompt
+from codebase_to_llm.domain.prompt import Prompt, PromptVariable
 
 from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.rules import Rules
@@ -34,7 +34,7 @@ class DirectoryRepositoryPort(Protocol):
 
 
 class RulesRepositoryPort(Protocol):
-    """Pure port for persisting / loading the user’s custom rules."""
+    """Pure port for persisting / loading the user's custom rules."""
 
     def load_rules(self) -> Result[Rules, str]: ...  # pragma: no cover
     def save_rules(self, rules: Rules) -> Result[None, str]: ...  # pragma: no cover
@@ -51,6 +51,7 @@ class RecentRepositoryPort(Protocol):
     def save_paths(
         self, paths: list[Path]
     ) -> Result[None, str]: ...  # pragma: no cover
+    def get_latest_repo(self) -> Result[Path, str]: ...  # pragma: no cover
 
 
 class ExternalSourceRepositoryPort(Protocol):
@@ -109,3 +110,10 @@ class PromptRepositoryPort(Protocol):
 
     def set_prompt(self, prompt: Prompt) -> Result[None, str]: ...  # pragma: no cover
     def get_prompt(self) -> Result[Prompt | None, str]: ...  # pragma: no cover
+    def get_variables_in_prompt(
+        self,
+    ) -> Result[list[PromptVariable], str]: ...  # pragma: no cover
+
+    def set_prompt_variable(
+        self, variable_key: str, content: str
+    ) -> Result[None, str]: ...  # pragma: no cover

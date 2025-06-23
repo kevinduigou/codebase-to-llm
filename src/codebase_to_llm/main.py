@@ -39,12 +39,20 @@ from codebase_to_llm.interface.main_window import MainWindow
 def main() -> None:  # noqa: D401 (simple verb)
     app = QApplication(sys.argv)
 
-    root = Path.cwd()
-    #
-    repo: DirectoryRepositoryPort = FileSystemDirectoryRepository(root)
     rules_repo = RulesRepository()
     prompts_repo = FavoritePromptsRepository()
     recent_repo = FileSystemRecentRepository()
+
+    root: Path | None = None
+    latest_repo_result = recent_repo.get_latest_repo()
+    if latest_repo_result.is_ok():
+        root = latest_repo_result.ok()
+
+    if root is None or not root.exists():
+        # Default to current working directory
+        root = Path.cwd()
+
+    repo: DirectoryRepositoryPort = FileSystemDirectoryRepository(root)
     clipboard: ClipboardPort = QtClipboardService()
     context_buffer: ContextBufferPort = InMemoryContextBufferRepository()
     prompt_repo = InMemoryPromptRepository()

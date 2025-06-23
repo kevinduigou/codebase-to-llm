@@ -43,6 +43,9 @@ from PySide6.QtWidgets import (
 from codebase_to_llm.application.uc_add_code_snippet_to_context_buffer import (
     AddCodeSnippetToContextBufferUseCase,
 )
+from codebase_to_llm.application.uc_add_file_as_prompt_variable import (
+    AddFileAsPromptVariableUseCase,
+)
 from codebase_to_llm.application.uc_copy_context import CopyContextUseCase
 from codebase_to_llm.application.ports import (
     ClipboardPort,
@@ -65,6 +68,7 @@ from codebase_to_llm.application.uc_remove_elmts_from_context_buffer import (
 from codebase_to_llm.application.uc_add_prompt_from_file import (
     AddPromptFromFileUseCase,
 )
+from codebase_to_llm.application.uc_modify_prompt import ModifyPromptUseCase
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
@@ -198,6 +202,7 @@ class MainWindow(QMainWindow):
         "_prompt_repo",
         "_add_prompt_from_file_use_case",
         "_add_prompt_from_favorite_list_use_case",
+        "_modify_prompt_use_case",
     )
 
     def __init__(
@@ -227,7 +232,7 @@ class MainWindow(QMainWindow):
 
         # Use cases Initialization
         self._copy_context_use_case = CopyContextUseCase(
-            self._context_buffer, self._rules_repo, self._repo, self._clipboard
+            self._context_buffer, self._rules_repo, self._clipboard
         )
         self._add_path_recent_repository_loaded_list_use_case = (
             AddPathToRecentRepositoryListUseCase()
@@ -250,6 +255,10 @@ class MainWindow(QMainWindow):
         self._add_prompt_from_favorite_list_use_case = AddPromptFromFavoriteLisUseCase(
             self._prompt_repo
         )
+        self._add_key_variable_from_file_use_case = AddFileAsPromptVariableUseCase(
+            self._prompt_repo
+        )
+        self._modify_prompt_use_case = ModifyPromptUseCase(self._prompt_repo)
 
         splitter = QSplitter(Qt.Orientation.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -270,6 +279,7 @@ class MainWindow(QMainWindow):
         self._tree_view.setRootIndex(
             self._filter_model.mapFromSource(self._model.index(str(initial_root)))
         )
+        self._tree_view.setColumnWidth(0, 350)
         self._tree_view.setDragEnabled(True)
         self._tree_view.setAcceptDrops(True)
         self._tree_view.setDragDropMode(QTreeView.DragDropMode.DragDrop)
@@ -365,6 +375,9 @@ class MainWindow(QMainWindow):
         self.user_request_text_edit.setPlaceholderText(
             "Describe your need or the bug here, LLM User Request..."
         )
+        self.user_request_text_edit.textChanged.connect(
+            self._handle_user_request_modification
+        )
         # Remove fixed height to allow resizing
         # self.user_request_text_edit.setFixedHeight(100)
         vertical_splitter.addWidget(self.user_request_text_edit)
@@ -424,7 +437,7 @@ class MainWindow(QMainWindow):
 
         bottom_bar_layout = QHBoxLayout()
         self.include_project_structure_checkbox = QCheckBox("Include Project Structure")
-        self.include_project_structure_checkbox.setChecked(True)
+        self.include_project_structure_checkbox.setChecked(False)
         self._include_rules_actions: dict[str, QAction] = {}
         self._rules_menu = RulesMenu(self)
         self._rules_button = QToolButton(self)
@@ -477,6 +490,14 @@ class MainWindow(QMainWindow):
         claude_action.triggered.connect(self._open_claude)  # type: ignore[arg-type]
         goto_menu.addAction(claude_action)
 
+        langchain_action = QAction("LangChain", self)
+        langchain_action.triggered.connect(self._open_langdoc)  # type: ignore[arg-type]
+        goto_menu.addAction(langchain_action)
+
+        gemini_action = QAction("Gemini", self)
+        gemini_action.triggered.connect(self._open_gemini)  # type: ignore[arg-type]
+        goto_menu.addAction(gemini_action)
+
         bottom_bar_layout.addWidget(external_btn)
         bottom_bar_layout.addWidget(copy_btn)
         bottom_bar_layout.addWidget(goto_btn)
@@ -491,6 +512,13 @@ class MainWindow(QMainWindow):
         )
 
         self._tree_view.doubleClicked.connect(self._handle_tree_double_click)  # type: ignore[arg-type]
+
+    def _handle_user_request_modification(self) -> None:
+        new_content = self.user_request_text_edit.toPlainText()
+        result = self._modify_prompt_use_case.execute(new_content)
+        if result.is_err():
+            # For now, we can just print the error. A status bar could be better.
+            print(f"Error modifying prompt: {result.err()}")
 
     # ---------------------------------------------------------------------
     # Preview logic
@@ -545,21 +573,40 @@ class MainWindow(QMainWindow):
         if file_path.is_file():
             preview_action = QAction("Open Preview", self)
             preview_action.triggered.connect(
-                lambda checked=False, p=file_path: self._file_preview.load_file(p)
+                lambda checked, p=file_path: self._file_preview.load_file(p)
             )
             menu.addAction(preview_action)
-            prompt_action = QAction("Add as Prompt", self)
-            prompt_action.triggered.connect(
-                lambda checked=False, p=file_path: self._add_prompt_from_file(p)
+            load_as_prompt_action = QAction("Load as Prompt", self)
+            load_as_prompt_action.triggered.connect(
+                lambda checked, p=file_path: self._add_prompt_from_file(p)
             )
-            menu.addAction(prompt_action)
+            menu.addAction(load_as_prompt_action)
             add_action = QAction("Add to Context Buffer", self)
             add_action.triggered.connect(
-                lambda checked=False, p=file_path: self._context_buffer_widget.add_file(
-                    p
-                )
+                lambda checked, p=file_path: self._context_buffer_widget.add_file(p)
             )
             menu.addAction(add_action)
+
+            prompt_result = self._prompt_repo.get_prompt()
+            if prompt_result.is_ok():
+                prompt = prompt_result.ok()
+                if prompt:
+                    relative_path = file_path.relative_to(Path(self._model.rootPath()))
+                    prompt_variables = prompt.get_variables() or []
+                    for var in prompt_variables:
+                        if var.content == "":
+                            action_text = f"Load as content for {var.key}"
+                        else:
+                            action_text = (
+                                f"Update content for {var.key} (Already Loaded)"
+                            )
+                        action = QAction(action_text, self)
+                        action.triggered.connect(
+                            lambda checked, v=var.key, p=relative_path: self._add_key_variable_from_file(
+                                v, p
+                            )
+                        )
+                        menu.addAction(action)
 
         menu.exec_(self._tree_view.viewport().mapToGlobal(pos))
 
@@ -638,6 +685,19 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))
 
+    def _add_key_variable_from_file(
+        self, variable_key: str, relative_path: Path
+    ) -> None:
+        result = self._add_key_variable_from_file_use_case.execute(
+            self._repo, variable_key, relative_path
+        )
+        if result.is_err():
+            QMessageBox.warning(self, "Prompt Error", result.err() or "")
+            return
+        prompt = result.ok()
+        if prompt is None:
+            return
+
     def _add_prompt_from_file(self, path: Path) -> None:
         result = self._add_prompt_from_file_use_case.execute(path)
         if result.is_err():
@@ -646,7 +706,7 @@ class MainWindow(QMainWindow):
         prompt = result.ok()
         if prompt is None:
             return
-        self.user_request_text_edit.setPlainText(prompt.content)
+        self.user_request_text_edit.setPlainText(prompt.get_content())
 
     def _choose_directory(self) -> None:
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
@@ -659,7 +719,7 @@ class MainWindow(QMainWindow):
             )
             self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
             self._copy_context_use_case = CopyContextUseCase(
-                self._context_buffer, self._rules_repo, self._repo, self._clipboard
+                self._context_buffer, self._rules_repo, self._clipboard
             )
             self._context_buffer_widget.clear()
             self._context_buffer_widget.set_root_path(path)
@@ -680,7 +740,7 @@ class MainWindow(QMainWindow):
         )
         self._repo = FileSystemDirectoryRepository(path)  # type: ignore[assignment]
         self._copy_context_use_case = CopyContextUseCase(
-            self._context_buffer, self._rules_repo, self._repo, self._clipboard
+            self._context_buffer, self._rules_repo, self._clipboard
         )
         self._context_buffer_widget.clear()
         self._context_buffer_widget.set_root_path(path)
@@ -697,6 +757,7 @@ class MainWindow(QMainWindow):
         self._recent_menu.clear()
         result = self._recent_repo.load_paths()
         if result.is_err():
+            QMessageBox.warning(self, "Recent Repos Error", result.err() or "")
             return
         paths = result.ok() or []
         for path in paths:
@@ -706,7 +767,8 @@ class MainWindow(QMainWindow):
 
     def _copy_context(self) -> None:  # noqa: D401
         result = self._copy_context_use_case.execute(
-            self.user_request_text_edit.toPlainText(),
+            self._repo,
+            self._prompt_repo,
             self.include_project_structure_checkbox.isChecked(),
             self._model.rootPath(),
         )
@@ -796,15 +858,11 @@ class MainWindow(QMainWindow):
                 menu.addSeparator()
                 for prompt in prompts_obj.prompts():
                     action = QAction(prompt.name(), self)
-
-                    def make_triggered_action(content):
-                        return (
-                            lambda checked=False: self._handle_set_prompt_from_favorite(
-                                content
-                            )
+                    action.triggered.connect(
+                        lambda checked, content=prompt.content(): self._handle_set_prompt_from_favorite(
+                            content
                         )
-
-                    action.triggered.connect(make_triggered_action(prompt.content()))
+                    )
                     menu.addAction(action)
 
         menu.exec_(self.user_request_text_edit.mapToGlobal(pos))
@@ -861,7 +919,8 @@ class MainWindow(QMainWindow):
 
     def _handle_copy_context_widget(self) -> None:
         result = self._copy_context_use_case.execute(
-            self.user_request_text_edit.toPlainText(),
+            self._repo,
+            self._prompt_repo,
             self.include_project_structure_checkbox.isChecked(),
             self._model.rootPath(),
         )
@@ -871,13 +930,56 @@ class MainWindow(QMainWindow):
 
     def _open_chatgpt(self) -> None:
         """Copy context then open ChatGPT in the browser."""
-        self._copy_context()
-        webbrowser.open("https://chat.openai.com/")
+        result = self._copy_context_use_case.execute(
+            self._repo,
+            self._prompt_repo,
+            self.include_project_structure_checkbox.isChecked(),
+            self._model.rootPath(),
+        )
+        if result.is_ok():
+            webbrowser.open("https://chat.openai.com/")
+        else:
+            QMessageBox.critical(self, "Copy Context Error", result.err() or "")
 
     def _open_claude(self) -> None:
         """Copy context then open Claude in the browser."""
-        self._copy_context()
-        webbrowser.open("https://claude.ai/")
+        result = self._copy_context_use_case.execute(
+            self._repo,
+            self._prompt_repo,
+            self.include_project_structure_checkbox.isChecked(),
+            self._model.rootPath(),
+        )
+        if result.is_ok():
+            webbrowser.open("https://claude.ai/")
+        else:
+            QMessageBox.critical(self, "Copy Context Error", result.err() or "")
+
+    def _open_langdoc(self) -> None:
+        """Copy context then open LangDocin the browser."""
+        result = self._copy_context_use_case.execute(
+            self._repo,
+            self._prompt_repo,
+            self.include_project_structure_checkbox.isChecked(),
+            self._model.rootPath(),
+        )
+        if result.is_ok():
+            webbrowser.open("https://app.langdock.com/chat")
+        else:
+            QMessageBox.critical(self, "Copy Context Error", result.err() or "")
+
+    def _open_gemini(self) -> None:
+        """Copy context then open Gemini in the browser."""
+        """Copy context then open LangDocin the browser."""
+        result = self._copy_context_use_case.execute(
+            self._repo,
+            self._prompt_repo,
+            self.include_project_structure_checkbox.isChecked(),
+            self._model.rootPath(),
+        )
+        if result.is_ok():
+            webbrowser.open("https://gemini.google.com/")
+        else:
+            QMessageBox.critical(self, "Copy Context Error", result.err() or "")
 
 
 if __name__ == "__main__":

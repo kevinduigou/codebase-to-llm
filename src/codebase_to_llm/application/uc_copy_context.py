@@ -6,12 +6,14 @@ from pathlib import Path
 from typing import List, final
 
 
+from codebase_to_llm.domain.prompt import Prompt
 from codebase_to_llm.domain.result import Err, Ok, Result
 
 from .ports import (
     ClipboardPort,
     ContextBufferPort,
     DirectoryRepositoryPort,
+    PromptRepositoryPort,
     RulesRepositoryPort,
 )
 
@@ -24,24 +26,23 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
         self,
         context_buffer: ContextBufferPort,
         rules_repo: RulesRepositoryPort,
-        repo: DirectoryRepositoryPort,
         clipboard: ClipboardPort,
     ):
         self._context_buffer = context_buffer
         self._rules_repo = rules_repo
-        self._repo = repo
         self._clipboard = clipboard
 
     def execute(
         self,
-        user_request: str | None = None,
+        repo: DirectoryRepositoryPort,
+        prompt_repo: PromptRepositoryPort,
         include_tree: bool = True,
         root_directory_path: str | None = None,
     ) -> Result[None, str]:  # noqa: D401 (simple verb)
         parts: List[str] = []
 
         if include_tree:
-            tree_result = self._repo.build_tree()
+            tree_result = repo.build_tree()
             if tree_result.is_err():
                 return Err(tree_result.err())  # type: ignore[arg-type]
 
@@ -102,9 +103,19 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                         parts.append(rule.content())
                 parts.append("</rules_to_follow>")
 
-        if user_request:
-            parts.append("<user_request>")
-            parts.append(user_request)
-            parts.append("</user_request>")
+        if prompt_repo.get_prompt().is_ok():
+            user_prompt: Prompt | None = prompt_repo.get_prompt().ok()
+            
+            if user_prompt is not None:
+                user_prompt_full_text_result: Result[str, str] = user_prompt.full_text()
+                if user_prompt_full_text_result.is_ok():
+                    parts.append("<user_request>")
+                    parts.append(user_prompt_full_text_result.ok())
+                    parts.append("</user_request>")
+                else:
+                    return Err(user_prompt_full_text_result.err())
+        else:
+            return Err(prompt_repo.get_prompt().err())
+        
         self._clipboard.set_text(os.linesep.join(parts))
         return Ok(None)

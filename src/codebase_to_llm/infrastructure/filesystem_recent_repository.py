@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Final, List
 
@@ -21,15 +22,21 @@ class FileSystemRecentRepository(RecentRepositoryPort):
             if not self._path.exists():
                 return Ok([])
             raw = self._path.read_text(encoding="utf-8", errors="ignore")
-            lines = [Path(line) for line in raw.splitlines() if line.strip()]
-            return Ok(lines)
+            data = json.loads(raw)
+            paths = [Path(p) for p in data.get("paths", [])]
+            return Ok(paths)
         except Exception as exc:  # noqa: BLE001
-            return Err(str(exc))
+            return Err(f"Corrupted files, please delete the file and try again! {self._path} {str(exc)}")
 
-    def save_paths(self, paths: List[Path]) -> Result[None, str]:  # noqa: D401
+    def save_paths(self,latest_repo: Path, paths: List[Path]) -> Result[None, str]:  # noqa: D401
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
-            content = "\n".join(str(p) for p in paths)
+            latest_repo = str(paths[0]) if paths else None
+            data = {
+                "latest_repo": latest_repo,
+                "paths": [str(p) for p in paths],
+            }
+            content = json.dumps(data, indent=2)
             self._path.write_text(content, encoding="utf-8")
             return Ok(None)
         except Exception as exc:  # noqa: BLE001

@@ -488,6 +488,10 @@ class MainWindow(QMainWindow):
         langchain_action.triggered.connect(self._open_langdoc)  # type: ignore[arg-type]
         goto_menu.addAction(langchain_action)
 
+        gemini_action = QAction("Gemini", self)
+        gemini_action.triggered.connect(self._open_gemini)  # type: ignore[arg-type]
+        goto_menu.addAction(gemini_action)
+
         bottom_bar_layout.addWidget(external_btn)
         bottom_bar_layout.addWidget(copy_btn)
         bottom_bar_layout.addWidget(goto_btn)
@@ -950,6 +954,19 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.critical(self, "Copy Context Error", result.err() or "")
 
+    def _open_gemini(self) -> None:
+        """Copy context then open Gemini in the browser."""
+        """Copy context then open LangDocin the browser."""
+        result = self._copy_context_use_case.execute(
+            self._repo,
+            self._prompt_repo,
+            self.include_project_structure_checkbox.isChecked(),
+            self._model.rootPath(),
+        )
+        if result.is_ok():
+            webbrowser.open("https://gemini.google.com/")
+        else:
+            QMessageBox.critical(self, "Copy Context Error", result.err() or "")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

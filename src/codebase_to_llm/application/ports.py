@@ -51,6 +51,7 @@ class RecentRepositoryPort(Protocol):
     def save_paths(
         self, paths: list[Path]
     ) -> Result[None, str]: ...  # pragma: no cover
+    def get_latest_repo(self) -> Result[Path, str]: ...  # pragma: no cover
 
 
 class ExternalSourceRepositoryPort(Protocol):
@@ -110,4 +111,6 @@ class PromptRepositoryPort(Protocol):
     def set_prompt(self, prompt: Prompt) -> Result[None, str]: ...  # pragma: no cover
     def get_prompt(self) -> Result[Prompt | None, str]: ...  # pragma: no cover
 
-    def set_prompt_variable(self, variable_key: str, content: str) -> Result[None, str]: ...  # pragma: no cover
+    def set_prompt_variable(
+        self, variable_key: str, content: str
+    ) -> Result[None, str]: ...  # pragma: no cover

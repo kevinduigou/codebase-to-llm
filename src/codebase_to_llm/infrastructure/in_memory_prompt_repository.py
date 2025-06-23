@@ -24,7 +24,7 @@ class InMemoryPromptRepository(PromptRepositoryPort):
         if self._prompt is None:
             return Ok(None)
         return Ok(self._prompt)
-    
+
     def set_prompt_variable(self, variable_key: str, content: str) -> Result[None, str]:
         self._prompt.set_variable(PromptVariable(variable_key, content))
         return Ok(None)

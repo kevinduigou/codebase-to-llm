@@ -105,7 +105,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
 
         if prompt_repo.get_prompt().is_ok():
             user_prompt: Prompt | None = prompt_repo.get_prompt().ok()
-            
+
             if user_prompt is not None:
                 user_prompt_full_text_result: Result[str, str] = user_prompt.full_text()
                 if user_prompt_full_text_result.is_ok():
@@ -116,6 +116,6 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
                     return Err(user_prompt_full_text_result.err())
         else:
             return Err(prompt_repo.get_prompt().err())
-        
+
         self._clipboard.set_text(os.linesep.join(parts))
         return Ok(None)

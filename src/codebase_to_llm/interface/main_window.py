@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
 
         # Use cases Initialization
         self._copy_context_use_case = CopyContextUseCase(
-            self._context_buffer, self._rules_repo,  self._clipboard
+            self._context_buffer, self._rules_repo, self._clipboard
         )
         self._add_path_recent_repository_loaded_list_use_case = (
             AddPathToRecentRepositoryListUseCase()
@@ -276,6 +276,7 @@ class MainWindow(QMainWindow):
         self._tree_view.setRootIndex(
             self._filter_model.mapFromSource(self._model.index(str(initial_root)))
         )
+        self._tree_view.setColumnWidth(0, 350)
         self._tree_view.setDragEnabled(True)
         self._tree_view.setAcceptDrops(True)
         self._tree_view.setDragDropMode(QTreeView.DragDropMode.DragDrop)
@@ -565,22 +566,23 @@ class MainWindow(QMainWindow):
             menu.addAction(load_as_prompt_action)
             add_action = QAction("Add to Context Buffer", self)
             add_action.triggered.connect(
-                lambda checked, p=file_path: self._context_buffer_widget.add_file(
-                    p
-                )
+                lambda checked, p=file_path: self._context_buffer_widget.add_file(p)
             )
             menu.addAction(add_action)
 
             if self._prompt_repo.get_prompt().is_ok():
                 relative_path = file_path.relative_to(Path(self._model.rootPath()))
-                variables_keys = [
-                    var.key
-                    for var in self._prompt_repo.get_variables_in_prompt().ok() or []
-                ]
-                for var in variables_keys:
-                    action = QAction(f"Add as content for {var}", self)
+                prompt_variables = (
+                    self._prompt_repo.get_variables_in_prompt().ok() or []
+                )
+                for var in prompt_variables:
+                    if var.content == "":
+                        action_text = f"Load as content for {var.key}"
+                    else:
+                        action_text = f"Update content for {var.key} (Already Loaded)"
+                    action = QAction(action_text, self)
                     action.triggered.connect(
-                        lambda checked, v=var, p=relative_path: self._add_key_variable_from_file(
+                        lambda checked, v=var.key, p=relative_path: self._add_key_variable_from_file(
                             v, p
                         )
                     )
@@ -663,8 +665,12 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))
 
-    def _add_key_variable_from_file(self, variable_key: str, relative_path: Path) -> None:
-        result = self._add_key_variable_from_file_use_case.execute(self._repo, variable_key, relative_path)
+    def _add_key_variable_from_file(
+        self, variable_key: str, relative_path: Path
+    ) -> None:
+        result = self._add_key_variable_from_file_use_case.execute(
+            self._repo, variable_key, relative_path
+        )
         if result.is_err():
             QMessageBox.warning(self, "Prompt Error", result.err() or "")
             return
@@ -902,18 +908,42 @@ class MainWindow(QMainWindow):
 
     def _open_chatgpt(self) -> None:
         """Copy context then open ChatGPT in the browser."""
-        self._copy_context()
-        webbrowser.open("https://chat.openai.com/")
+        result = self._copy_context_use_case.execute(
+            self._repo,
+            self._prompt_repo,
+            self.include_project_structure_checkbox.isChecked(),
+            self._model.rootPath(),
+        )
+        if result.is_ok():
+            webbrowser.open("https://chat.openai.com/")
+        else:
+            QMessageBox.critical(self, "Copy Context Error", result.err() or "")
 
     def _open_claude(self) -> None:
         """Copy context then open Claude in the browser."""
-        self._copy_context()
-        webbrowser.open("https://claude.ai/")
-    
+        result = self._copy_context_use_case.execute(
+            self._repo,
+            self._prompt_repo,
+            self.include_project_structure_checkbox.isChecked(),
+            self._model.rootPath(),
+        )
+        if result.is_ok():
+            webbrowser.open("https://claude.ai/")
+        else:
+            QMessageBox.critical(self, "Copy Context Error", result.err() or "")
+
     def _open_langdoc(self) -> None:
         """Copy context then open LangDocin the browser."""
-        self._copy_context()
-        webbrowser.open("https://app.langdock.com/chat")
+        result = self._copy_context_use_case.execute(
+            self._repo,
+            self._prompt_repo,
+            self.include_project_structure_checkbox.isChecked(),
+            self._model.rootPath(),
+        )
+        if result.is_ok():
+            webbrowser.open("https://app.langdock.com/chat")
+        else:
+            QMessageBox.critical(self, "Copy Context Error", result.err() or "")
 
 
 if __name__ == "__main__":

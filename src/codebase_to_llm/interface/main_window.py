@@ -69,6 +69,7 @@ from codebase_to_llm.application.uc_add_prompt_from_file import (
     AddPromptFromFileUseCase,
 )
 from codebase_to_llm.application.uc_modify_prompt import ModifyPromptUseCase
+from codebase_to_llm.domain.prompt import Prompt
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
@@ -706,9 +707,11 @@ class MainWindow(QMainWindow):
         if result.is_err():
             QMessageBox.warning(self, "Prompt Error", result.err() or "")
             return
-        prompt = result.ok()
+        prompt: Prompt | None = result.ok()
         if prompt is None:
-            return
+            return QMessageBox.warning(self, "Prompt Empty", result.err() or "")
+        elif prompt.get_content() == "":
+            return QMessageBox.warning(self, "File Empty", result.err() or "")
 
     def _add_prompt_from_file(self, path: Path) -> None:
         result = self._add_prompt_from_file_use_case.execute(path)

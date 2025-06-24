@@ -87,7 +87,7 @@ class ApiKeyValue(ValueObject):
 
     def masked_value(self) -> str:
         """Returns a masked version for display purposes."""
-        if len(self._value) <= 8:
+        if len(self._value) <= 10:
             return "*" * len(self._value)
         return self._value[:4] + "*" * (len(self._value) - 8) + self._value[-4:]
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Protocol
-
+from codebase_to_llm.domain.api_key import ApiKeys, ApiKey, ApiKeyId
 from codebase_to_llm.domain.context_buffer import (
     ContextBuffer,
     ExternalSource,
@@ -117,3 +117,15 @@ class PromptRepositoryPort(Protocol):
     def set_prompt_variable(
         self, variable_key: str, content: str
     ) -> Result[None, str]: ...  # pragma: no cover
+
+
+class ApiKeyRepositoryPort(Protocol):
+    """Pure port for persisting and loading API keys."""
+
+    def load_api_keys(self) -> Result[ApiKeys, str]: ...  # pragma: no cover
+    def save_api_keys(
+        self, api_keys: ApiKeys
+    ) -> Result[None, str]: ...  # pragma: no cover
+    def find_api_key_by_id(
+        self, api_key_id: ApiKeyId
+    ) -> Result[ApiKey, str]: ...  # pragma: no cover

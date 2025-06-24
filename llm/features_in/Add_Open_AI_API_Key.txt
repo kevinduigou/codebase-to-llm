@@ -1,0 +1,8 @@
+When the user clicks on the setting wheel, then a button Manage API Keys shall be visible
+When clicking on it a window will be visible, where the user will be able to:
+ADD
+DELETE
+MODIFY
+API Keys
+
+For API Keys, the following information will be needed "URL Provider" and "API Key"

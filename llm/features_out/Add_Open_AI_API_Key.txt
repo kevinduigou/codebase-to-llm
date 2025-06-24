@@ -1,0 +1,221 @@
+Looking at this feature request, I need to design a system for managing API keys following the established patterns in your codebase. Let me break this down systematically.
+
+Domain Layer Design
+
+Value Objects and Entities
+python
+Unit Tests
+python
+Use Case Workflow Diagram
+
+graph TD
+    A[User clicks Settings Wheel] --> B[Settings Menu Opens]
+    B --> C[User clicks 'Manage API Keys']
+    C --> D[API Keys Management Dialog Opens]
+    
+    D --> E{User Action}
+    
+    E -->|Add| F[Add API Key Dialog]
+    E -->|Modify| G[Select API Key from List]
+    E -->|Delete| H[Select API Key to Delete]
+    
+    F --> F1[Enter URL Provider]
+    F1 --> F2[Enter API Key Value]
+    F2 --> F3[Generate Unique ID]
+    F3 --> F4[Validate Input]
+    F4 --> F5{Valid?}
+    F5 -->|Yes| F6[Execute AddApiKeyUseCase]
+    F5 -->|No| F7[Show Validation Error]
+    F6 --> F8[Save to Repository]
+    F8 --> F9[Emit ApiKeyAddedEvent]
+    F9 --> F10[Refresh UI List]
+    F7 --> F1
+    
+    G --> G1[Load Selected API Key]
+    G1 --> G2[Modify API Key Dialog]
+    G2 --> G3[Update URL Provider/API Key]
+    G3 --> G4[Validate Changes]
+    G4 --> G5{Valid?}
+    G5 -->|Yes| G6[Execute UpdateApiKeyUseCase]
+    G5 -->|No| G7[Show Validation Error]
+    G6 --> G8[Save to Repository]
+    G8 --> G9[Emit ApiKeyUpdatedEvent]
+    G9 --> G10[Refresh UI List]
+    G7 --> G3
+    
+    H --> H1[Confirm Deletion]
+    H1 --> H2{Confirmed?}
+    H2 -->|Yes| H3[Execute RemoveApiKeyUseCase]
+    H2 -->|No| D
+    H3 --> H4[Remove from Repository]
+    H4 --> H5[Emit ApiKeyRemovedEvent]
+    H5 --> H6[Refresh UI List]
+    
+    F10 --> D
+    G10 --> D
+    H6 --> D
+    
+    D --> Z[Dialog Closes]
+
+
+Ports and Repository Interfaces
+python
+Infrastructure Layer
+python
+Interface Layer Implementation
+python
+
+Based on the API key management feature implementation, here are the specific changes needed in main_window.py:
+
+Add Imports
+
+Add these imports at the top of the file (after existing imports):
+
+from codebasetollm.interface.apikeydialogs import ApiKeyManagerDialog
+from codebasetollm.infrastructure.filesystemapikey_repository import FileSystemApiKeyRepository
+from codebasetollm.application.ports import ApiKeyRepositoryPort
+
+
+Update Class Slots
+
+In the MainWindow class slots definition, add:
+
+slots = (
+    "treeview",
+    "filepreview",
+    "_model",
+    "_repo",
+    "_clipboard",
+    "copycontextusecase",
+    "recentrepo",
+    "rulesrepo",
+    "recentmenu",
+    "userrequesttext_edit",
+    "includerules_checkboxes",
+    "includeprojectstructure_checkbox",
+    "filtermodel",
+    "namefilter_edit",
+    "togglepreview_btn",
+    "previewpanel",
+    "rulescheckbox_container",
+    "rulescheckbox_layout",
+    "includerules_actions",
+    "rulesmenu",
+    "rulesbutton",
+    "contextbuffer",
+    "promptrepo",
+    "addpromptfromfileusecase",
+    "addpromptfromfavoritelistuse_case",
+    "modifypromptusecase",
+    "previewfilenamelabel",
+    "apikey_repo",  # ADD THIS LINE
+)
+
+
+Update Constructor Signature
+
+Change the init method signature to include the API key repository:
+
+def init(
+    self,
+    repo: DirectoryRepositoryPort,
+    clipboard: ClipboardPort,
+    initial_root: Path,
+    rules_repo: RulesRepositoryPort,
+    prompts_repo: FavoritePromptsRepositoryPort,
+    recent_repo: RecentRepositoryPort,
+    external_repo: ExternalSourceRepositoryPort,
+    context_buffer: ContextBufferPort,
+    prompt_repo: PromptRepositoryPort,
+    apikeyrepo: ApiKeyRepositoryPort,  # ADD THIS PARAMETER
+) -> None:
+
+
+Store API Key Repository
+
+In the init method, after the existing repository assignments, add:
+
+self.apikeyrepo = apikey_repo
+
+
+Add Menu Item to Settings Menu
+
+Find the settings menu creation section (around line 400-420) and modify it:
+
+settings_icon = self.style().standardIcon(
+    self.style().StandardPixmap.SP_FileDialogDetailedView
+)
+settings_menu = QMenu(self)
+editrulesaction = QAction("Edit Rules", self)
+editrulesaction.triggered.connect(self.opensettings)
+settingsmenu.addAction(editrules_action)
+editpromptsaction = QAction("Edit Favorite Prompts", self)
+editpromptsaction.triggered.connect(self.openprompts_settings)
+settingsmenu.addAction(editprompts_action)
+
+ADD THESE LINES:
+manageapikeys_action = QAction("Manage API Keys", self)
+manageapikeysaction.triggered.connect(self.openapikeys_manager)
+settingsmenu.addAction(manageapikeysaction)
+
+settings_button = QToolButton(self)
+settingsbutton.setIcon(settingsicon)
+settingsbutton.setMenu(settingsmenu)
+settings_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+settings_button.setToolTip("Settings")
+toolbar.addWidget(settings_button)
+
+
+Add the API Keys Manager Method
+
+Add this new method to the MainWindow class:
+
+def openapikeysmanager(self) -> None:
+    """Opens the API keys management dialog."""
+    dialog = ApiKeyManagerDialog(self.apikey_repo, parent=self)
+    dialog.exec()
+
+
+Update the Main Function
+
+At the bottom of the file, update the if name == "main": section:
+
+if name == "main":
+    app = QApplication(sys.argv)
+    from codebasetollm.infrastructure.qtclipboardservice import QtClipboardService
+    from codebasetollm.infrastructure.filesystemfavoriteprompts_repository import (
+        FavoritePromptsRepository,
+    )
+    # ADD THIS IMPORT:
+    from codebasetollm.infrastructure.filesystemapikey_repository import (
+        FileSystemApiKeyRepository,
+    )
+
+    root = Path.cwd()
+    window = MainWindow(
+        repo=FileSystemDirectoryRepository(root),
+        clipboard=QtClipboardService(),
+        initial_root=root,
+        rules_repo=RulesRepository(),
+        prompts_repo=FavoritePromptsRepository(),
+        recentrepo=FileSystemRecentRepository(Path.home() / ".dccrecent"),
+        external_repo=UrlExternalSourceRepository(),
+        context_buffer=InMemoryContextBufferRepository(),
+        prompt_repo=InMemoryPromptRepository(),
+        apikeyrepo=FileSystemApiKeyRepository(),  # ADD THIS LINE
+    )
+    window.show()
+    sys.exit(app.exec())
+
+
+Summary of Changes
+
+3 new imports for API key functionality
+1 line added to slots
+1 parameter added to constructor signature
+1 line added to store the repository in init
+3 lines added to create the menu item
+1 new method to handle the menu action
+2 lines modified in the main function (import + parameter)
+
+These minimal changes integrate the API key management feature into your existing main window while maintaining the established patterns and architecture.

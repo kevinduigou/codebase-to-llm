@@ -1,0 +1,13 @@
+You are a software architect, here the featrue I want to implement
+
+<feature>
+{{FEATURE}}
+</featrue>
+
+First, define the Event, Value Object and Entity Object needed in the Domain Layer
+As well as Unit Tests if necessary
+
+Then write mermaid sequence Diagrams to visualize the use cases workflow
+Based on that deduce the Ports and Repository needed and
+
+Finish by defining modification in the interface layer

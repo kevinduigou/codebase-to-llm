@@ -69,7 +69,7 @@ from codebase_to_llm.application.uc_add_prompt_from_file import (
     AddPromptFromFileUseCase,
 )
 from codebase_to_llm.application.uc_modify_prompt import ModifyPromptUseCase
-from codebase_to_llm.domain.prompt import Prompt
+from codebase_to_llm.domain.prompt import FileAddedAsPromptVariableEvent
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
@@ -100,6 +100,12 @@ from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
 from codebase_to_llm.application.ports import PromptRepositoryPort
 from codebase_to_llm.application.uc_set_prompt_from_favorite import (
     AddPromptFromFavoriteLisUseCase,
+)
+
+from codebase_to_llm.interface.api_key_dialogs import ApiKeyManagerDialog
+from codebase_to_llm.application.ports import ApiKeyRepositoryPort
+from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
+    FileSystemApiKeyRepository,
 )
 
 
@@ -205,6 +211,7 @@ class MainWindow(QMainWindow):
         "_add_prompt_from_favorite_list_use_case",
         "_modify_prompt_use_case",
         "_preview_file_name_label",
+        "_api_key_repo",
     )
 
     def __init__(
@@ -218,6 +225,7 @@ class MainWindow(QMainWindow):
         external_repo: ExternalSourceRepositoryPort,
         context_buffer: ContextBufferPort,
         prompt_repo: PromptRepositoryPort,
+        api_key_repo: ApiKeyRepositoryPort,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Desktop Context Copier")
@@ -231,6 +239,7 @@ class MainWindow(QMainWindow):
         self._context_buffer = context_buffer
         self._external_repo = external_repo
         self._prompt_repo = prompt_repo
+        self._api_key_repo = api_key_repo
 
         # Use cases Initialization
         self._copy_context_use_case = CopyContextUseCase(
@@ -348,7 +357,9 @@ class MainWindow(QMainWindow):
 
         # --------------------------- middle — file preview
         self._file_preview = FilePreviewWidget(self._context_buffer_widget.add_snippet)
-        self._file_preview.modificationChanged.connect(self._update_preview_file_name_label)
+        self._file_preview.modificationChanged.connect(
+            self._update_preview_file_name_label
+        )
         self._preview_panel = QWidget()
         preview_layout = QVBoxLayout(self._preview_panel)
         preview_layout.setContentsMargins(0, 0, 0, 0)
@@ -438,6 +449,11 @@ class MainWindow(QMainWindow):
         edit_prompts_action = QAction("Edit Favorite Prompts", self)
         edit_prompts_action.triggered.connect(self._open_prompts_settings)  # type: ignore[arg-type]
         settings_menu.addAction(edit_prompts_action)
+
+        manage_api_keys_action = QAction("Manage API Keys", self)
+        manage_api_keys_action.triggered.connect(self._open_api_keys_manager)
+        settings_menu.addAction(manage_api_keys_action)
+
         settings_button = QToolButton(self)
         settings_button.setIcon(settings_icon)
         settings_button.setMenu(settings_menu)
@@ -707,11 +723,15 @@ class MainWindow(QMainWindow):
         if result.is_err():
             QMessageBox.warning(self, "Prompt Error", result.err() or "")
             return
-        prompt: Prompt | None = result.ok()
-        if prompt is None:
-            return QMessageBox.warning(self, "Prompt Empty", result.err() or "")
-        elif prompt.get_content() == "":
-            return QMessageBox.warning(self, "File Empty", result.err() or "")
+        file_added_as_prompt_variable_event: FileAddedAsPromptVariableEvent | None = (
+            result.ok()
+        )
+        if file_added_as_prompt_variable_event is None:
+            QMessageBox.warning(self, "Prompt Empty", result.err() or "")
+            return
+        elif file_added_as_prompt_variable_event.content == "":
+            QMessageBox.warning(self, "File Empty", result.err() or "")
+            return
 
     def _add_prompt_from_file(self, path: Path) -> None:
         result = self._add_prompt_from_file_use_case.execute(path)
@@ -1002,9 +1022,14 @@ class MainWindow(QMainWindow):
             self._preview_file_name_label.setText("")
             return
         label = str(path)
-        if getattr(self._file_preview, '_is_modified', False):
+        if getattr(self._file_preview, "_is_modified", False):
             label += " (modification not saved)"
         self._preview_file_name_label.setText(label)
+
+    def _open_api_keys_manager(self) -> None:
+        """Opens the API keys management dialog."""
+        dialog = ApiKeyManagerDialog(self._api_key_repo, parent=self)
+        dialog.exec()
 
 
 if __name__ == "__main__":
@@ -1025,6 +1050,7 @@ if __name__ == "__main__":
         external_repo=UrlExternalSourceRepository(),
         context_buffer=InMemoryContextBufferRepository(),
         prompt_repo=InMemoryPromptRepository(),
+        api_key_repo=FileSystemApiKeyRepository(),
     )
     window.show()
     sys.exit(app.exec())

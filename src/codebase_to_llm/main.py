@@ -6,12 +6,16 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from codebase_to_llm.application.ports import (
+    ApiKeyRepositoryPort,
     ClipboardPort,
     ContextBufferPort,
     DirectoryRepositoryPort,
     ExternalSourceRepositoryPort,
 )
 
+from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
+    FileSystemApiKeyRepository,
+)
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
@@ -57,6 +61,8 @@ def main() -> None:  # noqa: D401 (simple verb)
     context_buffer: ContextBufferPort = InMemoryContextBufferRepository()
     prompt_repo = InMemoryPromptRepository()
     external_repo: ExternalSourceRepositoryPort = UrlExternalSourceRepository()
+    api_key_repo: ApiKeyRepositoryPort = FileSystemApiKeyRepository()
+
     window = MainWindow(
         repo,
         clipboard,
@@ -67,6 +73,7 @@ def main() -> None:  # noqa: D401 (simple verb)
         external_repo,
         context_buffer,
         prompt_repo,
+        api_key_repo,
     )
     window.show()
     sys.exit(app.exec())

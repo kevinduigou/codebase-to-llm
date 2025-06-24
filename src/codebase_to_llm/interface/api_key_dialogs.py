@@ -137,25 +137,33 @@ class ApiKeyFormDialog(QDialog):
 
             # Execute the appropriate use case
             if self._is_edit_mode:
-                use_case = UpdateApiKeyUseCase(self._api_key_repo)
-                result = use_case.execute(id_value, url_value, key_value)
-                operation = "update"
-            else:
-                use_case = AddApiKeyUseCase(self._api_key_repo)
-                result = use_case.execute(id_value, url_value, key_value)
-                operation = "add"
-
-            if result.is_err():
-                QMessageBox.critical(
-                    self,
-                    f"Failed to {operation} API Key",
-                    result.err()
-                    or f"Unknown error occurred while trying to {operation} API key.",
-                )
+                update_use_case = UpdateApiKeyUseCase(self._api_key_repo)
+                update_result = update_use_case.execute(id_value, url_value, key_value)
+                if update_result.is_err():
+                    QMessageBox.critical(
+                        self,
+                        "Failed to update API Key",
+                        update_result.err()
+                        or "Unknown error occurred while trying to update API key.",
+                    )
+                    return
+                # Success
+                self.accept()
                 return
-
-            # Success
-            self.accept()
+            else:
+                add_use_case = AddApiKeyUseCase(self._api_key_repo)
+                add_result = add_use_case.execute(id_value, url_value, key_value)
+                if add_result.is_err():
+                    QMessageBox.critical(
+                        self,
+                        "Failed to add API Key",
+                        add_result.err()
+                        or "Unknown error occurred while trying to add API key.",
+                    )
+                    return
+                # Success
+                self.accept()
+                return
 
         except Exception as e:
             QMessageBox.critical(
@@ -252,6 +260,11 @@ class ApiKeyManagerDialog(QDialog):
             return
 
         api_keys = result.ok()
+        if api_keys is None:
+            QMessageBox.critical(
+                self, "Load Error", "Failed to load API keys: result is None."
+            )
+            return
 
         # Populate list
         for api_key in api_keys.api_keys():

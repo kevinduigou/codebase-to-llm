@@ -117,7 +117,12 @@ class ApiKey(ValueObject):
         if key_result.is_err():
             return Err(f"Invalid API Key Value: {key_result.err()}")
 
-        return Ok(ApiKey(id_result.ok(), url_result.ok(), key_result.ok()))
+        id_obj = id_result.ok()
+        url_obj = url_result.ok()
+        key_obj = key_result.ok()
+        if id_obj is None or url_obj is None or key_obj is None:
+            return Err("Unexpected error: one of the value objects is None")
+        return Ok(ApiKey(id_obj, url_obj, key_obj))
 
     def __init__(
         self, id: ApiKeyId, url_provider: UrlProvider, api_key_value: ApiKeyValue

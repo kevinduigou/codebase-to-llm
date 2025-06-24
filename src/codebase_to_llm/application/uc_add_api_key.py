@@ -28,29 +28,39 @@ class AddApiKeyUseCase:
         # Create the API key domain object
         api_key_result = ApiKey.try_create(id_value, url_provider, api_key_value)
         if api_key_result.is_err():
-            return Err(api_key_result.err())
+            return Err(api_key_result.err() or "Failed to create API key object.")
 
         api_key = api_key_result.ok()
+        if api_key is None:
+            return Err("Failed to create API key object.")
 
         # Load existing API keys
         existing_keys_result = self._api_key_repo.load_api_keys()
         if existing_keys_result.is_err():
             return Err(
-                f"Failed to load existing API keys: {existing_keys_result.err()}"
+                f"Failed to load existing API keys: {existing_keys_result.err() or 'Unknown error.'}"
             )
 
         existing_keys = existing_keys_result.ok()
+        if existing_keys is None:
+            return Err("Failed to load existing API keys.")
 
         # Add the new API key
         updated_keys_result = existing_keys.add_api_key(api_key)
         if updated_keys_result.is_err():
-            return Err(updated_keys_result.err())
+            return Err(
+                updated_keys_result.err() or "Failed to add API key to collection."
+            )
 
         updated_keys = updated_keys_result.ok()
+        if updated_keys is None:
+            return Err("Failed to add API key to collection.")
 
         # Save the updated collection
         save_result = self._api_key_repo.save_api_keys(updated_keys)
         if save_result.is_err():
-            return Err(f"Failed to save API keys: {save_result.err()}")
+            return Err(
+                f"Failed to save API keys: {save_result.err() or 'Unknown error.'}"
+            )
 
         return Ok(ApiKeyAddedEvent(api_key))

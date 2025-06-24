@@ -94,9 +94,11 @@ class EncryptedApiKeyRepository(ApiKeyRepositoryPort):
             # Decrypt the content
             decrypted_result = self._decrypt_data(encrypted_content)
             if decrypted_result.is_err():
-                return Err(decrypted_result.err())
+                return Err(decrypted_result.err() or "Failed to decrypt data.")
 
             decrypted_content = decrypted_result.ok()
+            if decrypted_content is None:
+                return Err("Decrypted content is None.")
 
             # Parse JSON
             try:
@@ -126,16 +128,22 @@ class EncryptedApiKeyRepository(ApiKeyRepositoryPort):
                     key_data["id"], key_data["url_provider"], key_data["api_key_value"]
                 )
 
-                if api_key_result.is_err():
-                    return Err(f"Invalid API key in file: {api_key_result.err()}")
-
-                api_keys_list.append(api_key_result.ok())
+                if api_key_result.is_ok():
+                    api_key = api_key_result.ok()
+                    if api_key is not None:
+                        api_keys_list.append(api_key)
 
             api_keys_result = ApiKeys.try_create(tuple(api_keys_list))
             if api_keys_result.is_err():
-                return Err(f"Invalid API keys collection: {api_keys_result.err()}")
+                return Err(
+                    api_keys_result.err()
+                    or "Unknown error creating ApiKeys collection."
+                )
+            api_keys = api_keys_result.ok()
+            if api_keys is None:
+                return Err("Failed to create ApiKeys collection.")
 
-            return Ok(api_keys_result.ok())
+            return Ok(api_keys)
 
         except OSError as e:
             return Err(f"Failed to read API keys file: {str(e)}")
@@ -185,7 +193,9 @@ class EncryptedApiKeyRepository(ApiKeyRepositoryPort):
         """Finds an API key by its ID."""
         api_keys_result = self.load_api_keys()
         if api_keys_result.is_err():
-            return Err(api_keys_result.err())
+            return Err(api_keys_result.err() or "Unknown error loading API keys.")
 
         api_keys = api_keys_result.ok()
+        if api_keys is None:
+            return Err("Failed to load ApiKeys collection.")
         return api_keys.find_by_id(api_key_id)

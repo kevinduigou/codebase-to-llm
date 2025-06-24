@@ -58,17 +58,27 @@ class FileSystemApiKeyRepository(ApiKeyRepositoryPort):
                     key_data["id"], key_data["url_provider"], key_data["api_key_value"]
                 )
 
-                if api_key_result.is_err():
-                    return Err(f"Invalid API key in file: {api_key_result.err()}")
-
-                api_keys_list.append(api_key_result.ok())
+                if api_key_result.is_ok():
+                    api_key = api_key_result.ok()
+                    if api_key is not None:
+                        api_keys_list.append(api_key)
+                elif api_key_result.err() is not None:
+                    return Err(api_key_result.err() or "Unknown error creating ApiKey.")
+                else:
+                    return Err("Unknown error creating ApiKey.")
 
             # Create ApiKeys collection
             api_keys_result = ApiKeys.try_create(tuple(api_keys_list))
             if api_keys_result.is_err():
-                return Err(f"Invalid API keys collection: {api_keys_result.err()}")
+                return Err(
+                    api_keys_result.err()
+                    or "Unknown error creating ApiKeys collection."
+                )
+            api_keys = api_keys_result.ok()
+            if api_keys is None:
+                return Err("Failed to create ApiKeys collection.")
 
-            return Ok(api_keys_result.ok())
+            return Ok(api_keys)
 
         except json.JSONDecodeError as e:
             return Err(f"Failed to parse API keys file: {str(e)}")
@@ -115,7 +125,9 @@ class FileSystemApiKeyRepository(ApiKeyRepositoryPort):
         """Finds an API key by its ID."""
         api_keys_result = self.load_api_keys()
         if api_keys_result.is_err():
-            return Err(api_keys_result.err())
+            return Err(api_keys_result.err() or "Unknown error loading API keys.")
 
         api_keys = api_keys_result.ok()
+        if api_keys is None:
+            return Err("Failed to load ApiKeys collection.")
         return api_keys.find_by_id(api_key_id)

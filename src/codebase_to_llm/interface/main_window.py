@@ -104,6 +104,9 @@ from codebase_to_llm.application.uc_set_prompt_from_favorite import (
 
 from codebase_to_llm.interface.api_key_dialogs import ApiKeyManagerDialog
 from codebase_to_llm.application.ports import ApiKeyRepositoryPort
+from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
+    FileSystemApiKeyRepository,
+)
 
 
 class DragDropFileSystemModel(QFileSystemModel):
@@ -724,9 +727,11 @@ class MainWindow(QMainWindow):
             result.ok()
         )
         if file_added_as_prompt_variable_event is None:
-            return QMessageBox.warning(self, "Prompt Empty", result.err() or "")
+            QMessageBox.warning(self, "Prompt Empty", result.err() or "")
+            return
         elif file_added_as_prompt_variable_event.content == "":
-            return QMessageBox.warning(self, "File Empty", result.err() or "")
+            QMessageBox.warning(self, "File Empty", result.err() or "")
+            return
 
     def _add_prompt_from_file(self, path: Path) -> None:
         result = self._add_prompt_from_file_use_case.execute(path)
@@ -1045,6 +1050,7 @@ if __name__ == "__main__":
         external_repo=UrlExternalSourceRepository(),
         context_buffer=InMemoryContextBufferRepository(),
         prompt_repo=InMemoryPromptRepository(),
+        api_key_repo=FileSystemApiKeyRepository(),
     )
     window.show()
     sys.exit(app.exec())

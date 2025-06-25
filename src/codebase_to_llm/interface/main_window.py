@@ -568,9 +568,9 @@ class MainWindow(QMainWindow):
         claude_action.triggered.connect(self._open_claude)  # type: ignore[arg-type]
         goto_menu.addAction(claude_action)
 
-        langchain_action = QAction("LangChain", self)
-        langchain_action.triggered.connect(self._open_langdoc)  # type: ignore[arg-type]
-        goto_menu.addAction(langchain_action)
+        langdock_action = QAction("LangDock", self)
+        langdock_action.triggered.connect(self._open_langdoc)  # type: ignore[arg-type]
+        goto_menu.addAction(langdock_action)
 
         gemini_action = QAction("Gemini", self)
         gemini_action.triggered.connect(self._open_gemini)  # type: ignore[arg-type]

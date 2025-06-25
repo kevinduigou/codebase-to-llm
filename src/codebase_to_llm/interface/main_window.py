@@ -14,6 +14,9 @@ from PySide6.QtCore import (
     QSortFilterProxyModel,
     QRegularExpression,
     QSize,
+    QThread,
+    QObject,
+    Signal,
 )
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
@@ -108,6 +111,10 @@ from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
     FileSystemApiKeyRepository,
 )
 
+from codebase_to_llm.application.uc_generate_llm_response import GenerateLLMResponseUseCase
+from codebase_to_llm.infrastructure.llm_adapter import OpenAILLMAdapter
+from codebase_to_llm.domain.api_key import ApiKeyId
+
 
 class DragDropFileSystemModel(QFileSystemModel):
     """Custom file system model that supports drag and drop operations."""
@@ -180,6 +187,48 @@ class RulesMenu(QMenu):
         super().mouseReleaseEvent(event)
 
 
+class LLMResponseWorker(QObject):
+    finished = Signal(str, str)  # (status, message)
+
+    def __init__(self, file_path, api_key_id_obj,model, llm_adapter, use_case, repo, prompt_repo, context_buffer, rules_repo, api_key_repo):
+        super().__init__()
+
+        self.file_path = file_path
+        self.api_key_id_obj = api_key_id_obj
+        self.model = model
+        self.llm_adapter = llm_adapter
+        self.use_case = use_case
+        self.repo = repo
+        self.prompt_repo = prompt_repo
+        self.context_buffer = context_buffer
+        self.rules_repo = rules_repo
+        self.api_key_repo = api_key_repo
+
+    def run(self):
+        result = self.use_case.execute(
+            model=self.model,
+            api_key_id=self.api_key_id_obj,
+            llm_adapter=self.llm_adapter,
+            api_key_repo=self.api_key_repo,
+            repo=self.repo,
+            prompt_repo=self.prompt_repo,
+            context_buffer=self.context_buffer,
+            rules_repo=self.rules_repo,
+            include_tree=False,
+            root_directory_path=None,
+        )
+        if result.is_err():
+            self.finished.emit("error", result.err() or "Failed to generate response.")
+            return
+        response = result.ok().response
+        try:
+            with open(self.file_path, "w", encoding="utf-8") as f:
+                f.write("# LLM Response (GPT-4.1):\n" + response + "\n")
+            self.finished.emit("success", "Response successfully written to the file (previous content erased).")
+        except Exception as e:
+            self.finished.emit("error", str(e))
+
+
 class MainWindow(QMainWindow):
     """Qt main window binding infrastructure to application layer."""
 
@@ -212,6 +261,9 @@ class MainWindow(QMainWindow):
         "_modify_prompt_use_case",
         "_preview_file_name_label",
         "_api_key_repo",
+        "_llm_thread",
+        "_llm_worker",
+        "_original_window_title",
     )
 
     def __init__(
@@ -615,6 +667,13 @@ class MainWindow(QMainWindow):
                 lambda checked, p=file_path: self._context_buffer_widget.add_file(p)
             )
             menu.addAction(add_action)
+
+            # --- New Action: Generate Response with GPT-4.1 ---
+            if file_path.stat().st_size == 0:
+                generate_response_action = QAction("Generate Response with GPT-4.1 in this file", self)
+                generate_response_action.triggered.connect(lambda checked, p=file_path: self._generate_llm_response_in_file(p))
+                menu.addAction(generate_response_action)
+            # --- End New Action ---
 
             prompt_result = self._prompt_repo.get_prompt()
             if prompt_result.is_ok():
@@ -1030,6 +1089,58 @@ class MainWindow(QMainWindow):
         """Opens the API keys management dialog."""
         dialog = ApiKeyManagerDialog(self._api_key_repo, parent=self)
         dialog.exec()
+
+    def _generate_llm_response_in_file(self, file_path: Path) -> None:
+        # Try to get the first available API key
+        api_key_id = None
+        api_keys_result = self._api_key_repo.load_api_keys() if hasattr(self._api_key_repo, 'load_api_keys') else None
+        if api_keys_result and api_keys_result.is_ok():
+            api_keys = api_keys_result.ok().api_keys()
+            if api_keys:
+                api_key_id = api_keys[0].id().value()
+        if not api_key_id:
+            api_key_id = "OPENAI_API_KEY"  # fallback default
+        api_key_id_obj = ApiKeyId(api_key_id)
+        llm_adapter = OpenAILLMAdapter()
+        use_case = GenerateLLMResponseUseCase()
+
+        # Set up worker and thread
+        self._llm_thread = QThread()
+        self._llm_worker = LLMResponseWorker(
+            file_path,
+            api_key_id_obj,
+            "gpt-4.1",
+            llm_adapter,
+            use_case,
+            self._repo,
+            self._prompt_repo,
+            self._context_buffer,
+            self._rules_repo,
+            self._api_key_repo,
+        )
+        self._llm_worker.moveToThread(self._llm_thread)
+        self._llm_thread.started.connect(self._llm_worker.run)
+        self._llm_worker.finished.connect(self._on_llm_response_finished)
+        self._llm_worker.finished.connect(self._llm_thread.quit)
+        self._llm_worker.finished.connect(self._llm_worker.deleteLater)
+        self._llm_thread.finished.connect(self._llm_thread.deleteLater)
+
+        # --- Set window title to show running wheel and file name ---
+        self._original_window_title = self.windowTitle()
+        running_wheel = "\u25D4"  # ◔ Unicode running wheel (can be replaced with another if desired)
+        self.setWindowTitle(f"{running_wheel} Generate LLM Answer in {file_path.name}")
+        # --- End window title update ---
+
+        self._llm_thread.start()
+
+    def _on_llm_response_finished(self, status, message):
+        # Restore the original window title
+        if hasattr(self, '_original_window_title'):
+            self.setWindowTitle(self._original_window_title)
+        if status == "success":
+            QMessageBox.information(self, "LLM Response", message)
+        else:
+            QMessageBox.critical(self, "LLM Response Error", message)
 
 
 if __name__ == "__main__":

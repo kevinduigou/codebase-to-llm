@@ -131,3 +131,13 @@ class FileSystemApiKeyRepository(ApiKeyRepositoryPort):
         if api_keys is None:
             return Err("Failed to load ApiKeys collection.")
         return api_keys.find_by_id(api_key_id)
+
+    def get_api_key(self, provider_name: str) -> Result[ApiKey, str]:
+        """Gets an API key by its provider name."""
+        api_keys_result = self.load_api_keys()
+        if api_keys_result.is_err():
+            return Err(api_keys_result.err() or "Unknown error loading API keys.")
+
+        api_keys = api_keys_result.ok()
+        if api_keys is None:
+            return Err("Failed to load ApiKeys collection.")    

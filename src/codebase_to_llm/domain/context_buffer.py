@@ -47,6 +47,7 @@ class Snippet:
 class ExternalSource:
     url: str
     content: str
+    is_youtube_transcript: bool
 
     @classmethod
     def try_from_url(
@@ -56,7 +57,10 @@ class ExternalSource:
         if result.is_err():
             return Err(result.err() or "Unknown error")
         text = result.ok() or ""
-        return Ok(ExternalSource(url, text))
+        is_youtube_transcript = url.startswith(
+            "https://www.youtube.com/"
+        ) or url.startswith("https://youtu.be/")
+        return Ok(ExternalSource(url, text, is_youtube_transcript))
 
 
 @final
@@ -110,7 +114,7 @@ class ContextBuffer:
         return Err("Snippet not found in the context buffer")
 
     def add_external_source(self, external_source: ExternalSource) -> Result[None, str]:
-        if external_source in self._external_sources:
+        if external_source.url in [es.url for es in self._external_sources]:
             return Err("External source already in the context buffer")
         self._external_sources.append(external_source)
         return Ok(None)

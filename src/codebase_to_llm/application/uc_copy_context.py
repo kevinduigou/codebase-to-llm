@@ -72,10 +72,16 @@ def get_full_context(
             parts.append(f"</{rel_path}:{snippet.start}:{snippet.end}>")
     if context_buffer.get_external_sources():
         for external_source in context_buffer.get_external_sources():
-            tag = f"<{external_source.url}>"
-            parts.append(tag)
-            parts.append(external_source.content)
-            parts.append(f"</{external_source.url}>")
+            if external_source.is_youtube_transcript:
+                tag = f"<video_transcript>"
+                parts.append(tag)
+                parts.append(external_source.content)
+                parts.append(f"</video_transcript>")
+            else:
+                tag = f"<{external_source.url}>"
+                parts.append(tag)
+                parts.append(external_source.content)
+                parts.append(f"</{external_source.url}>")
 
     rules_result = rules_repo.load_rules()
     if rules_result.is_ok():

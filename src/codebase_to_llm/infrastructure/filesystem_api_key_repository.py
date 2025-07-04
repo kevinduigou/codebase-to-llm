@@ -140,4 +140,4 @@ class FileSystemApiKeyRepository(ApiKeyRepositoryPort):
 
         api_keys = api_keys_result.ok()
         if api_keys is None:
-            return Err("Failed to load ApiKeys collection.")    
+            return Err("Failed to load ApiKeys collection.")

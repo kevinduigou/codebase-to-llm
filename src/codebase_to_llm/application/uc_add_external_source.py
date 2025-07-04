@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 
+from codebase_to_llm.domain.context_buffer import ExternalSource
 from codebase_to_llm.domain.result import Ok, Result, Err
 
 from .ports import ContextBufferPort, ExternalSourceRepositoryPort
@@ -18,10 +19,12 @@ class AddExternalSourceToContextBufferUseCase:
     def execute(self, url: str) -> Result[str, str]:
         lowered = url.lower()
         if "youtube.com" in lowered or "youtu.be" in lowered:
-            fetch_result = self._repo.fetch_youtube_transcript(url)
+            fetch_result_fn = self._repo.fetch_youtube_transcript
         else:
-            fetch_result = self._repo.fetch_web_page(url)
-        if fetch_result.is_err():
-            return Err(fetch_result.err() or "Unknown error")
-        self._context_buffer.add_external_source(url, fetch_result.ok() or "")
-        return Ok(fetch_result.ok() or "")
+            fetch_result_fn = self._repo.fetch_web_page
+
+        external_source = ExternalSource.try_from_url(url, fetch_result_fn)
+        if external_source.is_err():
+            return Err(external_source.err() or "Unknown error")
+        self._context_buffer.add_external_source(external_source.ok())
+        return Ok(external_source.ok())

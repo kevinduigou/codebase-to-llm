@@ -1,13 +1,30 @@
 from pathlib import Path
-from codebase_to_llm.application.ports import ApiKeyRepositoryPort, ContextBufferPort, DirectoryRepositoryPort, PromptRepositoryPort
-from codebase_to_llm.application.uc_generate_llm_response import GenerateLLMResponseUseCase
+from codebase_to_llm.application.ports import (
+    ApiKeyRepositoryPort,
+    ContextBufferPort,
+    DirectoryRepositoryPort,
+    PromptRepositoryPort,
+)
+from codebase_to_llm.application.uc_generate_llm_response import (
+    GenerateLLMResponseUseCase,
+)
 from codebase_to_llm.domain.api_key import ApiKeyId
-from codebase_to_llm.infrastructure.filesystem_api_key_repository import FileSystemApiKeyRepository
-from codebase_to_llm.infrastructure.filesystem_directory_repository import FileSystemDirectoryRepository
-from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository import FavoritePromptsRepository
+from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
+    FileSystemApiKeyRepository,
+)
+from codebase_to_llm.infrastructure.filesystem_directory_repository import (
+    FileSystemDirectoryRepository,
+)
+from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository import (
+    FavoritePromptsRepository,
+)
 from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepository
-from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import InMemoryContextBufferRepository
-from codebase_to_llm.infrastructure.in_memory_prompt_repository import InMemoryPromptRepository
+from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
+    InMemoryContextBufferRepository,
+)
+from codebase_to_llm.infrastructure.in_memory_prompt_repository import (
+    InMemoryPromptRepository,
+)
 from codebase_to_llm.infrastructure.llm_adapter import OpenAILLMAdapter
 from unittest.mock import MagicMock, patch
 from codebase_to_llm.domain.result import Ok
@@ -18,13 +35,15 @@ from codebase_to_llm.domain.rules import Rules
 class TestGenerateLLMResponseUseCase:
     def test_generate_llm_response(self):
 
-        with patch('codebase_to_llm.application.uc_generate_llm_response.get_full_context', return_value=Ok("Just say Hello no more!")):
+        with patch(
+            "codebase_to_llm.application.uc_generate_llm_response.get_full_context",
+            return_value=Ok("Just say Hello no more!"),
+        ):
             llm_adapter = OpenAILLMAdapter()
             rules_repo = RulesRepository()
             # Mock load_rules to return Ok(Rules(()))
             rules_repo.load_rules = MagicMock(return_value=Ok(Rules(())))
             prompts_repo: PromptRepositoryPort = InMemoryPromptRepository()
-            
 
             root = Path.cwd()
             repo: DirectoryRepositoryPort = FileSystemDirectoryRepository(root)
@@ -32,7 +51,7 @@ class TestGenerateLLMResponseUseCase:
             api_key_repo: ApiKeyRepositoryPort = FileSystemApiKeyRepository()
 
             result = GenerateLLMResponseUseCase().execute(
-                model="gpt-4.1",    
+                model="gpt-4.1",
                 api_key_id=ApiKeyId("OPENAI_API_KEY"),
                 llm_adapter=llm_adapter,
                 api_key_repo=api_key_repo,
@@ -42,5 +61,5 @@ class TestGenerateLLMResponseUseCase:
                 rules_repo=rules_repo,
                 include_tree=False,
             )
-        
+
         assert "Hello" in result.ok().response

@@ -111,7 +111,9 @@ from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
     FileSystemApiKeyRepository,
 )
 
-from codebase_to_llm.application.uc_generate_llm_response import GenerateLLMResponseUseCase
+from codebase_to_llm.application.uc_generate_llm_response import (
+    GenerateLLMResponseUseCase,
+)
 from codebase_to_llm.infrastructure.llm_adapter import OpenAILLMAdapter
 from codebase_to_llm.domain.api_key import ApiKeyId
 
@@ -190,7 +192,19 @@ class RulesMenu(QMenu):
 class LLMResponseWorker(QObject):
     finished = Signal(str, str)  # (status, message)
 
-    def __init__(self, file_path, api_key_id_obj,model, llm_adapter, use_case, repo, prompt_repo, context_buffer, rules_repo, api_key_repo):
+    def __init__(
+        self,
+        file_path,
+        api_key_id_obj,
+        model,
+        llm_adapter,
+        use_case,
+        repo,
+        prompt_repo,
+        context_buffer,
+        rules_repo,
+        api_key_repo,
+    ):
         super().__init__()
 
         self.file_path = file_path
@@ -224,7 +238,10 @@ class LLMResponseWorker(QObject):
         try:
             with open(self.file_path, "w", encoding="utf-8") as f:
                 f.write("# LLM Response (GPT-4.1):\n" + response + "\n")
-            self.finished.emit("success", "Response successfully written to the file (previous content erased).")
+            self.finished.emit(
+                "success",
+                "Response successfully written to the file (previous content erased).",
+            )
         except Exception as e:
             self.finished.emit("error", str(e))
 
@@ -670,8 +687,12 @@ class MainWindow(QMainWindow):
 
             # --- New Action: Generate Response with GPT-4.1 ---
             if file_path.stat().st_size == 0:
-                generate_response_action = QAction("Generate Response with GPT-4.1 in this file", self)
-                generate_response_action.triggered.connect(lambda checked, p=file_path: self._generate_llm_response_in_file(p))
+                generate_response_action = QAction(
+                    "Generate Response with GPT-4o in this file", self
+                )
+                generate_response_action.triggered.connect(
+                    lambda checked, p=file_path: self._generate_llm_response_in_file(p)
+                )
                 menu.addAction(generate_response_action)
             # --- End New Action ---
 
@@ -1093,7 +1114,11 @@ class MainWindow(QMainWindow):
     def _generate_llm_response_in_file(self, file_path: Path) -> None:
         # Try to get the first available API key
         api_key_id = None
-        api_keys_result = self._api_key_repo.load_api_keys() if hasattr(self._api_key_repo, 'load_api_keys') else None
+        api_keys_result = (
+            self._api_key_repo.load_api_keys()
+            if hasattr(self._api_key_repo, "load_api_keys")
+            else None
+        )
         if api_keys_result and api_keys_result.is_ok():
             api_keys = api_keys_result.ok().api_keys()
             if api_keys:
@@ -1109,7 +1134,7 @@ class MainWindow(QMainWindow):
         self._llm_worker = LLMResponseWorker(
             file_path,
             api_key_id_obj,
-            "gpt-4.1",
+            "gpt-4o",
             llm_adapter,
             use_case,
             self._repo,
@@ -1127,7 +1152,7 @@ class MainWindow(QMainWindow):
 
         # --- Set window title to show running wheel and file name ---
         self._original_window_title = self.windowTitle()
-        running_wheel = "\u25D4"  # ◔ Unicode running wheel (can be replaced with another if desired)
+        running_wheel = "\u25d4"  # ◔ Unicode running wheel (can be replaced with another if desired)
         self.setWindowTitle(f"{running_wheel} Generate LLM Answer in {file_path.name}")
         # --- End window title update ---
 
@@ -1135,7 +1160,7 @@ class MainWindow(QMainWindow):
 
     def _on_llm_response_finished(self, status, message):
         # Restore the original window title
-        if hasattr(self, '_original_window_title'):
+        if hasattr(self, "_original_window_title"):
             self.setWindowTitle(self._original_window_title)
         if status == "success":
             QMessageBox.information(self, "LLM Response", message)

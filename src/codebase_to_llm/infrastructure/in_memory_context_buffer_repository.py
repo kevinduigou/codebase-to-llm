@@ -72,17 +72,9 @@ class InMemoryContextBufferRepository(ContextBufferPort):
         self._context_buffer = new_buffer
         return Ok(None)
 
-    def add_external_source(self, url: str, text: str) -> Result[None, str]:
+    def add_external_source(self, external_source: ExternalSource) -> Result[None, str]:
         """Add an external source to the context buffer."""
-        new_list_of_external_sources = [
-            es for es in self._context_buffer.get_external_sources() if es.url != url
-        ]
-        new_list_of_external_sources.append(ExternalSource(url, text))
-        self._context_buffer = ContextBuffer(
-            files=self._context_buffer.get_files(),
-            snippets=self._context_buffer.get_snippets(),
-            external_sources=new_list_of_external_sources,
-        )
+        self._context_buffer.add_external_source(external_source)
         return Ok(None)
 
     def remove_external_source(self, url: str) -> Result[None, str]:

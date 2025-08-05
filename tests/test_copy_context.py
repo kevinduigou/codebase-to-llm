@@ -4,7 +4,7 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-from codebase_to_llm.domain.context_buffer import Snippet
+from codebase_to_llm.domain.context_buffer import Snippet, ExternalSource
 from codebase_to_llm.application.ports import (
     ContextBufferPort,
     RulesRepositoryPort,
@@ -46,44 +46,44 @@ class FakeContextBuffer(ContextBufferPort):
     def get_external_sources(self):
         return self._external_sources
 
-    def add_external_source(self, url, text):
-        self._external_sources.append(
-            type("ExternalSource", (), {"url": url, "content": text})()
-        )
-        return None
+    def add_external_source(self, external_source: ExternalSource) -> Result[None, str]:
+        self._external_sources.append(external_source)
+        return Ok(None)
 
-    def remove_external_source(self, url):
+    def remove_external_source(self, url: str) -> Result[None, str]:
         self._external_sources = [e for e in self._external_sources if e.url != url]
-        return None
+        return Ok(None)
 
-    def add_file(self, file):
+    def add_file(self, file) -> Result[None, str]:
         self._files.append(file)
-        return None
+        return Ok(None)
 
-    def remove_file(self, path):
+    def remove_file(self, path) -> Result[None, str]:
         self._files = [f for f in self._files if f.path != path]
-        return None
+        return Ok(None)
 
-    def add_snippet(self, snippet):
+    def add_snippet(self, snippet) -> Result[None, str]:
         self._snippets.append(snippet)
-        return None
+        return Ok(None)
 
-    def remove_snippet(self, path, start, end):
+    def remove_snippet(self, path, start, end) -> Result[None, str]:
         self._snippets = [
             s
             for s in self._snippets
             if not (s.path == path and s.start == start and s.end == end)
         ]
-        return None
+        return Ok(None)
 
     def get_context_buffer(self):
-        return None
+        from codebase_to_llm.domain.context_buffer import ContextBuffer
 
-    def clear(self):
+        return ContextBuffer(self._files, self._snippets, self._external_sources)
+
+    def clear(self) -> Result[None, str]:
         self._snippets = []
         self._files = []
         self._external_sources = []
-        return None
+        return Ok(None)
 
     def is_empty(self):
         return not (self._snippets or self._files or self._external_sources)

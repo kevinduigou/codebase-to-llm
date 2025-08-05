@@ -38,11 +38,9 @@ class TestGenerateLLMResponseUseCase:
         with patch(
             "codebase_to_llm.application.uc_generate_llm_response.get_full_context",
             return_value=Ok("Just say Hello no more!"),
-        ):
+        ), patch.object(RulesRepository, "load_rules", return_value=Ok(Rules(()))):
             llm_adapter = OpenAILLMAdapter()
             rules_repo = RulesRepository()
-            # Mock load_rules to return Ok(Rules(()))
-            rules_repo.load_rules = MagicMock(return_value=Ok(Rules(())))
             prompts_repo: PromptRepositoryPort = InMemoryPromptRepository()
 
             root = Path.cwd()
@@ -62,4 +60,7 @@ class TestGenerateLLMResponseUseCase:
                 include_tree=False,
             )
 
-        assert "Hello" in result.ok().response
+        assert result.is_ok()
+        response_generated = result.ok()
+        assert response_generated is not None
+        assert "Hello" in response_generated.response

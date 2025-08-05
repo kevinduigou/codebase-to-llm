@@ -15,9 +15,6 @@ from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
-from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository import (
-    FavoritePromptsRepository,
-)
 from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepository
 from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
     InMemoryContextBufferRepository,
@@ -26,9 +23,8 @@ from codebase_to_llm.infrastructure.in_memory_prompt_repository import (
     InMemoryPromptRepository,
 )
 from codebase_to_llm.infrastructure.llm_adapter import OpenAILLMAdapter
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from codebase_to_llm.domain.result import Ok
-from codebase_to_llm.domain.prompt import Prompt
 from codebase_to_llm.domain.rules import Rules
 
 

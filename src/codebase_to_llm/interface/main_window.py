@@ -115,7 +115,7 @@ from codebase_to_llm.application.uc_generate_llm_response import (
     GenerateLLMResponseUseCase,
 )
 from codebase_to_llm.infrastructure.llm_adapter import OpenAILLMAdapter
-from codebase_to_llm.domain.api_key import ApiKeyId, ApiKeys
+from codebase_to_llm.domain.api_key import ApiKeyId
 
 
 class DragDropFileSystemModel(QFileSystemModel):

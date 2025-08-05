@@ -115,7 +115,7 @@ from codebase_to_llm.application.uc_generate_llm_response import (
     GenerateLLMResponseUseCase,
 )
 from codebase_to_llm.infrastructure.llm_adapter import OpenAILLMAdapter
-from codebase_to_llm.domain.api_key import ApiKeyId
+from codebase_to_llm.domain.api_key import ApiKeyId, ApiKeys
 
 
 class DragDropFileSystemModel(QFileSystemModel):
@@ -1120,9 +1120,11 @@ class MainWindow(QMainWindow):
             else None
         )
         if api_keys_result and api_keys_result.is_ok():
-            api_keys = api_keys_result.ok().api_keys()
-            if api_keys:
-                api_key_id = api_keys[0].id().value()
+            api_keys_obj = api_keys_result.ok()
+            if api_keys_obj is not None:
+                api_keys: ApiKeys = api_keys_obj.api_keys()
+                if api_keys:
+                    api_key_id = api_keys[0].id().value()
         if not api_key_id:
             api_key_id = "OPENAI_API_KEY"  # fallback default
         api_key_id_obj = ApiKeyId(api_key_id)

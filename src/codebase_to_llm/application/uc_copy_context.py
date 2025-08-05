@@ -146,7 +146,7 @@ class CopyContextUseCase:  # noqa: D101 (public‑API docstring not mandatory he
             include_tree,
             root_directory_path,
         )
-        if full_contxt_result.is_ok():
+        if full_contxt_result.is_ok() and full_contxt_result.ok() is not None:
             self._clipboard.set_text(full_contxt_result.ok())
         else:
             return Err(full_contxt_result.err() or "Error getting full context")

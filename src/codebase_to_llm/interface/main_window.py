@@ -111,15 +111,12 @@ from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
     FileSystemApiKeyRepository,
 )
 
-<<<<<<< HEAD
 from codebase_to_llm.application.uc_generate_llm_response import (
     GenerateLLMResponseUseCase,
 )
 from codebase_to_llm.infrastructure.llm_adapter import OpenAILLMAdapter
 from codebase_to_llm.domain.api_key import ApiKeyId, ApiKeys
 
-=======
->>>>>>> origin/main
 
 class DragDropFileSystemModel(QFileSystemModel):
     """Custom file system model that supports drag and drop operations."""
@@ -281,12 +278,9 @@ class MainWindow(QMainWindow):
         "_modify_prompt_use_case",
         "_preview_file_name_label",
         "_api_key_repo",
-<<<<<<< HEAD
         "_llm_thread",
         "_llm_worker",
         "_original_window_title",
-=======
->>>>>>> origin/main
     )
 
     def __init__(

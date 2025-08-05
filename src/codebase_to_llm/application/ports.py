@@ -68,7 +68,7 @@ class ContextBufferPort(Protocol):
     """Pure port to manage the context buffer."""
 
     def add_external_source(
-        self, url: str, text: str
+        self, external_source: ExternalSource
     ) -> Result[None, str]: ...  # pragma: no cover
     def remove_external_source(
         self, url: str
@@ -129,3 +129,11 @@ class ApiKeyRepositoryPort(Protocol):
     def find_api_key_by_id(
         self, api_key_id: ApiKeyId
     ) -> Result[ApiKey, str]: ...  # pragma: no cover
+
+
+class LLMAdapterPort(Protocol):
+    """Pure port for LLM adapters."""
+
+    def generate_response(
+        self, prompt: str, model: str, api_key: ApiKey
+    ) -> Result[str, str]: ...  # pragma: no cover

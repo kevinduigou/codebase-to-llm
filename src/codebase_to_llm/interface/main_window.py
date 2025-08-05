@@ -1122,9 +1122,9 @@ class MainWindow(QMainWindow):
         if api_keys_result and api_keys_result.is_ok():
             api_keys_obj = api_keys_result.ok()
             if api_keys_obj is not None:
-                api_keys: ApiKeys = api_keys_obj.api_keys()
-                if api_keys:
-                    api_key_id = api_keys[0].id().value()
+                api_keys_tuple = api_keys_obj.api_keys()
+                if api_keys_tuple:
+                    api_key_id = api_keys_tuple[0].id().value()
         if not api_key_id:
             api_key_id = "OPENAI_API_KEY"  # fallback default
         api_key_id_obj = ApiKeyId(api_key_id)

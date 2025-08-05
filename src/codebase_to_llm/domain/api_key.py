@@ -217,6 +217,14 @@ class ApiKeys(ValueObject):
 
         return Err(f'API Key with ID "{api_key_id.value()}" not found.')
 
+    def find_by_url_provider(self, provider_name: str) -> Result[ApiKey, str]:
+        """Finds an API key by its URL provider."""
+        for key in self._api_keys:
+            if key.url_provider().value() == provider_name:
+                return Ok(key)
+
+        return Err(f'API Key with provider "{provider_name}" not found.')
+
     def is_empty(self) -> bool:
         return len(self._api_keys) == 0
 

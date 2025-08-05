@@ -138,6 +138,8 @@ class FileSystemApiKeyRepository(ApiKeyRepositoryPort):
         if api_keys_result.is_err():
             return Err(api_keys_result.err() or "Unknown error loading API keys.")
 
-        api_keys: ApiKeys = api_keys_result.ok()
+        api_keys = api_keys_result.ok()
+        if api_keys is None:
+            return Err("Failed to load ApiKeys collection.")
 
         return api_keys.find_by_url_provider(provider_name)

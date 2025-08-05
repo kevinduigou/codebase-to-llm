@@ -38,15 +38,27 @@ class GenerateLLMResponseUseCase:
             root_directory_path,
         )
 
+        full_context = full_contxt_result.ok()
+        if full_context is None:
+            return Err("Failed to get full context")
+
         api_key_result = api_key_repo.find_api_key_by_id(api_key_id)
         if api_key_result.is_err():
             return Err(api_key_result.err() or "Error getting API key")
 
+        api_key = api_key_result.ok()
+        if api_key is None:
+            return Err("Failed to get API key")
+
         generate_response_result = llm_adapter.generate_response(
-            full_contxt_result.ok(), model, api_key_result.ok()
+            full_context, model, api_key
         )
 
         if generate_response_result.is_err():
             return Err(generate_response_result.err() or "Error generating response")
 
-        return Ok(ResponseGenerated(generate_response_result.ok()))
+        response_text = generate_response_result.ok()
+        if response_text is None:
+            return Err("Failed to get response text")
+
+        return Ok(ResponseGenerated(response_text))

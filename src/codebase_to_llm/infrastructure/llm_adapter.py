@@ -23,5 +23,4 @@ class OpenAILLMAdapter(LLMAdapterPort):
             return Ok(response.output_text)
         except Exception as e:
             print(f"Error generating response: {e}")
-
-        return Err(f"Error generating response: {e}")
+            return Err(f"Error generating response: {e}")

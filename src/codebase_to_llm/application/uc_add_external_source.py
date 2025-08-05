@@ -26,5 +26,10 @@ class AddExternalSourceToContextBufferUseCase:
         external_source = ExternalSource.try_from_url(url, fetch_result_fn)
         if external_source.is_err():
             return Err(external_source.err() or "Unknown error")
-        self._context_buffer.add_external_source(external_source.ok())
-        return Ok(external_source.ok())
+        
+        external_source_obj = external_source.ok()
+        if external_source_obj is None:
+            return Err("Failed to create external source")
+            
+        self._context_buffer.add_external_source(external_source_obj)
+        return Ok(external_source_obj.url)

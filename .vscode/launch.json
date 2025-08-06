@@ -7,6 +7,14 @@
             "request": "launch",
             "program": "${workspaceFolder}/src/codebase_to_llm/main.py",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Run FastAPI Server",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": ["codebase_to_llm.interface.http_api:app"],
+            "console": "integratedTerminal"
         }
     ]
 }

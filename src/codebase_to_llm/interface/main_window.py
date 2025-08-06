@@ -72,6 +72,10 @@ from codebase_to_llm.application.uc_add_prompt_from_file import (
     AddPromptFromFileUseCase,
 )
 from codebase_to_llm.application.uc_modify_prompt import ModifyPromptUseCase
+from codebase_to_llm.application.uc_create_file import CreateFileUseCase
+from codebase_to_llm.application.uc_create_folder import CreateFolderUseCase
+from codebase_to_llm.application.uc_rename_path import RenamePathUseCase
+from codebase_to_llm.application.uc_delete_path import DeletePathUseCase
 from codebase_to_llm.domain.prompt import FileAddedAsPromptVariableEvent
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
@@ -103,6 +107,10 @@ from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
 from codebase_to_llm.application.ports import PromptRepositoryPort
 from codebase_to_llm.application.uc_set_prompt_from_favorite import (
     AddPromptFromFavoriteLisUseCase,
+)
+
+from codebase_to_llm.infrastructure.filesystem_file_manager import (
+    FileSystemFileManager,
 )
 
 from codebase_to_llm.interface.api_key_dialogs import ApiKeyManagerDialog
@@ -281,6 +289,11 @@ class MainWindow(QMainWindow):
         "_llm_thread",
         "_llm_worker",
         "_original_window_title",
+        "_file_system",
+        "_create_file_use_case",
+        "_create_folder_use_case",
+        "_rename_path_use_case",
+        "_delete_path_use_case",
     )
 
     def __init__(
@@ -339,6 +352,11 @@ class MainWindow(QMainWindow):
             self._prompt_repo
         )
         self._modify_prompt_use_case = ModifyPromptUseCase(self._prompt_repo)
+        self._file_system = FileSystemFileManager()
+        self._create_file_use_case = CreateFileUseCase(self._file_system)
+        self._create_folder_use_case = CreateFolderUseCase(self._file_system)
+        self._rename_path_use_case = RenamePathUseCase(self._file_system)
+        self._delete_path_use_case = DeletePathUseCase(self._file_system)
 
         splitter = QSplitter(Qt.Orientation.Horizontal, self)  # type: ignore[attr-defined]
         splitter.setChildrenCollapsible(False)
@@ -734,15 +752,13 @@ class MainWindow(QMainWindow):
         name, ok = QInputDialog.getText(self, f"Create {item_type}", "Enter name:")
         if not ok or not name:
             return
-
-        try:
-            new_path = parent_path / name
-            if is_folder:
-                new_path.mkdir(exist_ok=False)
-            else:
-                new_path.touch(exist_ok=False)
-        except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+        result = (
+            self._create_folder_use_case.execute(parent_path, name)
+            if is_folder
+            else self._create_file_use_case.execute(parent_path, name)
+        )
+        if result.is_err():
+            QMessageBox.critical(self, "Error", result.err() or "")
 
     def _delete_item(self, index) -> None:
         if not index.isValid():
@@ -765,15 +781,9 @@ class MainWindow(QMainWindow):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            try:
-                if path.is_dir():
-                    import shutil
-
-                    shutil.rmtree(path)
-                else:
-                    path.unlink()
-            except Exception as e:
-                QMessageBox.critical(self, "Error", str(e))
+            result = self._delete_path_use_case.execute(path)
+            if result.is_err():
+                QMessageBox.critical(self, "Error", result.err() or "")
 
     def _rename_item(self, index) -> None:
         if not index.isValid():
@@ -788,11 +798,9 @@ class MainWindow(QMainWindow):
         )
 
         if ok and new_name and new_name != old_path.name:
-            try:
-                new_path = old_path.parent / new_name
-                old_path.rename(new_path)
-            except Exception as e:
-                QMessageBox.critical(self, "Error", str(e))
+            result = self._rename_path_use_case.execute(old_path, new_name)
+            if result.is_err():
+                QMessageBox.critical(self, "Error", result.err() or "")
 
     def _add_key_variable_from_file(
         self, variable_key: str, relative_path: Path

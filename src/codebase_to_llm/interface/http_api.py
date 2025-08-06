@@ -153,7 +153,7 @@ def update_api_key(request: UpdateApiKeyRequest) -> dict[str, str]:
         raise HTTPException(status_code=400, detail=result.err())
     event = result.ok()
     assert event is not None
-    api_key = event.api_key
+    api_key = event.api_key()
     return {
         "id": api_key.id().value(),
         "url_provider": api_key.url_provider().value(),

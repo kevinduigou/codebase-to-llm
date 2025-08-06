@@ -40,6 +40,8 @@ from codebase_to_llm.application.uc_set_prompt_from_favorite import (
 )
 from codebase_to_llm.application.uc_update_api_key import UpdateApiKeyUseCase
 from codebase_to_llm.domain.api_key import ApiKeyId
+from codebase_to_llm.application.uc_register_user import RegisterUserUseCase
+from codebase_to_llm.application.uc_authenticate_user import AuthenticateUserUseCase
 
 from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
     FileSystemApiKeyRepository,
@@ -60,6 +62,9 @@ from codebase_to_llm.infrastructure.in_memory_prompt_repository import (
 from codebase_to_llm.infrastructure.llm_adapter import OpenAILLMAdapter
 from codebase_to_llm.infrastructure.url_external_source_repository import (
     UrlExternalSourceRepository,
+)
+from codebase_to_llm.infrastructure.sqlalchemy_user_repository import (
+    SqlAlchemyUserRepository,
 )
 
 
@@ -92,6 +97,39 @@ _recent_repo = FileSystemRecentRepository()
 _clipboard = InMemoryClipboardService()
 _directory_repo = FileSystemDirectoryRepository(Path.cwd())
 _llm_adapter = OpenAILLMAdapter()
+_user_repo = SqlAlchemyUserRepository()
+
+
+class RegisterRequest(BaseModel):
+    user_name: str
+    password: str
+
+
+@app.post("/register")
+def register_user(request: RegisterRequest) -> dict[str, str]:
+    use_case = RegisterUserUseCase(_user_repo)
+    result = use_case.execute(request.user_name, request.password)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    user = result.ok()
+    assert user is not None
+    return {"id": user.id().value(), "user_name": user.name().value()}
+
+
+class LoginRequest(BaseModel):
+    user_name: str
+    password: str
+
+
+@app.post("/login")
+def login_user(request: LoginRequest) -> dict[str, str]:
+    use_case = AuthenticateUserUseCase(_user_repo)
+    result = use_case.execute(request.user_name, request.password)
+    if result.is_err():
+        raise HTTPException(status_code=401, detail=result.err())
+    user = result.ok()
+    assert user is not None
+    return {"id": user.id().value(), "user_name": user.name().value()}
 
 
 class AddApiKeyRequest(BaseModel):

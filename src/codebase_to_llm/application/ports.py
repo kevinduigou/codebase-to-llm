@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 from codebase_to_llm.domain.api_key import ApiKeys, ApiKey, ApiKeyId
+from codebase_to_llm.domain.user import User, UserName
 from codebase_to_llm.domain.context_buffer import (
     ContextBuffer,
     ExternalSource,
@@ -129,6 +130,14 @@ class ApiKeyRepositoryPort(Protocol):
     def find_api_key_by_id(
         self, api_key_id: ApiKeyId
     ) -> Result[ApiKey, str]: ...  # pragma: no cover
+
+
+class UserRepositoryPort(Protocol):
+    """Pure port for user persistence and retrieval."""
+
+    def add_user(self, user: User) -> Result[None, str]: ...  # pragma: no cover
+
+    def find_by_name(self, name: UserName) -> Result[User, str]: ...  # pragma: no cover
 
 
 class LLMAdapterPort(Protocol):

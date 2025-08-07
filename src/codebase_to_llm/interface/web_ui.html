@@ -216,6 +216,17 @@
                 </form>
             </div>
 
+            <!-- Manage External Sources Section -->
+            <div class="section">
+                <h2>Manage External Sources</h2>
+                <div id="externalListMessage"></div>
+                <div class="flex-row" style="margin-bottom:10px;">
+                    <button id="refreshExternalBtn" type="button">Refresh List</button>
+                    <button id="clearExternalBtn" type="button" class="btn-danger" style="margin-left:10px;">Remove All External Sources</button>
+                </div>
+                <ul id="externalList"></ul>
+            </div>
+
             <!-- Modify Prompt Section -->
             <div class="section">
                 <h2>Modify Context Prompt</h2>
@@ -236,6 +247,13 @@
                 <form id="contextForm">
                     <button type="submit" class="btn-success">Copy Context</button>
                 </form>
+            </div>
+
+            <!-- Clear Context Buffer Section -->
+            <div class="section">
+                <h2>Clear Context Buffer</h2>
+                <div id="clearContextMessage"></div>
+                <button id="clearContextBtn" class="btn-danger" type="button">Clear Context</button>
             </div>
         </div>
     </div>
@@ -313,6 +331,31 @@
                 });
             }
 
+            async getExternalSources() {
+                return this.request('/context-buffer/external', {
+                    method: 'GET'
+                });
+            }
+
+            async removeExternalSource(url) {
+                return this.request('/context-buffer/external', {
+                    method: 'DELETE',
+                    body: JSON.stringify({ url })
+                });
+            }
+
+            async removeAllExternalSources() {
+                return this.request('/context-buffer/external/all', {
+                    method: 'DELETE'
+                });
+            }
+
+            async clearContext() {
+                return this.request('/context-buffer/all', {
+                    method: 'DELETE'
+                });
+            }
+
             async modifyPrompt(newContent) {
                 return this.request('/prompt/modify', {
                     method: 'POST',
@@ -351,6 +394,35 @@
             document.getElementById('loginSection').classList.add('hidden');
             document.getElementById('mainInterface').classList.remove('hidden');
             document.getElementById('currentUser').textContent = localStorage.getItem('username') || 'Unknown';
+            loadExternalSources();
+        }
+
+        async function loadExternalSources() {
+            try {
+                const result = await api.getExternalSources();
+                const list = document.getElementById('externalList');
+                list.innerHTML = '';
+                result.external_sources.forEach((url) => {
+                    const li = document.createElement('li');
+                    li.textContent = url + ' ';
+                    const btn = document.createElement('button');
+                    btn.textContent = 'Remove';
+                    btn.classList.add('btn-danger');
+                    btn.addEventListener('click', async () => {
+                        try {
+                            await api.removeExternalSource(url);
+                            showMessage('externalListMessage', `Removed: ${url}`);
+                            loadExternalSources();
+                        } catch (error) {
+                            showMessage('externalListMessage', error.message, true);
+                        }
+                    });
+                    li.appendChild(btn);
+                    list.appendChild(li);
+                });
+            } catch (error) {
+                showMessage('externalListMessage', error.message, true);
+            }
         }
 
         // Event Listeners
@@ -382,6 +454,7 @@
                 const result = await api.addExternalSource(url);
                 showMessage('externalMessage', `External source added successfully: ${result.url}`);
                 e.target.reset();
+                loadExternalSources();
             } catch (error) {
                 showMessage('externalMessage', error.message, true);
             }
@@ -398,6 +471,30 @@
                 // Optionally clear the textarea or show the updated content
             } catch (error) {
                 showMessage('promptMessage', error.message, true);
+            }
+        });
+
+        document.getElementById('refreshExternalBtn').addEventListener('click', () => {
+            loadExternalSources();
+        });
+
+        document.getElementById('clearExternalBtn').addEventListener('click', async () => {
+            try {
+                await api.removeAllExternalSources();
+                showMessage('externalListMessage', 'All external sources removed');
+                loadExternalSources();
+            } catch (error) {
+                showMessage('externalListMessage', error.message, true);
+            }
+        });
+
+        document.getElementById('clearContextBtn').addEventListener('click', async () => {
+            try {
+                await api.clearContext();
+                showMessage('clearContextMessage', 'Context cleared');
+                loadExternalSources();
+            } catch (error) {
+                showMessage('clearContextMessage', error.message, true);
             }
         });
 

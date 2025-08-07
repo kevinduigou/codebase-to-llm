@@ -10,7 +10,8 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
     CouldNotRetrieveTranscript,
     TranscriptsDisabled,
-    TooManyRequests,
+    RequestBlocked,
+    IpBlocked,
 )
 
 from codebase_to_llm.application.ports import ExternalSourceRepositoryPort
@@ -31,8 +32,12 @@ class UrlExternalSourceRepository(ExternalSourceRepositoryPort):
 
     #: read once at import time; you can also inject this in __init__ instead
     PROXIES: Final[dict[str, str]] = {
-        "http":  os.getenv("HTTP_PROXY_SMARTPROXY",  ""),   # e.g. http://user:pass@host:port
-        "https": os.getenv("HTTPS_PROXY_SMARTPROXY", ""),   # e.g. http://user:pass@host:port
+        "http": os.getenv(
+            "HTTP_PROXY_SMARTPROXY", ""
+        ),  # e.g. http://user:pass@host:port
+        "https": os.getenv(
+            "HTTPS_PROXY_SMARTPROXY", ""
+        ),  # e.g. http://user:pass@host:port
     }
     LANGUAGES: Final[list[str]] = ["en", "fr"]
 
@@ -58,7 +63,7 @@ class UrlExternalSourceRepository(ExternalSourceRepositoryPort):
                     return Ok(markdown)
 
             # 2️⃣  One-shot helper (this was the bug: you passed None before)
-            markdown = trafilatura.extract(url=url, output_format="markdown")
+            markdown = trafilatura.extract(None, url=url, output_format="markdown")
             if markdown:
                 return Ok(markdown)
 
@@ -75,9 +80,7 @@ class UrlExternalSourceRepository(ExternalSourceRepositoryPort):
                 timeout=10,
             )
             resp.raise_for_status()
-            markdown = trafilatura.extract(
-                resp.text, output_format="markdown", url=url
-            )
+            markdown = trafilatura.extract(resp.text, output_format="markdown", url=url)
             if markdown:
                 return Ok(markdown)
 
@@ -103,15 +106,16 @@ class UrlExternalSourceRepository(ExternalSourceRepositoryPort):
             lines = [item["text"] for item in transcript]
             return Ok("\n".join(lines))
 
-        except TooManyRequests:
-            return Err("YouTube rate-limited this IP. Switch proxy or slow down.")
+        except (RequestBlocked, IpBlocked):
+            return Err("YouTube blocked this request/IP. Switch proxy or slow down.")
         except TranscriptsDisabled:
             return Err("The uploader disabled transcripts for this video.")
         except CouldNotRetrieveTranscript as exc:
             return Err(f"Could not retrieve transcript: {exc}")
         except Exception as exc:  # noqa: BLE001
             return Err(f"Unexpected transcript error: {exc}")
-        
+
+
 def _extract_video_id(url: str) -> str:
     match = re.search(r"(?:v=|/)([a-zA-Z0-9_-]{11})", url)
     if match:

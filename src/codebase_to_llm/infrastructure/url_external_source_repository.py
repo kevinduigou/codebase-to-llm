@@ -1,82 +1,117 @@
 from __future__ import annotations
 
+import os
 import re
+from typing import Final
 
 import httpx
 import trafilatura
-
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import (
+    CouldNotRetrieveTranscript,
+    TranscriptsDisabled,
+    TooManyRequests,
+)
 
 from codebase_to_llm.application.ports import ExternalSourceRepositoryPort
 from codebase_to_llm.domain.result import Err, Ok, Result
 
 
 class UrlExternalSourceRepository(ExternalSourceRepositoryPort):
-    """Fetches content from the internet using urllib."""
+    """
+    Fetches web pages or YouTube transcripts.
+
+    *   Adds a proxy layer for YouTube requests.
+    *   Fixes the Trafilatura one-shot fallback.
+    """
 
     __slots__ = ()
 
+    # ── Configuration --------------------------------------------------------
+
+    #: read once at import time; you can also inject this in __init__ instead
+    PROXIES: Final[dict[str, str]] = {
+        "http":  os.getenv("HTTP_PROXY_SMARTPROXY",  ""),   # e.g. http://user:pass@host:port
+        "https": os.getenv("HTTPS_PROXY_SMARTPROXY", ""),   # e.g. http://user:pass@host:port
+    }
+    LANGUAGES: Final[list[str]] = ["en", "fr"]
+
+    # ── Public methods -------------------------------------------------------
+
     def fetch_web_page(self, url: str) -> Result[str, str]:
+        """
+        Return Markdown extracted from `url`.
 
+        Trafilatura strategy:
+        1.  try `fetch_url` + `extract`
+        2.  one-shot helper (`extract(url=...)`)
+        3.  manual HTTP download + `extract`
+        """
         try:
-            # 1️⃣  First attempt: Trafilatura download helper
+            # 1️⃣  Normal path
             downloaded = trafilatura.fetch_url(url)
-
-            # 2️⃣  Fallback #1: one-shot helper (download + extract in one go)
-            if downloaded is None:
-                markdown_content = trafilatura.extract(
-                    downloaded, output_format="markdown"
+            if downloaded:
+                markdown = trafilatura.extract(
+                    downloaded, output_format="markdown", url=url
                 )
-                if markdown_content:
-                    return Ok(markdown_content)
+                if markdown:
+                    return Ok(markdown)
 
-            # 3️⃣  Fallback #2: manual download → Trafilatura extract
-            if downloaded is None:  # still nothing
-                try:
-                    USER_AGENT = (
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/126.0 Safari/537.36"
-                    )
-                    resp = httpx.get(
-                        url,
-                        headers={"User-Agent": USER_AGENT},
-                        follow_redirects=True,
-                        timeout=10,
-                    )
-                    resp.raise_for_status()
-                    downloaded = resp.text
-                except Exception as http_err:
-                    return Err(f"HTTP fetch failed: {http_err}")
+            # 2️⃣  One-shot helper (this was the bug: you passed None before)
+            markdown = trafilatura.extract(url=url, output_format="markdown")
+            if markdown:
+                return Ok(markdown)
 
-            # 4️⃣  Extract (works with either HTML string or bytes)
-            markdown_content = trafilatura.extract(
-                downloaded,
-                output_format="markdown",
-                url=url,  # gives Trafilatura extra context (dates, etc.)
+            # 3️⃣  Manual download fallback
+            ua = (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/126.0 Safari/537.36"
             )
-            if markdown_content is None:
-                return Err("Failed to extract content from the web page.")
+            resp = httpx.get(
+                url,
+                headers={"User-Agent": ua},
+                follow_redirects=True,
+                timeout=10,
+            )
+            resp.raise_for_status()
+            markdown = trafilatura.extract(
+                resp.text, output_format="markdown", url=url
+            )
+            if markdown:
+                return Ok(markdown)
 
-            return Ok(markdown_content)
+            return Err("Trafilatura could not extract anything from the page.")
 
         except Exception as exc:  # noqa: BLE001
-            return Err(str(exc))
+            return Err(f"fetch_web_page failed: {exc}")
 
     def fetch_youtube_transcript(self, url: str) -> Result[str, str]:
-        from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore
+        """
+        Return plain-text transcript for a YouTube video.
 
+        Adds proxy support and clearer error handling.
+        """
         try:
             video_id = _extract_video_id(url)
-            languages = ["en", "fr"]
+
             transcript = YouTubeTranscriptApi.get_transcript(
-                video_id, languages=languages
+                video_id,
+                languages=self.LANGUAGES,
+                proxies=self.PROXIES,
             )
-            lines = [item.get("text", "") for item in transcript]
+            lines = [item["text"] for item in transcript]
             return Ok("\n".join(lines))
+
+        except TooManyRequests:
+            return Err("YouTube rate-limited this IP. Switch proxy or slow down.")
+        except TranscriptsDisabled:
+            return Err("The uploader disabled transcripts for this video.")
+        except CouldNotRetrieveTranscript as exc:
+            return Err(f"Could not retrieve transcript: {exc}")
         except Exception as exc:  # noqa: BLE001
-            return Err(str(exc))
-
-
+            return Err(f"Unexpected transcript error: {exc}")
+        
 def _extract_video_id(url: str) -> str:
     match = re.search(r"(?:v=|/)([a-zA-Z0-9_-]{11})", url)
     if match:

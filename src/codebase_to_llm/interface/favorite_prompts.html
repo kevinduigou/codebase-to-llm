@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favorite Prompts</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { background: white; margin-bottom: 20px; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input[type="text"], textarea { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 4px; }
+        textarea { min-height: 120px; resize: vertical; }
+        button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background-color: #3b82f6; color: white; }
+        button.btn-danger { background-color: #ef4444; }
+        ul { list-style: none; padding: 0; }
+        li { margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .prompt-name { font-weight: bold; }
+        a { text-decoration: none; color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="section">
+            <h1>Favorite Prompts</h1>
+            <div id="message"></div>
+            <form id="promptForm">
+                <input type="hidden" id="id" name="id">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="content">Content</label>
+                    <textarea id="content" name="content" required></textarea>
+                </div>
+                <button id="addBtn" type="button">Add</button>
+                <button id="updateBtn" type="button">Update</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Existing Prompts</h2>
+            <ul id="promptList"></ul>
+        </div>
+
+        <a href="/" id="backLink">Back to main</a>
+    </div>
+
+    <script>
+        class ApiClient {
+            constructor() {
+                this.baseUrl = window.location.origin;
+                this.token = localStorage.getItem('access_token');
+                if (!this.token) {
+                    window.location.href = '/';
+                }
+            }
+
+            async request(endpoint, options = {}) {
+                const url = `${this.baseUrl}${endpoint}`;
+                const headers = { 'Content-Type': 'application/json', ...options.headers };
+                if (this.token) { headers['Authorization'] = `Bearer ${this.token}`; }
+                const response = await fetch(url, { ...options, headers });
+                const data = await response.json();
+                if (!response.ok) { throw new Error(data.detail || 'Request failed'); }
+                return data;
+            }
+
+            getFavoritePrompts() { return this.request('/favorite-prompts', { method: 'GET' }); }
+            addFavoritePrompt(name, content) { return this.request('/favorite-prompts', { method: 'POST', body: JSON.stringify({ name, content }) }); }
+            updateFavoritePrompt(id, name, content) { return this.request('/favorite-prompts', { method: 'PUT', body: JSON.stringify({ id, name, content }) }); }
+            removeFavoritePrompt(id) { return this.request('/favorite-prompts', { method: 'DELETE', body: JSON.stringify({ id }) }); }
+        }
+
+        const api = new ApiClient();
+
+        function showMessage(message, isError = false) {
+            const el = document.getElementById('message');
+            el.innerHTML = `<div class="${isError ? 'error' : 'success'}">${message}</div>`;
+            setTimeout(() => { el.innerHTML = ''; }, 5000);
+        }
+
+        async function loadPrompts() {
+            try {
+                const result = await api.getFavoritePrompts();
+                const list = document.getElementById('promptList');
+                list.innerHTML = '';
+                result.prompts.forEach(p => {
+                    const li = document.createElement('li');
+                    const span = document.createElement('span');
+                    span.textContent = p.name;
+                    span.classList.add('prompt-name');
+                    span.addEventListener('click', () => {
+                        document.getElementById('id').value = p.id;
+                        document.getElementById('name').value = p.name;
+                        document.getElementById('content').value = p.content;
+                    });
+                    li.appendChild(span);
+                    const delBtn = document.createElement('button');
+                    delBtn.textContent = 'Delete';
+                    delBtn.classList.add('btn-danger');
+                    delBtn.addEventListener('click', async () => {
+                        try {
+                            await api.removeFavoritePrompt(p.id);
+                            showMessage('Prompt removed');
+                            loadPrompts();
+                        } catch (e) { showMessage(e.message, true); }
+                    });
+                    li.appendChild(delBtn);
+                    list.appendChild(li);
+                });
+            } catch (e) {
+                showMessage(e.message, true);
+            }
+        }
+
+        document.getElementById('addBtn').addEventListener('click', async () => {
+            const name = document.getElementById('name').value;
+            const content = document.getElementById('content').value;
+            try {
+                await api.addFavoritePrompt(name, content);
+                document.getElementById('id').value = '';
+                showMessage('Prompt added');
+                loadPrompts();
+            } catch (e) { showMessage(e.message, true); }
+        });
+
+        document.getElementById('updateBtn').addEventListener('click', async () => {
+            const id = document.getElementById('id').value;
+            const name = document.getElementById('name').value;
+            const content = document.getElementById('content').value;
+            try {
+                await api.updateFavoritePrompt(id, name, content);
+                showMessage('Prompt updated');
+                loadPrompts();
+            } catch (e) { showMessage(e.message, true); }
+        });
+
+        loadPrompts();
+    </script>
+</body>
+</html>
+

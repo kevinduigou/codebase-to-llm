@@ -3,10 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 import json
+import uuid
 
 from codebase_to_llm.domain.result import Result, Ok, Err
 from codebase_to_llm.application.ports import FavoritePromptsRepositoryPort
-from codebase_to_llm.domain.favorite_prompts import FavoritePrompt, FavoritePrompts
+from codebase_to_llm.domain.favorite_prompts import (
+    FavoritePrompt,
+    FavoritePrompts,
+)
 
 
 class FavoritePromptsRepository(FavoritePromptsRepositoryPort):
@@ -29,10 +33,16 @@ class FavoritePromptsRepository(FavoritePromptsRepositoryPort):
             if isinstance(data, list):
                 for item in data:
                     if isinstance(item, dict):
+                        id_raw = item.get("id")
+                        id_value = (
+                            str(id_raw) if id_raw is not None else str(uuid.uuid4())
+                        )
                         name = str(item.get("name", ""))
                         content_raw = item.get("content")
                         content = str(content_raw) if content_raw is not None else ""
-                        prompt_result = FavoritePrompt.try_create(name, content)
+                        prompt_result = FavoritePrompt.try_create(
+                            id_value, name, content
+                        )
                         if prompt_result.is_err():
                             return Err(prompt_result.err() or "")
                         prompt = prompt_result.ok()
@@ -52,7 +62,12 @@ class FavoritePromptsRepository(FavoritePromptsRepositoryPort):
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             data = [
-                {"name": p.name(), "content": p.content()} for p in prompts.prompts()
+                {
+                    "id": p.id().value(),
+                    "name": p.name(),
+                    "content": p.content(),
+                }
+                for p in prompts.prompts()
             ]
             self._path.write_text(
                 json.dumps(data, ensure_ascii=False), encoding="utf-8"

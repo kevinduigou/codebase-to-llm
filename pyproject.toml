@@ -19,6 +19,9 @@ dependencies = [
     "uvicorn>=0.30.0",
     "sqlalchemy>=2.0.0",
     "psycopg[binary]>=3.1.0",
+    "pyjwt>=2.9.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-multipart>=0.0.20",
 ]
 
 [project.urls]
@@ -36,7 +39,9 @@ dev = [
     "pytest>=8.4.0",
     "ruff>=0.12.0",
     "twine>=6.1.0",
+    "types-passlib>=1.7.7.20250602",
     "types-pygments>=2.19.0.20250516",
+    "typing-extensions>=4.14.0",
 ]
 
 [tool.setuptools]

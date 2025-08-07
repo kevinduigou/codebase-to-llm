@@ -3,3 +3,6 @@
 src/codebase_to_llm.egg-*
 dist/*
 .clinerules/deploy.md
+src/users.db
+users.db
+docker/deploy-to-cloud-run.sh

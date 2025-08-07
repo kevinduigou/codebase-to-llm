@@ -1,7 +1,9 @@
 from __future__ import annotations
+import logging
 
 from typing_extensions import final
 from sqlalchemy import Column, MetaData, String, Table
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from codebase_to_llm.application.ports import UserRepositoryPort
@@ -43,8 +45,16 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
             )
             session.commit()
             return Ok(None)
+        except IntegrityError as exc:
+            session.rollback()
+            logging.warning(str(exc))
+            # Check if it's a UNIQUE constraint violation on the name field
+            if "UNIQUE constraint failed: users.name" in str(exc):
+                return Err("User already exist")
+            return Err(str(exc))
         except Exception as exc:  # noqa: BLE001
             session.rollback()
+            logging.warning(str(exc))
             return Err(str(exc))
 
     def find_by_name(self, name: UserName) -> Result[User, str]:
@@ -70,4 +80,5 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
 
             return Ok(User(id_obj, name_obj, hash_obj))
         except Exception as exc:  # noqa: BLE001
+            logging.warning(str(exc))
             return Err(str(exc))

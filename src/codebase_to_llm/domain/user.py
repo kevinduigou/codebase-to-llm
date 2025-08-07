@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import hashlib
 from typing_extensions import final
-
+from passlib.context import CryptContext
 from codebase_to_llm.domain.result import Err, Ok, Result
 from codebase_to_llm.domain.value_object import ValueObject
+
+# Password hashing context using bcrypt
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @final
@@ -55,14 +57,14 @@ class UserName(ValueObject):
 
 @final
 class PasswordHash(ValueObject):
-    """SHA‑256 hashed password."""
+    """Bcrypt hashed password."""
 
     __slots__ = ("_value",)
     _value: str
 
     @staticmethod
     def from_plain(password: str) -> "PasswordHash":
-        hashed = hashlib.sha256(password.encode("utf-8")).hexdigest()
+        hashed = _pwd_context.hash(password)
         return PasswordHash(hashed)
 
     @staticmethod
@@ -79,7 +81,7 @@ class PasswordHash(ValueObject):
         return self._value
 
     def matches(self, password: str) -> bool:
-        return self._value == hashlib.sha256(password.encode("utf-8")).hexdigest()
+        return _pwd_context.verify(password, self._value)
 
 
 @final

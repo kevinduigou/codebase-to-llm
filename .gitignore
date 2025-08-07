@@ -5,3 +5,4 @@ dist/*
 .clinerules/deploy.md
 src/users.db
 users.db
+docker/deploy-to-cloud-run.sh

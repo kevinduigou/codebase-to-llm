@@ -29,6 +29,7 @@ class RegisterUserUseCase:
 
         save_result = self._user_repo.add_user(user)
         if save_result.is_err():
-            return Err(save_result.err())
+            error_msg = save_result.err()
+            return Err(error_msg if error_msg is not None else "Failed to save user.")
 
         return Ok(user)

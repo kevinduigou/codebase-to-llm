@@ -6,6 +6,7 @@ from typing import Annotated, Any, final
 
 import jwt
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
@@ -97,6 +98,14 @@ class InMemoryClipboardService:
 
 
 app = FastAPI()
+
+
+@app.get("/")
+def serve_web_ui() -> FileResponse:
+    """Serve the web UI HTML file."""
+    html_file_path = Path(__file__).parent / "web_ui.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
 
 # Repositories and services shared across requests
 _api_key_repo = FileSystemApiKeyRepository()

@@ -16,15 +16,24 @@
         button.btn-danger { background-color: #ef4444; }
         ul { list-style: none; padding: 0; }
         li { margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .prompt-name { font-weight: bold; }
+        .prompt-name { font-weight: bold; cursor: pointer; color: #3b82f6; }
+        .prompt-name:hover { text-decoration: underline; }
         a { text-decoration: none; color: #3b82f6; }
     </style>
 </head>
 <body>
     <div class="container">
+        <h1>Favorite Prompts</h1>
+        <div id="message"></div>
+        
         <div class="section">
-            <h1>Favorite Prompts</h1>
-            <div id="message"></div>
+            <h2>Existing Prompts</h2>
+            <ul id="promptList"></ul>
+            <button id="createNewBtn" type="button">Create New Prompt</button>
+        </div>
+
+        <div class="section" id="promptFormSection" style="display: none;">
+            <h2 id="formTitle">Add New Prompt</h2>
             <form id="promptForm">
                 <input type="hidden" id="id" name="id">
                 <div class="form-group">
@@ -36,13 +45,9 @@
                     <textarea id="content" name="content" required></textarea>
                 </div>
                 <button id="addBtn" type="button">Add</button>
-                <button id="updateBtn" type="button">Update</button>
+                <button id="updateBtn" type="button" style="display: none;">Update</button>
+                <button id="clearBtn" type="button" style="display: none;">Clear</button>
             </form>
-        </div>
-
-        <div class="section">
-            <h2>Existing Prompts</h2>
-            <ul id="promptList"></ul>
         </div>
 
         <a href="/" id="backLink">Back to main</a>
@@ -82,6 +87,37 @@
             setTimeout(() => { el.innerHTML = ''; }, 5000);
         }
 
+        function showFormSection() {
+            document.getElementById('promptFormSection').style.display = 'block';
+        }
+
+        function hideFormSection() {
+            document.getElementById('promptFormSection').style.display = 'none';
+        }
+
+        function showAddMode() {
+            document.getElementById('addBtn').style.display = 'inline-block';
+            document.getElementById('updateBtn').style.display = 'none';
+            document.getElementById('clearBtn').style.display = 'none';
+            document.getElementById('formTitle').textContent = 'Add New Prompt';
+            showFormSection();
+        }
+
+        function showUpdateMode() {
+            document.getElementById('addBtn').style.display = 'none';
+            document.getElementById('updateBtn').style.display = 'inline-block';
+            document.getElementById('clearBtn').style.display = 'inline-block';
+            document.getElementById('formTitle').textContent = 'Update Prompt';
+            showFormSection();
+        }
+
+        function clearForm() {
+            document.getElementById('id').value = '';
+            document.getElementById('name').value = '';
+            document.getElementById('content').value = '';
+            hideFormSection();
+        }
+
         async function loadPrompts() {
             try {
                 const result = await api.getFavoritePrompts();
@@ -96,6 +132,7 @@
                         document.getElementById('id').value = p.id;
                         document.getElementById('name').value = p.name;
                         document.getElementById('content').value = p.content;
+                        showUpdateMode();
                     });
                     li.appendChild(span);
                     const delBtn = document.createElement('button');
@@ -121,7 +158,7 @@
             const content = document.getElementById('content').value;
             try {
                 await api.addFavoritePrompt(name, content);
-                document.getElementById('id').value = '';
+                clearForm();
                 showMessage('Prompt added');
                 loadPrompts();
             } catch (e) { showMessage(e.message, true); }
@@ -133,13 +170,22 @@
             const content = document.getElementById('content').value;
             try {
                 await api.updateFavoritePrompt(id, name, content);
+                clearForm();
                 showMessage('Prompt updated');
                 loadPrompts();
             } catch (e) { showMessage(e.message, true); }
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            clearForm();
+        });
+
+        document.getElementById('createNewBtn').addEventListener('click', () => {
+            clearForm();
+            showAddMode();
         });
 
         loadPrompts();
     </script>
 </body>
 </html>
-

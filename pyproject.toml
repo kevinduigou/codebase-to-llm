@@ -41,6 +41,7 @@ dev = [
     "twine>=6.1.0",
     "types-passlib>=1.7.7.20250602",
     "types-pygments>=2.19.0.20250516",
+    "typing-extensions>=4.14.0",
 ]
 
 [tool.setuptools]

@@ -250,6 +250,7 @@ dev = [
     { name = "twine" },
     { name = "types-passlib" },
     { name = "types-pygments" },
+    { name = "typing-extensions" },
 ]
 
 [package.metadata]
@@ -283,6 +284,7 @@ dev = [
     { name = "twine", specifier = ">=6.1.0" },
     { name = "types-passlib", specifier = ">=1.7.7.20250602" },
     { name = "types-pygments", specifier = ">=2.19.0.20250516" },
+    { name = "typing-extensions", specifier = ">=4.14.0" },
 ]
 
 [[package]]

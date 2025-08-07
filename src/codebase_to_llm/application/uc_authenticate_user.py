@@ -20,7 +20,7 @@ class AuthenticateUserUseCase:
     def execute(self, user_name: str, password: str) -> Result[User, str]:
         name_result = UserName.try_create(user_name)
         if name_result.is_err():
-            return Err(name_result.err() or "Invalid username.")
+            return Err("Invalid username.")
 
         name = name_result.ok()
         if name is None:
@@ -28,7 +28,7 @@ class AuthenticateUserUseCase:
 
         repo_result = self._user_repo.find_by_name(name)
         if repo_result.is_err():
-            return Err(repo_result.err() or "User not found.")
+            return Err("User not found.")
 
         user = repo_result.ok()
         if user is None or not user.verify_password(password):

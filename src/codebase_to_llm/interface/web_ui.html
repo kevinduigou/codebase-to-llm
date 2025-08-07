@@ -82,41 +82,137 @@
             resize: vertical;
         }
 
+        /* Base button styles */
         button {
-            background-color: #3498db;
-            color: white;
             padding: 12px 24px;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: background-color 0.3s;
+            transition: all 0.2s ease-in-out;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            text-decoration: none;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
-        button:hover {
-            background-color: #2980b9;
+        button:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
         button:disabled {
-            background-color: #bdc3c7;
+            background-color: #9ca3af;
+            color: #6b7280;
             cursor: not-allowed;
+            opacity: 0.6;
         }
 
+        button:disabled:hover {
+            background-color: #9ca3af;
+            transform: none;
+        }
+
+        /* Primary buttons (blue) */
+        button,
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        button:hover,
+        .btn-primary:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        button:active,
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Success buttons (green) */
         .btn-success {
-            background-color: #27ae60;
+            background-color: #10b981;
+            color: white;
         }
 
         .btn-success:hover {
-            background-color: #229954;
+            background-color: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
 
+        .btn-success:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Danger buttons (red) */
         .btn-danger {
-            background-color: #e74c3c;
+            background-color: #ef4444;
+            color: white;
         }
 
         .btn-danger:hover {
-            background-color: #c0392b;
+            background-color: #dc2626;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Small button variant */
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 12px;
+            min-height: 36px;
+        }
+
+        /* Icon button variant */
+        .btn-icon {
+            padding: 6px;
+            min-height: 28px;
+            min-width: 28px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-left: 8px;
+        }
+
+        .btn-icon:hover {
+            transform: scale(1.1);
+        }
+
+        /* External source list styling */
+        #externalList {
+            list-style: none;
+            padding: 0;
+        }
+
+        #externalList li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        #externalList li:last-child {
+            border-bottom: none;
+        }
+
+        .external-url {
+            flex: 1;
+            word-break: break-all;
+            margin-right: 10px;
         }
 
         .message {
@@ -163,10 +259,19 @@
 
         .flex-row .form-group {
             flex: 1;
+            margin-bottom: 0;
         }
 
         .flex-row button {
             margin-bottom: 0;
+        }
+
+        /* Plus icon button styling */
+        .flex-row button[title="Add Source"] {
+            font-size: 18px;
+            font-weight: bold;
+            min-width: 44px;
+            padding: 12px;
         }
     </style>
 </head>
@@ -198,22 +303,26 @@
         <div id="mainInterface" class="hidden">
             <div class="user-info">
                 <span>Logged in as: <strong id="currentUser"></strong></span>
-                <button id="logoutBtn" class="btn-danger" style="margin-left: 10px; padding: 6px 12px;">Logout</button>
+                <button id="logoutBtn" class="btn-danger btn-sm" style="margin-left: 10px;">Logout</button>
             </div>
 
-            <!-- Add External Source Section -->
+            <!-- External Sources Section -->
             <div class="section">
-                <h2>Add External Source</h2>
+                <h2>External Sources</h2>
                 <div id="externalMessage"></div>
                 <form id="externalForm">
                     <div class="flex-row">
                         <div class="form-group">
-                            <label for="externalUrl">URL:</label>
                             <input type="url" id="externalUrl" name="url" placeholder="https://example.com" required>
                         </div>
-                        <button type="submit">Add Source</button>
+                        <button type="submit" title="Add Source">+</button>
                     </div>
                 </form>
+                
+                <div id="externalListMessage" style="margin-top: 20px;"></div>
+                
+                <ul id="externalList"></ul>
+            
             </div>
 
             <!-- Modify Prompt Section -->
@@ -225,18 +334,17 @@
                         <label for="promptContent">New Prompt Content:</label>
                         <textarea id="promptContent" name="new_content" placeholder="Enter your prompt content here..." required></textarea>
                     </div>
-                    <button type="submit">Update Prompt</button>
                 </form>
+                <div id="contextMessage"></div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <form id="contextForm" style="margin: 0;">
+                        <button type="submit" class="btn-success">Copy Context</button>
+                    </form>
+                    <button id="copyAndChatBtn" class="btn-primary">Copy Context and Go to Chat</button>
+                </div>
             </div>
 
-            <!-- Copy Context Section -->
-            <div class="section">
-                <h2>Copy Context to Clipboard</h2>
-                <div id="contextMessage"></div>
-                <form id="contextForm">
-                    <button type="submit" class="btn-success">Copy Context</button>
-                </form>
-            </div>
+
         </div>
     </div>
 
@@ -313,6 +421,31 @@
                 });
             }
 
+            async getExternalSources() {
+                return this.request('/context-buffer/external', {
+                    method: 'GET'
+                });
+            }
+
+            async removeExternalSource(url) {
+                return this.request('/context-buffer/external', {
+                    method: 'DELETE',
+                    body: JSON.stringify({ url })
+                });
+            }
+
+            async removeAllExternalSources() {
+                return this.request('/context-buffer/external/all', {
+                    method: 'DELETE'
+                });
+            }
+
+            async clearContext() {
+                return this.request('/context-buffer/all', {
+                    method: 'DELETE'
+                });
+            }
+
             async modifyPrompt(newContent) {
                 return this.request('/prompt/modify', {
                     method: 'POST',
@@ -351,6 +484,44 @@
             document.getElementById('loginSection').classList.add('hidden');
             document.getElementById('mainInterface').classList.remove('hidden');
             document.getElementById('currentUser').textContent = localStorage.getItem('username') || 'Unknown';
+            loadExternalSources();
+        }
+
+        async function loadExternalSources() {
+            try {
+                const result = await api.getExternalSources();
+                const list = document.getElementById('externalList');
+                list.innerHTML = '';
+                result.external_sources.forEach((url) => {
+                    const li = document.createElement('li');
+                    
+                    // Create URL span
+                    const urlSpan = document.createElement('span');
+                    urlSpan.textContent = url;
+                    urlSpan.classList.add('external-url');
+                    
+                    // Create trash icon button
+                    const btn = document.createElement('button');
+                    btn.innerHTML = 'X';
+                    btn.classList.add('btn-danger', 'btn-icon');
+                    btn.title = 'Remove this external source';
+                    btn.addEventListener('click', async () => {
+                        try {
+                            await api.removeExternalSource(url);
+                            showMessage('externalListMessage', `Removed: ${url}`);
+                            loadExternalSources();
+                        } catch (error) {
+                            showMessage('externalListMessage', error.message, true);
+                        }
+                    });
+                    
+                    li.appendChild(urlSpan);
+                    li.appendChild(btn);
+                    list.appendChild(li);
+                });
+            } catch (error) {
+                showMessage('externalListMessage', error.message, true);
+            }
         }
 
         // Event Listeners
@@ -382,6 +553,7 @@
                 const result = await api.addExternalSource(url);
                 showMessage('externalMessage', `External source added successfully: ${result.url}`);
                 e.target.reset();
+                loadExternalSources();
             } catch (error) {
                 showMessage('externalMessage', error.message, true);
             }
@@ -399,6 +571,21 @@
             } catch (error) {
                 showMessage('promptMessage', error.message, true);
             }
+        });
+
+        // Auto-update prompt when textarea content changes
+        let promptUpdateTimeout;
+        document.getElementById('promptContent').addEventListener('input', async (e) => {
+            const newContent = e.target.value;
+            
+            promptUpdateTimeout = setTimeout(async () => {
+                try {
+                    await api.modifyPrompt(newContent);
+                } catch (error) {
+                }
+
+            }
+        );
         });
 
         document.getElementById('contextForm').addEventListener('submit', async (e) => {
@@ -422,6 +609,36 @@
                     document.body.removeChild(textArea);
                     showMessage('contextMessage', 'Context copied to clipboard successfully!');
                 }
+            } catch (error) {
+                showMessage('contextMessage', error.message, true);
+            }
+        });
+
+        document.getElementById('copyAndChatBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            try {
+                // Always set include_tree to false and root_directory_path to null
+                const result = await api.copyContext(false, null);
+                
+                // Copy to clipboard
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(result.content);
+                    showMessage('contextMessage', 'Context copied to clipboard successfully! Opening ChatGPT...');
+                } else {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = result.content;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showMessage('contextMessage', 'Context copied to clipboard successfully! Opening ChatGPT...');
+                }
+                
+                // Open ChatGPT in a new tab
+                window.open('https://chatgpt.com/', '_blank');
+                
             } catch (error) {
                 showMessage('contextMessage', error.message, true);
             }

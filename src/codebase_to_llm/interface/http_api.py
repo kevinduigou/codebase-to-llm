@@ -18,6 +18,18 @@ from codebase_to_llm.application.uc_add_code_snippet_to_context_buffer import (
 from codebase_to_llm.application.uc_add_external_source import (
     AddExternalSourceToContextBufferUseCase,
 )
+from codebase_to_llm.application.uc_get_external_sources import (
+    GetExternalSourcesUseCase,
+)
+from codebase_to_llm.application.uc_remove_external_source import (
+    RemoveExternalSourceUseCase,
+)
+from codebase_to_llm.application.uc_remove_all_external_sources import (
+    RemoveAllExternalSourcesUseCase,
+)
+from codebase_to_llm.application.uc_clear_context_buffer import (
+    ClearContextBufferUseCase,
+)
 from codebase_to_llm.application.uc_add_file_as_prompt_variable import (
     AddFileAsPromptVariableUseCase,
 )
@@ -347,6 +359,56 @@ def add_external_source(
     url_val = result.ok()
     assert url_val is not None
     return {"url": url_val}
+
+
+@app.get("/context-buffer/external")
+def get_external_sources(
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, list[str]]:
+    use_case = GetExternalSourcesUseCase(_context_buffer)
+    result = use_case.execute()
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    sources = result.ok() or []
+    return {"external_sources": [src.url for src in sources]}
+
+
+class RemoveExternalSourceRequest(BaseModel):
+    url: str
+
+
+@app.delete("/context-buffer/external")
+def remove_external_source(
+    request: RemoveExternalSourceRequest,
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    use_case = RemoveExternalSourceUseCase(_context_buffer)
+    result = use_case.execute(request.url)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"removed": request.url}
+
+
+@app.delete("/context-buffer/external/all")
+def remove_all_external_sources(
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    use_case = RemoveAllExternalSourcesUseCase(_context_buffer)
+    result = use_case.execute()
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"status": "cleared"}
+
+
+@app.delete("/context-buffer/all")
+def clear_context_buffer(
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    use_case = ClearContextBufferUseCase(_context_buffer)
+    result = use_case.execute()
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"status": "cleared"}
 
 
 class RemoveElementsRequest(BaseModel):

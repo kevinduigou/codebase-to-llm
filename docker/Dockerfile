@@ -22,6 +22,8 @@ RUN pip install uv
 # Copy source code and dependency files
 COPY ../src ./src
 COPY ../pyproject.toml ../uv.lock ./
+COPY ../alembic.ini ./
+COPY ../migrations ./migrations
 
 # Install Python dependencies
 RUN uv sync --frozen --dev

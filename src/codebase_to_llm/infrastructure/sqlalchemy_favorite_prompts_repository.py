@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing_extensions import final
-from sqlalchemy import Column, MetaData, String, Table
+from sqlalchemy import Column, String, Table
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -12,20 +12,16 @@ from codebase_to_llm.domain.favorite_prompts import (
     FavoritePrompts,
 )
 from codebase_to_llm.domain.result import Result, Ok, Err
-from codebase_to_llm.infrastructure.db import DatabaseSessionManager, get_engine
-
-_metadata = MetaData()
+from codebase_to_llm.infrastructure.db import DatabaseSessionManager, get_metadata
 
 _favorite_prompts_table = Table(
     "favorite_prompts",
-    _metadata,
+    get_metadata(),
     Column("id", String, primary_key=True),
     Column("user_id", String, primary_key=True),
     Column("name", String, nullable=False),
     Column("content", String, nullable=False),
 )
-
-_metadata.create_all(get_engine())
 
 
 @final

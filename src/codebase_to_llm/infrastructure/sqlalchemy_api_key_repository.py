@@ -2,27 +2,23 @@ from __future__ import annotations
 
 import logging
 from typing_extensions import final
-from sqlalchemy import Column, MetaData, String, Table
+from sqlalchemy import Column, String, Table
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from codebase_to_llm.application.ports import ApiKeyRepositoryPort
 from codebase_to_llm.domain.api_key import ApiKeys, ApiKey, ApiKeyId
 from codebase_to_llm.domain.result import Result, Ok, Err
-from codebase_to_llm.infrastructure.db import DatabaseSessionManager, get_engine
-
-_metadata = MetaData()
+from codebase_to_llm.infrastructure.db import DatabaseSessionManager, get_metadata
 
 _api_keys_table = Table(
     "api_keys",
-    _metadata,
+    get_metadata(),
     Column("id", String, primary_key=True),
     Column("user_id", String, primary_key=True),
     Column("url_provider", String, nullable=False),
     Column("api_key_value", String, nullable=False),
 )
-
-_metadata.create_all(get_engine())
 
 
 @final

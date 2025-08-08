@@ -4,25 +4,21 @@ import logging
 from pathlib import Path
 from typing import List
 from typing_extensions import final
-from sqlalchemy import Column, Integer, MetaData, String, Table
+from sqlalchemy import Column, Integer, String, Table
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from codebase_to_llm.application.ports import RecentRepositoryPort
 from codebase_to_llm.domain.result import Result, Ok, Err
-from codebase_to_llm.infrastructure.db import DatabaseSessionManager, get_engine
-
-_metadata = MetaData()
+from codebase_to_llm.infrastructure.db import DatabaseSessionManager, get_metadata
 
 _recent_repos_table = Table(
     "recent_repos",
-    _metadata,
+    get_metadata(),
     Column("user_id", String, primary_key=True),
     Column("position", Integer, primary_key=True),
     Column("path", String, nullable=False),
 )
-
-_metadata.create_all(get_engine())
 
 
 @final

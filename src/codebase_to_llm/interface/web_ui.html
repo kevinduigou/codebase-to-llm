@@ -24,6 +24,14 @@
             padding: 20px;
         }
 
+        /* Desktop: Remove max-width constraint to use full horizontal space */
+        @media (min-width: 1024px) {
+            .container {
+                max-width: none;
+                padding: 20px 40px;
+            }
+        }
+
         .header {
             text-align: center;
             margin-bottom: 40px;
@@ -247,8 +255,8 @@
         .navbar {
             background: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            border-radius: 8px;
+            margin-bottom: 0;
+            border-radius: 0;
             padding: 0;
         }
 
@@ -259,35 +267,57 @@
             padding: 15px 25px;
         }
 
-        .navbar-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
         .navbar-brand h2 {
             color: #2c3e50;
-            margin: 0;
             font-size: 1.4em;
             font-weight: 600;
+            margin: 0;
         }
 
-        .navbar-nav {
+        /* Layout with Sidebar */
+        .layout {
             display: flex;
-            align-items: center;
-            gap: 15px;
+            min-height: 100vh;
         }
 
-        .navbar-user {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #555;
+        .sidebar {
+            width: 220px;
+            background-color: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            padding: 20px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #6B7280;
+            margin-bottom: 10px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-menu li {
+            padding: 10px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #4B5563;
             font-weight: 500;
         }
 
-        .navbar-user strong {
-            color: #2c3e50;
+        .sidebar-menu li:hover,
+        .sidebar-menu li.active {
+            background-color: #F3F4F6;
+            color: #6C63FF;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 30px;
         }
 
         .flex-row {
@@ -359,6 +389,104 @@
         .favorite-prompt-item:active {
             transform: translateY(0);
         }
+
+        /* Account dropdown styling */
+        .account-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .account-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: white;
+            min-width: 160px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            border-radius: 6px;
+            z-index: 1000;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+
+        .account-dropdown-content.show {
+            display: block;
+        }
+
+        .account-dropdown-item {
+            color: #374151;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .account-dropdown-item:hover {
+            background-color: #f3f4f6;
+        }
+
+        .account-dropdown-item.danger {
+            color: #dc2626;
+        }
+
+        .account-dropdown-item.danger:hover {
+            background-color: #fef2f2;
+        }
+
+        .user-info {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+        }
+
+        .user-info .username {
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .user-info .role {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        /* Account icon button styling */
+        .account-icon-btn {
+            background: none;
+            border: none;
+            padding: 8px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            color: #6b7280;
+            font-size: 18px;
+            box-shadow: none;
+            min-height: auto;
+        }
+
+        .account-icon-btn:hover {
+            background-color: #f3f4f6;
+            color: #374151;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .account-icon-btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -386,27 +514,42 @@
             </form>
         </div>
 
-        <!-- Main Interface (hidden until logged in) -->
-        <div id="mainInterface" class="hidden">
-            <!-- Navigation Bar -->
-            <nav class="navbar">
-                <div class="navbar-content">
-                    <div class="navbar-brand">
-                        <h2>LLM Context Manager</h2>
-                    </div>
-                    <div class="navbar-nav">
-                        <a href="/favorite-prompts-ui" class="btn-primary btn-sm">Favorite Prompts</a>
-                        <div class="navbar-user">
-                            <span>Logged in as: <strong id="currentUser"></strong></span>
+        <!-- Navigation Bar -->
+        <nav class="navbar">
+            <div class="navbar-content">
+                <div class="navbar-brand">
+                    <h2>LLM Context<br>Manager</h2>
+                </div>
+                <div class="navbar-nav">
+                    <div class="account-dropdown">
+                        <button class="account-icon-btn" id="accountBtn" title="Account">
+                            👤
+                        </button>
+                        <div class="account-dropdown-content" id="accountDropdown">
+                            <div class="user-info">
+                                <div class="username" id="currentUsername">User</div>
+                                <div class="role">Logged in</div>
+                            </div>
+                            <button class="account-dropdown-item danger" id="logoutBtn">
+                                🚪 Logout
+                            </button>
                         </div>
-                        <button id="logoutBtn" class="btn-danger btn-sm">Logout</button>
-                        
-                       
                     </div>
                 </div>
-            </nav>
+            </div>
+        </nav>
 
-            <!-- External Sources Section -->
+        <!-- Main Interface (hidden until logged in) -->
+        <div class="layout hidden" id="mainInterface">
+            <aside class="sidebar">
+                <h3 class="sidebar-title">Navigation</h3>
+                <ul class="sidebar-menu">
+                    <li class="active" id="favoritePromptsNav">⭐ Favorite Prompts</li>
+                </ul>
+            </aside>
+
+            <main class="main-content">
+                <!-- External Sources Section -->
             <div class="section">
                 <h2>External Sources</h2>
                 <div id="externalMessage"></div>
@@ -453,7 +596,7 @@
                 </div>
             </div>
 
-
+            </main>
         </div>
     </div>
 
@@ -598,9 +741,26 @@
         function showMainInterface() {
             document.getElementById('loginSection').classList.add('hidden');
             document.getElementById('mainInterface').classList.remove('hidden');
-            document.getElementById('currentUser').textContent = localStorage.getItem('username') || 'Unknown';
+            updateAccountInfo();
             loadExternalSources();
             loadFavoritePrompts();
+        }
+
+        function updateAccountInfo() {
+            const username = localStorage.getItem('username');
+            if (username) {
+                document.getElementById('currentUsername').textContent = username;
+            }
+        }
+
+        function toggleAccountDropdown() {
+            const dropdown = document.getElementById('accountDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        function closeAccountDropdown() {
+            const dropdown = document.getElementById('accountDropdown');
+            dropdown.classList.remove('show');
         }
 
         async function loadFavoritePrompts() {
@@ -693,9 +853,6 @@
             }
         });
 
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            api.logout();
-        });
 
         document.getElementById('externalForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -795,6 +952,29 @@
             } catch (error) {
                 showMessage('contextMessage', error.message, true);
             }
+        });
+
+        // Account dropdown event listeners
+        document.getElementById('accountBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleAccountDropdown();
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            api.logout();
+            closeAccountDropdown();
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.account-dropdown')) {
+                closeAccountDropdown();
+            }
+        });
+
+        // Navigation event listeners
+        document.getElementById('favoritePromptsNav').addEventListener('click', () => {
+            window.location.href = '/favorite-prompts-ui';
         });
 
         // Initialize

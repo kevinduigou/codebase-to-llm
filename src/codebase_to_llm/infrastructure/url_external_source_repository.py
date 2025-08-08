@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import os
 import re
+import time
+import random
 from typing import Final
+from xml.parsers import expat
 
 import httpx
 import trafilatura
@@ -12,6 +15,7 @@ from youtube_transcript_api._errors import (
     TranscriptsDisabled,
     RequestBlocked,
     IpBlocked,
+    NoTranscriptFound,
 )
 
 from codebase_to_llm.application.ports import ExternalSourceRepositoryPort
@@ -89,29 +93,98 @@ class UrlExternalSourceRepository(ExternalSourceRepositoryPort):
         except Exception as exc:  # noqa: BLE001
             return Err(f"fetch_web_page failed: {exc}")
 
-    def fetch_youtube_transcript(self, url: str) -> Result[str, str]:
+    def fetch_youtube_transcript(
+        self, url: str, include_timestamps: bool = False
+    ) -> Result[str, str]:
         """
         Return plain-text transcript for a YouTube video.
 
-        Adds proxy support and clearer error handling.
+        Adds proxy support, clearer error handling, and optional timestamps.
         """
         try:
             video_id = _extract_video_id(url)
+            transcript_from_yt_api = []
+            language = "en"  # Start with English
 
-            transcript = YouTubeTranscriptApi.get_transcript(
-                video_id,
-                languages=self.LANGUAGES,
-                proxies=self.PROXIES,
-            )
-            lines = [item["text"] for item in transcript]
-            return Ok("\n".join(lines))
+            # Retry logic with language fallback
+            for attempt in range(3):
+                try:
+                    # Only pass proxies if they are actually configured
+                    if self.PROXIES.get("http") or self.PROXIES.get("https"):
+                        transcript_from_yt_api = YouTubeTranscriptApi.get_transcript(
+                            video_id=video_id,
+                            languages=[language],
+                            proxies=self.PROXIES,
+                        )
+                    else:
+                        transcript_from_yt_api = YouTubeTranscriptApi.get_transcript(
+                            video_id=video_id,
+                            languages=[language],
+                        )
+                    break
+                except (TranscriptsDisabled, NoTranscriptFound):
+                    # Nothing to do – captions really don't exist
+                    print(
+                        f"No transcript available for language {language}, trying alternative language"
+                    )
+                    if language == "en":
+                        language = "fr"
+                    elif language == "fr":
+                        language = "en"
+                    else:
+                        # If not en or fr, try en as fallback
+                        language = "en"
+                except expat.ExpatError as e:
+                    # Empty or corrupt XML → wait a bit, then retry
+                    print(f"XML parsing error (attempt {attempt + 1}/3): {e}")
+                    if attempt < 2:  # Only sleep if we have more attempts
+                        time.sleep(2 + random.random())
+                    else:
+                        print(
+                            "Failed to parse transcript XML after 3 attempts, falling back to audio transcription"
+                        )
+                        break
+                except CouldNotRetrieveTranscript as e:
+                    # Frequently raised when YouTube returns a consent/rate-limit page
+                    print(f"Rate-limited (attempt {attempt + 1}/3): {e}. Retrying …")
+                    if attempt < 2:  # Only sleep if we have more attempts
+                        time.sleep(5 + random.random())
+                    else:
+                        print(
+                            "Failed to retrieve transcript after 3 attempts, falling back to audio transcription"
+                        )
+                        break
+                except Exception as e:
+                    print(
+                        f"Error fetching transcript from YouTube API for video {video_id} (attempt {attempt + 1}/3): {e}"
+                    )
+                    if attempt < 2:  # Only sleep if we have more attempts
+                        time.sleep(2 + random.random())
+                    else:
+                        print(
+                            "Failed to fetch transcript after 3 attempts, falling back to audio transcription"
+                        )
+                        break
+
+            if not transcript_from_yt_api:
+                return Err("Could not retrieve transcript after multiple attempts")
+
+            # Format transcript with or without timestamps
+            transcriptions = []
+            for segment in transcript_from_yt_api:
+                if include_timestamps:
+                    timestamp = _seconds_to_min_sec(segment["start"])
+                    transcriptions.append(f"{timestamp}:{segment['text']}")
+                else:
+                    transcriptions.append(segment["text"])
+
+            transcript = "\n".join(transcriptions)
+            return Ok(transcript)
 
         except (RequestBlocked, IpBlocked):
             return Err("YouTube blocked this request/IP. Switch proxy or slow down.")
         except TranscriptsDisabled:
             return Err("The uploader disabled transcripts for this video.")
-        except CouldNotRetrieveTranscript as exc:
-            return Err(f"Could not retrieve transcript: {exc}")
         except Exception as exc:  # noqa: BLE001
             return Err(f"Unexpected transcript error: {exc}")
 
@@ -121,3 +194,10 @@ def _extract_video_id(url: str) -> str:
     if match:
         return match.group(1)
     return url
+
+
+def _seconds_to_min_sec(seconds: float) -> str:
+    """Convert seconds to MM:SS format."""
+    minutes = int(seconds // 60)
+    seconds_remainder = int(seconds % 60)
+    return f"{minutes:02d}:{seconds_remainder:02d}"

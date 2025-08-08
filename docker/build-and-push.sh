@@ -51,13 +51,5 @@ docker push ${FULL_IMAGE_NAME}
 echo -e "${GREEN}Successfully built and pushed Docker image!${NC}"
 echo -e "${GREEN}Image: ${FULL_IMAGE_NAME}${NC}"
 
-# Optional: Clean up local images to save space
-read -p "Do you want to remove local Docker images to save space? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}Removing local images${NC}"
-    docker rmi ${IMAGE_NAME}:latest ${FULL_IMAGE_NAME} || true
-    echo -e "${GREEN}Local images removed${NC}"
-fi
 
 echo -e "${GREEN}Build and push completed successfully!${NC}"

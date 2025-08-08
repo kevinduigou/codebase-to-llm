@@ -243,12 +243,51 @@
             display: none;
         }
 
-        .user-info {
-            text-align: right;
+        /* Navigation Bar Styling */
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 20px;
-            padding: 10px;
-            background: #ecf0f1;
-            border-radius: 4px;
+            border-radius: 8px;
+            padding: 0;
+        }
+
+        .navbar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .navbar-brand h2 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 1.4em;
+            font-weight: 600;
+        }
+
+        .navbar-nav {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .navbar-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .navbar-user strong {
+            color: #2c3e50;
         }
 
         .flex-row {
@@ -273,17 +312,65 @@
             min-width: 44px;
             padding: 12px;
         }
+
+        /* Favorite Prompts Bar Styling */
+        .favorite-prompts-bar {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+
+        .favorite-prompts-bar h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .favorite-prompts-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .favorite-prompt-item {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            border: 1px solid #bbdefb;
+            transition: all 0.2s ease-in-out;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .favorite-prompt-item:hover {
+            background-color: #bbdefb;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(21, 101, 192, 0.2);
+        }
+
+        .favorite-prompt-item:active {
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>LLM Context Manager</h1>
-            <p>Web Interface for Context Management</p>
-        </div>
+        
 
         <!-- Login Section -->
         <div id="loginSection" class="section login-section">
+            <div class="header">
+                <h1>LLM Context Manager</h1>
+                <p>Web Interface for Context Management</p>
+            </div>
             <h2>Login</h2>
             <div id="loginMessage"></div>
             <form id="loginForm">
@@ -301,10 +388,23 @@
 
         <!-- Main Interface (hidden until logged in) -->
         <div id="mainInterface" class="hidden">
-            <div class="user-info">
-                <span>Logged in as: <strong id="currentUser"></strong></span>
-                <button id="logoutBtn" class="btn-danger btn-sm" style="margin-left: 10px;">Logout</button>
-            </div>
+            <!-- Navigation Bar -->
+            <nav class="navbar">
+                <div class="navbar-content">
+                    <div class="navbar-brand">
+                        <h2>LLM Context Manager</h2>
+                    </div>
+                    <div class="navbar-nav">
+                        <a href="/favorite-prompts-ui" class="btn-primary btn-sm">Favorite Prompts</a>
+                        <div class="navbar-user">
+                            <span>Logged in as: <strong id="currentUser"></strong></span>
+                        </div>
+                        <button id="logoutBtn" class="btn-danger btn-sm">Logout</button>
+                        
+                       
+                    </div>
+                </div>
+            </nav>
 
             <!-- External Sources Section -->
             <div class="section">
@@ -335,6 +435,15 @@
                         <textarea id="promptContent" name="new_content" placeholder="Enter your prompt content here..." required></textarea>
                     </div>
                 </form>
+                
+                <!-- Favorite Prompts Bar -->
+                <div id="favoritePromptsBar" class="favorite-prompts-bar">
+                    <h3>Favorite Prompts:</h3>
+                    <div id="favoritePromptsList" class="favorite-prompts-list">
+                        <!-- Favorite prompts will be loaded here -->
+                    </div>
+                </div>
+                
                 <div id="contextMessage"></div>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <form id="contextForm" style="margin: 0;">
@@ -462,6 +571,12 @@
                     })
                 });
             }
+
+            async getFavoritePrompts() {
+                return this.request('/favorite-prompts', {
+                    method: 'GET'
+                });
+            }
         }
 
         const api = new ApiClient();
@@ -485,6 +600,44 @@
             document.getElementById('mainInterface').classList.remove('hidden');
             document.getElementById('currentUser').textContent = localStorage.getItem('username') || 'Unknown';
             loadExternalSources();
+            loadFavoritePrompts();
+        }
+
+        async function loadFavoritePrompts() {
+            try {
+                const result = await api.getFavoritePrompts();
+                const list = document.getElementById('favoritePromptsList');
+                list.innerHTML = '';
+                
+                if (result.prompts && result.prompts.length > 0) {
+                    result.prompts.forEach((prompt) => {
+                        const item = document.createElement('div');
+                        item.classList.add('favorite-prompt-item');
+                        item.textContent = prompt.name;
+                        item.title = prompt.content; // Show full content on hover
+                        
+                        item.addEventListener('click', () => {
+                            const textarea = document.getElementById('promptContent');
+                            textarea.value = prompt.content;
+                            // Trigger the auto-update
+                            textarea.dispatchEvent(new Event('input'));
+                            showMessage('promptMessage', `Loaded prompt: ${prompt.name}`);
+                        });
+                        
+                        list.appendChild(item);
+                    });
+                } else {
+                    const noPromptsMsg = document.createElement('div');
+                    noPromptsMsg.textContent = 'No favorite prompts available. Create some in the Favorite Prompts section.';
+                    noPromptsMsg.style.color = '#6c757d';
+                    noPromptsMsg.style.fontStyle = 'italic';
+                    list.appendChild(noPromptsMsg);
+                }
+            } catch (error) {
+                console.error('Failed to load favorite prompts:', error);
+                const list = document.getElementById('favoritePromptsList');
+                list.innerHTML = '<div style="color: #dc3545; font-style: italic;">Failed to load favorite prompts</div>';
+            }
         }
 
         async function loadExternalSources() {

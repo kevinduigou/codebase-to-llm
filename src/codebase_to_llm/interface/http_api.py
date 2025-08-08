@@ -56,6 +56,21 @@ from codebase_to_llm.application.uc_set_prompt_from_favorite import (
     AddPromptFromFavoriteLisUseCase,
 )
 from codebase_to_llm.application.uc_update_api_key import UpdateApiKeyUseCase
+from codebase_to_llm.application.uc_add_favorite_prompt import (
+    AddFavoritePromptUseCase,
+)
+from codebase_to_llm.application.uc_update_favorite_prompt import (
+    UpdateFavoritePromptUseCase,
+)
+from codebase_to_llm.application.uc_remove_favorite_prompt import (
+    RemoveFavoritePromptUseCase,
+)
+from codebase_to_llm.application.uc_get_favorite_prompts import (
+    GetFavoritePromptsUseCase,
+)
+from codebase_to_llm.application.uc_get_favorite_prompt import (
+    GetFavoritePromptUseCase,
+)
 from codebase_to_llm.domain.api_key import ApiKeyId
 from codebase_to_llm.application.uc_register_user import RegisterUserUseCase
 from codebase_to_llm.application.uc_authenticate_user import AuthenticateUserUseCase
@@ -71,6 +86,9 @@ from codebase_to_llm.infrastructure.filesystem_recent_repository import (
     FileSystemRecentRepository,
 )
 from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepository
+from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository import (
+    FavoritePromptsRepository,
+)
 from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
     InMemoryContextBufferRepository,
 )
@@ -119,6 +137,13 @@ def serve_web_ui() -> FileResponse:
     return FileResponse(html_file_path, media_type="text/html")
 
 
+@app.get("/favorite-prompts-ui")
+def serve_favorite_prompts_ui() -> FileResponse:
+    """Serve the favorite prompts management UI."""
+    html_file_path = Path(__file__).parent / "favorite_prompts.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
 # Repositories and services shared across requests
 _api_key_repo = FileSystemApiKeyRepository()
 _context_buffer = InMemoryContextBufferRepository()
@@ -130,6 +155,7 @@ _clipboard = InMemoryClipboardService()
 _directory_repo = FileSystemDirectoryRepository(Path.cwd())
 _llm_adapter = OpenAILLMAdapter()
 _user_repo = SqlAlchemyUserRepository()
+_favorite_prompts_repo = FavoritePromptsRepository()
 
 
 class RegisterRequest(BaseModel):
@@ -479,6 +505,108 @@ def set_prompt_from_favorite(
     prompt = result.ok()
     assert prompt is not None
     return {"content": prompt.get_content()}
+
+
+class FavoritePromptCreateRequest(BaseModel):
+    name: str
+    content: str
+
+
+class FavoritePromptUpdateRequest(BaseModel):
+    id: str
+    name: str
+    content: str
+
+
+class FavoritePromptIdRequest(BaseModel):
+    id: str
+
+
+@app.get("/favorite-prompts")
+def get_favorite_prompts(
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, list[dict[str, str]]]:
+    use_case = GetFavoritePromptsUseCase(_favorite_prompts_repo)
+    result = use_case.execute()
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    prompts = result.ok()
+    assert prompts is not None
+    return {
+        "prompts": [
+            {
+                "id": p.id().value(),
+                "name": p.name(),
+                "content": p.content(),
+            }
+            for p in prompts.prompts()
+        ]
+    }
+
+
+@app.get("/favorite-prompt/{prompt_id}")
+def get_favorite_prompt(
+    prompt_id: str, _current_user: Annotated[User, Depends(get_current_user)]
+) -> dict[str, str]:
+    use_case = GetFavoritePromptUseCase(_favorite_prompts_repo)
+    result = use_case.execute(prompt_id)
+    if result.is_err():
+        raise HTTPException(status_code=404, detail=result.err())
+    prompt = result.ok()
+    assert prompt is not None
+    return {
+        "id": prompt.id().value(),
+        "name": prompt.name(),
+        "content": prompt.content(),
+    }
+
+
+@app.post("/favorite-prompts")
+def add_favorite_prompt(
+    request: FavoritePromptCreateRequest,
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    use_case = AddFavoritePromptUseCase(_favorite_prompts_repo)
+    result = use_case.execute(request.name, request.content)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    prompt = result.ok()
+    assert prompt is not None
+    return {
+        "id": prompt.id().value(),
+        "name": prompt.name(),
+        "content": prompt.content(),
+    }
+
+
+@app.put("/favorite-prompts")
+def update_favorite_prompt(
+    request: FavoritePromptUpdateRequest,
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    use_case = UpdateFavoritePromptUseCase(_favorite_prompts_repo)
+    result = use_case.execute(request.id, request.name, request.content)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    prompt = result.ok()
+    assert prompt is not None
+    return {
+        "id": prompt.id().value(),
+        "name": prompt.name(),
+        "content": prompt.content(),
+    }
+
+
+@app.delete("/favorite-prompts")
+def remove_favorite_prompt(
+    request: FavoritePromptIdRequest,
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    use_case = RemoveFavoritePromptUseCase(_favorite_prompts_repo)
+    result = use_case.execute(request.id)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"id": request.id}
 
 
 class AddFileAsPromptVariableRequest(BaseModel):

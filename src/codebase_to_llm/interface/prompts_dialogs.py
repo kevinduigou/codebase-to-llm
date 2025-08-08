@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List
+import uuid
 
 from PySide6.QtWidgets import (
     QDialog,
@@ -126,7 +127,8 @@ class PromptsManagerDialog(QDialog):
                     self, "Validation Error", "Prompt name cannot be empty."
                 )
                 return
-            result = FavoritePrompt.try_create(name, content)
+            new_id = str(uuid.uuid4())
+            result = FavoritePrompt.try_create(new_id, name, content)
             if result.is_err():
                 QMessageBox.warning(
                     self, "Validation Error", result.err() or "Invalid prompt."
@@ -163,7 +165,9 @@ class PromptsManagerDialog(QDialog):
                         self, "Validation Error", "Prompt name cannot be empty."
                     )
                     return
-                result = FavoritePrompt.try_create(name, content)
+                result = FavoritePrompt.try_create(
+                    favorite_prompt.id().value(), name, content
+                )
                 if result.is_err():
                     QMessageBox.warning(
                         self, "Validation Error", result.err() or "Invalid prompt."

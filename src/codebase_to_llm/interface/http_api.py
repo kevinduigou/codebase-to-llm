@@ -142,11 +142,32 @@ def serve_web_ui() -> FileResponse:
     return FileResponse(html_file_path, media_type="text/html")
 
 
+@app.get("/login")
+def serve_login_ui() -> FileResponse:
+    """Serve the login UI HTML file."""
+    html_file_path = Path(__file__).parent / "login.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@app.get("/register")
+def serve_register_ui() -> FileResponse:
+    """Serve the registration UI HTML file."""
+    html_file_path = Path(__file__).parent / "register.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
 @app.get("/favorite-prompts-ui")
 def serve_favorite_prompts_ui() -> FileResponse:
     """Serve the favorite prompts management UI."""
     html_file_path = Path(__file__).parent / "favorite_prompts.html"
     return FileResponse(html_file_path, media_type="text/html")
+
+
+@app.get("/web_ui.css")
+def serve_css() -> FileResponse:
+    """Serve the CSS file."""
+    css_file_path = Path(__file__).parent / "web_ui.css"
+    return FileResponse(css_file_path, media_type="text/css")
 
 
 # Repositories and services shared across requests (user-independent)

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - LLM Context Manager</title>
+    <link rel="stylesheet" href="web_ui.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Registration Section -->
+        <div class="section login-section">
+            <div class="header">
+                <h1>LLM Context Manager</h1>
+                <p>Web Interface for Context Management</p>
+            </div>
+            <h2>Create Account</h2>
+            <div id="registerMessage"></div>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password:</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required>
+                </div>
+                <button type="submit">Create Account</button>
+            </form>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <p>Already have an account? <a href="/login" style="color: #3498db; text-decoration: none;">Login here</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ApiClient {
+            constructor() {
+                this.baseUrl = window.location.origin;
+                this.token = localStorage.getItem('access_token');
+            }
+
+            async register(username, password) {
+                const response = await fetch(`${this.baseUrl}/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_name: username,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Registration failed');
+                }
+
+                return data;
+            }
+        }
+
+        const api = new ApiClient();
+
+        // UI Helper Functions
+        function showMessage(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="message ${isError ? 'error' : 'success'}">${message}</div>`;
+            setTimeout(() => {
+                element.innerHTML = '';
+            }, 5000);
+        }
+
+        // Event Listeners
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const username = formData.get('username');
+            const password = formData.get('password');
+            const confirmPassword = formData.get('confirmPassword');
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                showMessage('registerMessage', 'Passwords do not match', true);
+                return;
+            }
+
+            // Basic password validation
+            if (password.length < 6) {
+                showMessage('registerMessage', 'Password must be at least 6 characters long', true);
+                return;
+            }
+
+            try {
+                await api.register(username, password);
+                showMessage('registerMessage', 'Account created successfully! Redirecting to login...');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+            } catch (error) {
+                showMessage('registerMessage', error.message, true);
+            }
+        });
+
+        // Check if already logged in
+        if (api.token && localStorage.getItem('username')) {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

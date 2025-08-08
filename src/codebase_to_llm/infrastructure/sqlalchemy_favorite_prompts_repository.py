@@ -63,6 +63,8 @@ class SqlAlchemyFavoritePromptsRepository(FavoritePromptsRepositoryPort):
         except SQLAlchemyError as exc:  # noqa: BLE001
             logging.warning(str(exc))
             return Err(str(exc))
+        finally:
+            session.close()
 
     def save_prompts(self, prompts: FavoritePrompts) -> Result[None, str]:
         session = self._session()
@@ -87,3 +89,5 @@ class SqlAlchemyFavoritePromptsRepository(FavoritePromptsRepositoryPort):
             session.rollback()
             logging.warning(str(exc))
             return Err(str(exc))
+        finally:
+            session.close()

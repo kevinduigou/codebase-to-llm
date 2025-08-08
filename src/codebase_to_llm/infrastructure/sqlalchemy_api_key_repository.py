@@ -62,6 +62,8 @@ class SqlAlchemyApiKeyRepository(ApiKeyRepositoryPort):
         except SQLAlchemyError as exc:  # noqa: BLE001
             logging.warning(str(exc))
             return Err(str(exc))
+        finally:
+            session.close()
 
     def save_api_keys(self, api_keys: ApiKeys) -> Result[None, str]:
         session = self._session()
@@ -86,6 +88,8 @@ class SqlAlchemyApiKeyRepository(ApiKeyRepositoryPort):
             session.rollback()
             logging.warning(str(exc))
             return Err(str(exc))
+        finally:
+            session.close()
 
     def find_api_key_by_id(self, api_key_id: ApiKeyId) -> Result[ApiKey, str]:
         session = self._session()
@@ -108,3 +112,5 @@ class SqlAlchemyApiKeyRepository(ApiKeyRepositoryPort):
         except SQLAlchemyError as exc:  # noqa: BLE001
             logging.warning(str(exc))
             return Err(str(exc))
+        finally:
+            session.close()

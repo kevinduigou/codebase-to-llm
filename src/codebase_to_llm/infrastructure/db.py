@@ -13,7 +13,6 @@ if database_url.startswith("postgresql://"):
 
 _engine = create_engine(database_url, pool_pre_ping=True)
 _Session = sessionmaker(bind=_engine)
-_session: Session | None = None
 
 # Shared metadata object for Alembic
 Base = MetaData()
@@ -31,13 +30,11 @@ def get_metadata():
 
 @final
 class DatabaseSessionManager:
-    """Maintains a single SQLAlchemy session for performance."""
+    """Creates new SQLAlchemy sessions for each request to avoid transaction issues."""
 
     __slots__ = ()
 
     @staticmethod
     def get_session() -> Session:
-        global _session
-        if _session is None or not _session.is_active:
-            _session = _Session()
-        return _session
+        """Create a new session for each request to avoid transaction conflicts."""
+        return _Session()

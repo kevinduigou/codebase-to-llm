@@ -413,6 +413,7 @@ def add_snippet_to_context_buffer(
 
 class AddExternalSourceRequest(BaseModel):
     url: str
+    include_timestamps: bool = False
 
 
 @app.post("/context-buffer/external")
@@ -421,7 +422,7 @@ def add_external_source(
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
     use_case = AddExternalSourceToContextBufferUseCase(_context_buffer, _external_repo)
-    result = use_case.execute(request.url)
+    result = use_case.execute(request.url, request.include_timestamps)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
     url_val = result.ok()

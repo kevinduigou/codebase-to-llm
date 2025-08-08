@@ -52,6 +52,12 @@
                         <div class="form-group">
                             <input type="url" id="externalUrl" name="url" placeholder="https://example.com" required>
                         </div>
+                        <div class="form-group checkbox-group">
+                            <label for="includeTimestamps" class="checkbox-label">
+                                <input type="checkbox" id="includeTimestamps" name="include_timestamps">
+                                <span class="checkbox-text">Include timestamps (YouTube only)</span>
+                            </label>
+                        </div>
                         <button type="submit" title="Add Source">+</button>
                     </div>
                 </form>
@@ -160,10 +166,10 @@
                 window.location.href = '/login';
             }
 
-            async addExternalSource(url) {
+            async addExternalSource(url, includeTimestamps = false) {
                 return this.request('/context-buffer/external', {
                     method: 'POST',
-                    body: JSON.stringify({ url })
+                    body: JSON.stringify({ url, include_timestamps: includeTimestamps })
                 });
             }
 
@@ -330,9 +336,10 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const url = formData.get('url');
+            const includeTimestamps = document.getElementById('includeTimestamps').checked;
 
             try {
-                const result = await api.addExternalSource(url);
+                const result = await api.addExternalSource(url, includeTimestamps);
                 showMessage('externalMessage', `External source added successfully: ${result.url}`);
                 e.target.reset();
                 loadExternalSources();

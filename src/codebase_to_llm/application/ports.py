@@ -61,7 +61,7 @@ class ExternalSourceRepositoryPort(Protocol):
     def fetch_web_page(self, url: str) -> Result[str, str]: ...  # pragma: no cover
 
     def fetch_youtube_transcript(
-        self, url: str
+        self, url: str, include_timestamps: bool = False
     ) -> Result[str, str]: ...  # pragma: no cover
 
 

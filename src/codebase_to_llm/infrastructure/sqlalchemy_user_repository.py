@@ -52,6 +52,8 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
             session.rollback()
             logging.warning(str(exc))
             return Err(str(exc))
+        finally:
+            session.close()
 
     def find_by_name(self, name: UserName) -> Result[User, str]:
         session = self._session()
@@ -78,3 +80,5 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
         except Exception as exc:  # noqa: BLE001
             logging.warning(str(exc))
             return Err(str(exc))
+        finally:
+            session.close()

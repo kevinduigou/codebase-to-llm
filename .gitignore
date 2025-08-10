@@ -10,3 +10,4 @@ docker/deploy-to-cloud-run.sh
 users.db.backup
 Tinkering/*
 .clinerules/cli_other.md
+docker/env-vars.yaml

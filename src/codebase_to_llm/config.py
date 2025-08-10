@@ -19,6 +19,8 @@ class AppConfig:
     smtp_port: int
     smtp_username: str
     smtp_password: str
+    smtp_sender_name: str
+    deployment_url: str
 
 
 def load_config() -> AppConfig:
@@ -29,6 +31,8 @@ def load_config() -> AppConfig:
         smtp_port=int(os.getenv("SMTP_PORT", "587")),
         smtp_username=os.getenv("SMTP_USERNAME", "8d421b001@smtp-brevo.com"),
         smtp_password=os.getenv("SMTP_PASSWORD", ""),
+        smtp_sender_name=os.getenv("SMTP_SENDER_NAME", "CodeToMarket"),
+        deployment_url=os.getenv("DEPLOYMENT_URL", "http://localhost:8000"),
     )
 
 

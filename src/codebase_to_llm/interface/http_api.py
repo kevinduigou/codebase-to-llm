@@ -229,12 +229,16 @@ def register_user(request: RegisterRequest) -> dict[str, str]:
 
 
 @app.get("/validate")
-def validate_user(token: str) -> dict[str, str]:
+def validate_user(token: str) -> FileResponse:
+    """Validate user account using the token from email."""
     use_case = ValidateUserUseCase(_user_repo)
     result = use_case.execute(token)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
-    return {"status": "validated"}
+
+    # Redirect to login page after successful validation
+    html_file_path = Path(__file__).parent / "validation_success.html"
+    return FileResponse(html_file_path, media_type="text/html")
 
 
 class Token(BaseModel):

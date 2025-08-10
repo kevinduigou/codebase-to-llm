@@ -15,11 +15,11 @@ def upgrade() -> None:
     op.add_column(
         "users",
         sa.Column(
-            "validated", sa.Boolean(), nullable=False, server_default=sa.text("0")
+            "validated", sa.Boolean(), nullable=False, server_default=sa.text("false")
         ),
     )
     op.add_column("users", sa.Column("validation_token", sa.String(), nullable=True))
-    op.execute("UPDATE users SET email='', validated=1, validation_token=''")
+    op.execute("UPDATE users SET email='', validated=true, validation_token=''")
     op.alter_column("users", "email", nullable=False)
     op.alter_column("users", "validation_token", nullable=False)
 

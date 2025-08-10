@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 from codebase_to_llm.domain.api_key import ApiKeys, ApiKey, ApiKeyId
-from codebase_to_llm.domain.user import User, UserName
+from codebase_to_llm.domain.user import (
+    EmailAddress,
+    User,
+    UserName,
+    ValidationToken,
+)
 from codebase_to_llm.domain.context_buffer import (
     ContextBuffer,
     ExternalSource,
@@ -138,6 +143,20 @@ class UserRepositoryPort(Protocol):
     def add_user(self, user: User) -> Result[None, str]: ...  # pragma: no cover
 
     def find_by_name(self, name: UserName) -> Result[User, str]: ...  # pragma: no cover
+
+    def find_by_validation_token(
+        self, token: ValidationToken
+    ) -> Result[User, str]: ...  # pragma: no cover
+
+    def validate_user(self, user: User) -> Result[None, str]: ...  # pragma: no cover
+
+
+class EmailSenderPort(Protocol):
+    """Port for sending validation emails."""
+
+    def send_validation_email(
+        self, email: EmailAddress, token: ValidationToken
+    ) -> Result[None, str]: ...  # pragma: no cover
 
 
 class LLMAdapterPort(Protocol):

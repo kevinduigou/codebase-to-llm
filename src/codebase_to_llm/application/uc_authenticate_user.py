@@ -34,4 +34,7 @@ class AuthenticateUserUseCase:
         if user is None or not user.verify_password(password):
             return Err("Invalid credentials.")
 
+        if not user.is_validated():
+            return Err("Account not validated.")
+
         return Ok(user)

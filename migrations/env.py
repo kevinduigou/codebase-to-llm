@@ -1,11 +1,24 @@
-from logging.config import fileConfig
 import os
+import sys
+from logging.config import fileConfig
+
 from dotenv import load_dotenv
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
+from sqlalchemy import engine_from_config, pool
 from alembic import context
+
+# Add the project root to Python path for imports before importing our modules
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+# Now we can import our modules
+from src.codebase_to_llm.infrastructure.db import Base
+
+# Import all repositories to ensure tables are registered
+# These imports are necessary for Alembic to detect the tables
+from src.codebase_to_llm.infrastructure import sqlalchemy_user_repository  # noqa: F401
+from src.codebase_to_llm.infrastructure import sqlalchemy_api_key_repository  # noqa: F401
+from src.codebase_to_llm.infrastructure import sqlalchemy_favorite_prompts_repository  # noqa: F401
+from src.codebase_to_llm.infrastructure import sqlalchemy_recent_repository  # noqa: F401
+from src.codebase_to_llm.infrastructure import sqlalchemy_rules_repository  # noqa: F401
 
 # Load environment variables from .env-development file
 load_dotenv(".env-development")
@@ -23,21 +36,6 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-
-# Import your models here for autogenerate support
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-from src.codebase_to_llm.infrastructure.db import Base
-
-# Import all repositories to ensure tables are registered
-from src.codebase_to_llm.infrastructure import sqlalchemy_user_repository
-from src.codebase_to_llm.infrastructure import sqlalchemy_api_key_repository
-from src.codebase_to_llm.infrastructure import sqlalchemy_favorite_prompts_repository
-from src.codebase_to_llm.infrastructure import sqlalchemy_recent_repository
-from src.codebase_to_llm.infrastructure import sqlalchemy_rules_repository
 
 target_metadata = Base
 

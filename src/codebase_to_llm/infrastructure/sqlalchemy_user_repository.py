@@ -84,9 +84,7 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
             if (
                 id_result.is_err()
                 or name_result.is_err()
-                or email_result.is_err()
                 or hash_result.is_err()
-                or token_result.is_err()
             ):
                 return Err("Invalid user data.")
 
@@ -98,9 +96,7 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
             if (
                 id_obj is None
                 or name_obj is None
-                or email_obj is None
                 or hash_obj is None
-                or token_obj is None
             ):
                 return Err("Invalid user data.")
 

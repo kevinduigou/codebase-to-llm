@@ -4,516 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLM Context Manager</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        /* Desktop: Remove max-width constraint to use full horizontal space */
-        @media (min-width: 1024px) {
-            .container {
-                max-width: none;
-                padding: 20px 40px;
-            }
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .header h1 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-
-        .section {
-            background: white;
-            margin-bottom: 20px;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .section h2 {
-            color: #34495e;
-            margin-bottom: 15px;
-            font-size: 1.2em;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #555;
-        }
-
-        input[type="text"], input[type="password"], input[type="url"], textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-
-        input[type="text"]:focus, input[type="password"]:focus, input[type="url"]:focus, textarea:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-
-        textarea {
-            min-height: 120px;
-            resize: vertical;
-        }
-
-        /* Base button styles */
-        button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s ease-in-out;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 44px;
-            text-decoration: none;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        button:focus {
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        button:disabled {
-            background-color: #9ca3af;
-            color: #6b7280;
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-
-        button:disabled:hover {
-            background-color: #9ca3af;
-            transform: none;
-        }
-
-        /* Primary buttons (blue) */
-        button,
-        .btn-primary {
-            background-color: #3b82f6;
-            color: white;
-        }
-
-        button:hover,
-        .btn-primary:hover {
-            background-color: #2563eb;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-        }
-
-        button:active,
-        .btn-primary:active {
-            transform: translateY(0);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Success buttons (green) */
-        .btn-success {
-            background-color: #10b981;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background-color: #059669;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        }
-
-        .btn-success:active {
-            transform: translateY(0);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Danger buttons (red) */
-        .btn-danger {
-            background-color: #ef4444;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background-color: #dc2626;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-        }
-
-        .btn-danger:active {
-            transform: translateY(0);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Small button variant */
-        .btn-sm {
-            padding: 8px 16px;
-            font-size: 12px;
-            min-height: 36px;
-        }
-
-        /* Icon button variant */
-        .btn-icon {
-            padding: 6px;
-            min-height: 28px;
-            min-width: 28px;
-            border-radius: 4px;
-            font-size: 14px;
-            margin-left: 8px;
-        }
-
-        .btn-icon:hover {
-            transform: scale(1.1);
-        }
-
-        /* External source list styling */
-        #externalList {
-            list-style: none;
-            padding: 0;
-        }
-
-        #externalList li {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        #externalList li:last-child {
-            border-bottom: none;
-        }
-
-        .external-url {
-            flex: 1;
-            word-break: break-all;
-            margin-right: 10px;
-        }
-
-        .message {
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            font-weight: 500;
-        }
-
-        .message.success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .message.error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .login-section {
-            max-width: 400px;
-            margin: 0 auto;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        /* Navigation Bar Styling */
-        .navbar {
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 0;
-            border-radius: 0;
-            padding: 0;
-        }
-
-        .navbar-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 25px;
-        }
-
-        .navbar-brand h2 {
-            color: #2c3e50;
-            font-size: 1.4em;
-            font-weight: 600;
-            margin: 0;
-        }
-
-        /* Layout with Sidebar */
-        .layout {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 220px;
-            background-color: #ffffff;
-            border-right: 1px solid #e5e7eb;
-            padding: 20px;
-            flex-shrink: 0;
-        }
-
-        .sidebar-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #6B7280;
-            margin-bottom: 10px;
-        }
-
-        .sidebar-menu {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .sidebar-menu li {
-            padding: 10px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            color: #4B5563;
-            font-weight: 500;
-        }
-
-        .sidebar-menu li:hover,
-        .sidebar-menu li.active {
-            background-color: #F3F4F6;
-            color: #6C63FF;
-        }
-
-        .main-content {
-            flex-grow: 1;
-            padding: 30px;
-        }
-
-        .flex-row {
-            display: flex;
-            gap: 10px;
-            align-items: end;
-        }
-
-        .flex-row .form-group {
-            flex: 1;
-            margin-bottom: 0;
-        }
-
-        .flex-row button {
-            margin-bottom: 0;
-        }
-
-        /* Plus icon button styling */
-        .flex-row button[title="Add Source"] {
-            font-size: 18px;
-            font-weight: bold;
-            min-width: 44px;
-            padding: 12px;
-        }
-
-        /* Favorite Prompts Bar Styling */
-        .favorite-prompts-bar {
-            margin: 20px 0;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-radius: 6px;
-            border: 1px solid #e9ecef;
-        }
-
-        .favorite-prompts-bar h3 {
-            margin: 0 0 10px 0;
-            font-size: 14px;
-            color: #495057;
-            font-weight: 600;
-        }
-
-        .favorite-prompts-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .favorite-prompt-item {
-            background-color: #e3f2fd;
-            color: #1565c0;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            cursor: pointer;
-            border: 1px solid #bbdefb;
-            transition: all 0.2s ease-in-out;
-            white-space: nowrap;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .favorite-prompt-item:hover {
-            background-color: #bbdefb;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(21, 101, 192, 0.2);
-        }
-
-        .favorite-prompt-item:active {
-            transform: translateY(0);
-        }
-
-        /* Account dropdown styling */
-        .account-dropdown {
-            position: relative;
-            display: inline-block;
-        }
-
-        .account-dropdown-content {
-            display: none;
-            position: absolute;
-            right: 0;
-            background-color: white;
-            min-width: 160px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            border-radius: 6px;
-            z-index: 1000;
-            border: 1px solid #e5e7eb;
-            overflow: hidden;
-        }
-
-        .account-dropdown-content.show {
-            display: block;
-        }
-
-        .account-dropdown-item {
-            color: #374151;
-            padding: 12px 16px;
-            text-decoration: none;
-            display: block;
-            cursor: pointer;
-            border: none;
-            background: none;
-            width: 100%;
-            text-align: left;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-
-        .account-dropdown-item:hover {
-            background-color: #f3f4f6;
-        }
-
-        .account-dropdown-item.danger {
-            color: #dc2626;
-        }
-
-        .account-dropdown-item.danger:hover {
-            background-color: #fef2f2;
-        }
-
-        .user-info {
-            padding: 12px 16px;
-            border-bottom: 1px solid #e5e7eb;
-            background-color: #f9fafb;
-        }
-
-        .user-info .username {
-            font-weight: 600;
-            color: #374151;
-            font-size: 14px;
-        }
-
-        .user-info .role {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 2px;
-        }
-
-        /* Account icon button styling */
-        .account-icon-btn {
-            background: none;
-            border: none;
-            padding: 8px;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            color: #6b7280;
-            font-size: 18px;
-            box-shadow: none;
-            min-height: auto;
-        }
-
-        .account-icon-btn:hover {
-            background-color: #f3f4f6;
-            color: #374151;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .account-icon-btn:focus {
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-        }
-    </style>
+    <link rel="stylesheet" href="web_ui.css">
 </head>
 <body>
     <div class="container">
-        
-
-        <!-- Login Section -->
-        <div id="loginSection" class="section login-section">
-            <div class="header">
-                <h1>LLM Context Manager</h1>
-                <p>Web Interface for Context Management</p>
-            </div>
-            <h2>Login</h2>
-            <div id="loginMessage"></div>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                <button type="submit">Login</button>
-            </form>
-        </div>
-
         <!-- Navigation Bar -->
         <nav class="navbar">
             <div class="navbar-content">
@@ -557,6 +51,12 @@
                     <div class="flex-row">
                         <div class="form-group">
                             <input type="url" id="externalUrl" name="url" placeholder="https://example.com" required>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label for="includeTimestamps" class="checkbox-label">
+                                <input type="checkbox" id="includeTimestamps" name="include_timestamps">
+                                <span class="checkbox-text">Include timestamps (YouTube only)</span>
+                            </label>
                         </div>
                         <button type="submit" title="Add Source">+</button>
                     </div>
@@ -663,13 +163,13 @@
                 this.token = null;
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('username');
-                showLoginSection();
+                window.location.href = '/login';
             }
 
-            async addExternalSource(url) {
+            async addExternalSource(url, includeTimestamps = false) {
                 return this.request('/context-buffer/external', {
                     method: 'POST',
-                    body: JSON.stringify({ url })
+                    body: JSON.stringify({ url, include_timestamps: includeTimestamps })
                 });
             }
 
@@ -733,13 +233,7 @@
             }, 5000);
         }
 
-        function showLoginSection() {
-            document.getElementById('loginSection').classList.remove('hidden');
-            document.getElementById('mainInterface').classList.add('hidden');
-        }
-
         function showMainInterface() {
-            document.getElementById('loginSection').classList.add('hidden');
             document.getElementById('mainInterface').classList.remove('hidden');
             updateAccountInfo();
             loadExternalSources();
@@ -838,29 +332,14 @@
         }
 
         // Event Listeners
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const username = formData.get('username');
-            const password = formData.get('password');
-
-            try {
-                await api.login(username, password);
-                showMessage('loginMessage', 'Login successful!');
-                setTimeout(showMainInterface, 1000);
-            } catch (error) {
-                showMessage('loginMessage', error.message, true);
-            }
-        });
-
-
         document.getElementById('externalForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             const url = formData.get('url');
+            const includeTimestamps = document.getElementById('includeTimestamps').checked;
 
             try {
-                const result = await api.addExternalSource(url);
+                const result = await api.addExternalSource(url, includeTimestamps);
                 showMessage('externalMessage', `External source added successfully: ${result.url}`);
                 e.target.reset();
                 loadExternalSources();
@@ -981,7 +460,7 @@
         if (api.token && localStorage.getItem('username')) {
             showMainInterface();
         } else {
-            showLoginSection();
+            window.location.href = '/login';
         }
     </script>
 </body>

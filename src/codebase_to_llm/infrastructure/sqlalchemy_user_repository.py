@@ -2,26 +2,22 @@ from __future__ import annotations
 import logging
 
 from typing_extensions import final
-from sqlalchemy import Column, MetaData, String, Table
+from sqlalchemy import Column, String, Table
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from codebase_to_llm.application.ports import UserRepositoryPort
 from codebase_to_llm.domain.result import Err, Ok, Result
 from codebase_to_llm.domain.user import PasswordHash, User, UserId, UserName
-from codebase_to_llm.infrastructure.db import DatabaseSessionManager, get_engine
-
-_metadata = MetaData()
+from codebase_to_llm.infrastructure.db import DatabaseSessionManager, get_metadata
 
 _users_table = Table(
     "users",
-    _metadata,
+    get_metadata(),
     Column("id", String, primary_key=True),
     Column("name", String, unique=True, nullable=False),
     Column("password_hash", String, nullable=False),
 )
-
-_metadata.create_all(get_engine())
 
 
 @final
@@ -56,6 +52,8 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
             session.rollback()
             logging.warning(str(exc))
             return Err(str(exc))
+        finally:
+            session.close()
 
     def find_by_name(self, name: UserName) -> Result[User, str]:
         session = self._session()
@@ -82,3 +80,5 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
         except Exception as exc:  # noqa: BLE001
             logging.warning(str(exc))
             return Err(str(exc))
+        finally:
+            session.close()

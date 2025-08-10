@@ -6,3 +6,7 @@ dist/*
 src/users.db
 users.db
 docker/deploy-to-cloud-run.sh
+.env-development
+users.db.backup
+Tinkering/*
+.clinerules/cli_other.md

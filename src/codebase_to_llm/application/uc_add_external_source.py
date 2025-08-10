@@ -16,10 +16,13 @@ class AddExternalSourceToContextBufferUseCase:
         self._context_buffer = context_buffer
         self._repo = repo
 
-    def execute(self, url: str) -> Result[str, str]:
+    def execute(self, url: str, include_timestamps: bool = False) -> Result[str, str]:
         lowered = url.lower()
         if "youtube.com" in lowered or "youtu.be" in lowered:
-            fetch_result_fn = self._repo.fetch_youtube_transcript
+
+            def fetch_result_fn(u):
+                return self._repo.fetch_youtube_transcript(u, include_timestamps)
+
         else:
             fetch_result_fn = self._repo.fetch_web_page
 

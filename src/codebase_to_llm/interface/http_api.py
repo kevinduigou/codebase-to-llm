@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any, final
 
 import jwt
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
@@ -76,18 +79,20 @@ from codebase_to_llm.application.uc_register_user import RegisterUserUseCase
 from codebase_to_llm.application.uc_authenticate_user import AuthenticateUserUseCase
 from codebase_to_llm.domain.user import User, UserName
 
-from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
-    FileSystemApiKeyRepository,
+from codebase_to_llm.infrastructure.sqlalchemy_api_key_repository import (
+    SqlAlchemyApiKeyRepository,
 )
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
 )
-from codebase_to_llm.infrastructure.filesystem_recent_repository import (
-    FileSystemRecentRepository,
+from codebase_to_llm.infrastructure.sqlalchemy_recent_repository import (
+    SqlAlchemyRecentRepository,
 )
-from codebase_to_llm.infrastructure.filesystem_rules_repository import RulesRepository
-from codebase_to_llm.infrastructure.filesystem_favorite_prompts_repository import (
-    FavoritePromptsRepository,
+from codebase_to_llm.infrastructure.sqlalchemy_rules_repository import (
+    SqlAlchemyRulesRepository,
+)
+from codebase_to_llm.infrastructure.sqlalchemy_favorite_prompts_repository import (
+    SqlAlchemyFavoritePromptsRepository,
 )
 from codebase_to_llm.infrastructure.in_memory_context_buffer_repository import (
     InMemoryContextBufferRepository,
@@ -103,6 +108,8 @@ from codebase_to_llm.infrastructure.sqlalchemy_user_repository import (
     SqlAlchemyUserRepository,
 )
 
+# Load environment variables from .env-development file
+load_dotenv(".env-development")
 
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
@@ -129,11 +136,35 @@ class InMemoryClipboardService:
 
 app = FastAPI()
 
+# Add CORS middleware
+cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in cors_origins],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
 
 @app.get("/")
 def serve_web_ui() -> FileResponse:
     """Serve the web UI HTML file."""
     html_file_path = Path(__file__).parent / "web_ui.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@app.get("/login")
+def serve_login_ui() -> FileResponse:
+    """Serve the login UI HTML file."""
+    html_file_path = Path(__file__).parent / "login.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@app.get("/register")
+def serve_register_ui() -> FileResponse:
+    """Serve the registration UI HTML file."""
+    html_file_path = Path(__file__).parent / "register.html"
     return FileResponse(html_file_path, media_type="text/html")
 
 
@@ -144,18 +175,37 @@ def serve_favorite_prompts_ui() -> FileResponse:
     return FileResponse(html_file_path, media_type="text/html")
 
 
-# Repositories and services shared across requests
-_api_key_repo = FileSystemApiKeyRepository()
+@app.get("/web_ui.css")
+def serve_css() -> FileResponse:
+    """Serve the CSS file."""
+    css_file_path = Path(__file__).parent / "web_ui.css"
+    return FileResponse(css_file_path, media_type="text/css")
+
+
+# Repositories and services shared across requests (user-independent)
 _context_buffer = InMemoryContextBufferRepository()
 _prompt_repo = InMemoryPromptRepository()
-_rules_repo = RulesRepository()
 _external_repo = UrlExternalSourceRepository()
-_recent_repo = FileSystemRecentRepository()
 _clipboard = InMemoryClipboardService()
 _directory_repo = FileSystemDirectoryRepository(Path.cwd())
 _llm_adapter = OpenAILLMAdapter()
 _user_repo = SqlAlchemyUserRepository()
-_favorite_prompts_repo = FavoritePromptsRepository()
+
+
+def get_user_repositories(user: User) -> tuple[
+    SqlAlchemyApiKeyRepository,
+    SqlAlchemyRulesRepository,
+    SqlAlchemyRecentRepository,
+    SqlAlchemyFavoritePromptsRepository,
+]:
+    """Create user-specific repository instances."""
+    user_id = user.id().value()
+    return (
+        SqlAlchemyApiKeyRepository(user_id),
+        SqlAlchemyRulesRepository(user_id),
+        SqlAlchemyRecentRepository(user_id),
+        SqlAlchemyFavoritePromptsRepository(user_id),
+    )
 
 
 class RegisterRequest(BaseModel):
@@ -248,9 +298,10 @@ class AddApiKeyRequest(BaseModel):
 @app.post("/api-keys")
 def add_api_key(
     request: AddApiKeyRequest,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    use_case = AddApiKeyUseCase(_api_key_repo)
+    api_key_repo, _, _, _ = get_user_repositories(current_user)
+    use_case = AddApiKeyUseCase(api_key_repo)
     result = use_case.execute(
         request.id_value, request.url_provider, request.api_key_value
     )
@@ -268,9 +319,10 @@ def add_api_key(
 
 @app.get("/api-keys")
 def load_api_keys(
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[dict[str, str]]:
-    use_case = LoadApiKeysUseCase(_api_key_repo)
+    api_key_repo, _, _, _ = get_user_repositories(current_user)
+    use_case = LoadApiKeysUseCase(api_key_repo)
     result = use_case.execute()
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
@@ -296,9 +348,10 @@ class UpdateApiKeyRequest(BaseModel):
 @app.put("/api-keys")
 def update_api_key(
     request: UpdateApiKeyRequest,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    use_case = UpdateApiKeyUseCase(_api_key_repo)
+    api_key_repo, _, _, _ = get_user_repositories(current_user)
+    use_case = UpdateApiKeyUseCase(api_key_repo)
     result = use_case.execute(
         request.api_key_id, request.new_url_provider, request.new_api_key_value
     )
@@ -317,9 +370,10 @@ def update_api_key(
 @app.delete("/api-keys/{api_key_id}")
 def remove_api_key(
     api_key_id: str,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    use_case = RemoveApiKeyUseCase(_api_key_repo)
+    api_key_repo, _, _, _ = get_user_repositories(current_user)
+    use_case = RemoveApiKeyUseCase(api_key_repo)
     result = use_case.execute(api_key_id)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
@@ -371,6 +425,7 @@ def add_snippet_to_context_buffer(
 
 class AddExternalSourceRequest(BaseModel):
     url: str
+    include_timestamps: bool = False
 
 
 @app.post("/context-buffer/external")
@@ -379,7 +434,7 @@ def add_external_source(
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
     use_case = AddExternalSourceToContextBufferUseCase(_context_buffer, _external_repo)
-    result = use_case.execute(request.url)
+    result = use_case.execute(request.url, request.include_timestamps)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
     url_val = result.ok()
@@ -524,9 +579,10 @@ class FavoritePromptIdRequest(BaseModel):
 
 @app.get("/favorite-prompts")
 def get_favorite_prompts(
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, list[dict[str, str]]]:
-    use_case = GetFavoritePromptsUseCase(_favorite_prompts_repo)
+    _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
+    use_case = GetFavoritePromptsUseCase(favorite_prompts_repo)
     result = use_case.execute()
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
@@ -546,9 +602,10 @@ def get_favorite_prompts(
 
 @app.get("/favorite-prompt/{prompt_id}")
 def get_favorite_prompt(
-    prompt_id: str, _current_user: Annotated[User, Depends(get_current_user)]
+    prompt_id: str, current_user: Annotated[User, Depends(get_current_user)]
 ) -> dict[str, str]:
-    use_case = GetFavoritePromptUseCase(_favorite_prompts_repo)
+    _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
+    use_case = GetFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(prompt_id)
     if result.is_err():
         raise HTTPException(status_code=404, detail=result.err())
@@ -564,9 +621,10 @@ def get_favorite_prompt(
 @app.post("/favorite-prompts")
 def add_favorite_prompt(
     request: FavoritePromptCreateRequest,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    use_case = AddFavoritePromptUseCase(_favorite_prompts_repo)
+    _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
+    use_case = AddFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(request.name, request.content)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
@@ -582,9 +640,10 @@ def add_favorite_prompt(
 @app.put("/favorite-prompts")
 def update_favorite_prompt(
     request: FavoritePromptUpdateRequest,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    use_case = UpdateFavoritePromptUseCase(_favorite_prompts_repo)
+    _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
+    use_case = UpdateFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(request.id, request.name, request.content)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
@@ -600,9 +659,10 @@ def update_favorite_prompt(
 @app.delete("/favorite-prompts")
 def remove_favorite_prompt(
     request: FavoritePromptIdRequest,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    use_case = RemoveFavoritePromptUseCase(_favorite_prompts_repo)
+    _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
+    use_case = RemoveFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(request.id)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
@@ -637,10 +697,11 @@ class AddRecentRepositoryPathRequest(BaseModel):
 @app.post("/recent-repositories")
 def add_recent_repository_path(
     request: AddRecentRepositoryPathRequest,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    _, _, recent_repo, _ = get_user_repositories(current_user)
     use_case = AddPathToRecentRepositoryListUseCase()
-    result = use_case.execute(Path(request.path), _recent_repo)
+    result = use_case.execute(Path(request.path), recent_repo)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
     return {"path": request.path}
@@ -656,8 +717,9 @@ class GenerateResponseRequest(BaseModel):
 @app.post("/llm-response")
 def generate_llm_response(
     request: GenerateResponseRequest,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    api_key_repo, rules_repo, _, _ = get_user_repositories(current_user)
     api_key_id_result = ApiKeyId.try_create(request.api_key_id)
     if api_key_id_result.is_err():
         raise HTTPException(status_code=400, detail=api_key_id_result.err())
@@ -668,11 +730,11 @@ def generate_llm_response(
         request.model,
         api_key_id_obj,
         _llm_adapter,
-        _api_key_repo,
+        api_key_repo,
         _directory_repo,
         _prompt_repo,
         _context_buffer,
-        _rules_repo,
+        rules_repo,
         request.include_tree,
         request.root_directory_path,
     )
@@ -691,9 +753,10 @@ class CopyContextRequest(BaseModel):
 @app.post("/context/copy")
 def copy_context(
     request: CopyContextRequest,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    use_case = CopyContextUseCase(_context_buffer, _rules_repo, _clipboard)
+    _, rules_repo, _, _ = get_user_repositories(current_user)
+    use_case = CopyContextUseCase(_context_buffer, rules_repo, _clipboard)
     result = use_case.execute(
         _directory_repo, _prompt_repo, request.include_tree, request.root_directory_path
     )

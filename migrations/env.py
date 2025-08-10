@@ -15,9 +15,15 @@ from src.codebase_to_llm.infrastructure.db import Base
 # Import all repositories to ensure tables are registered
 # These imports are necessary for Alembic to detect the tables
 from src.codebase_to_llm.infrastructure import sqlalchemy_user_repository  # noqa: F401
-from src.codebase_to_llm.infrastructure import sqlalchemy_api_key_repository  # noqa: F401
-from src.codebase_to_llm.infrastructure import sqlalchemy_favorite_prompts_repository  # noqa: F401
-from src.codebase_to_llm.infrastructure import sqlalchemy_recent_repository  # noqa: F401
+from src.codebase_to_llm.infrastructure import (
+    sqlalchemy_api_key_repository,
+)  # noqa: F401
+from src.codebase_to_llm.infrastructure import (
+    sqlalchemy_favorite_prompts_repository,
+)  # noqa: F401
+from src.codebase_to_llm.infrastructure import (
+    sqlalchemy_recent_repository,
+)  # noqa: F401
 from src.codebase_to_llm.infrastructure import sqlalchemy_rules_repository  # noqa: F401
 
 # Load environment variables from .env-development file

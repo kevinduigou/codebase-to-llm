@@ -3,6 +3,10 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing_extensions import final
+from dotenv import load_dotenv
+
+# Load environment variables from .env-development file
+load_dotenv(".env-development")
 
 
 @final

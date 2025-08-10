@@ -120,6 +120,58 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
         finally:
             session.close()
 
+    def find_by_email(self, email: EmailAddress) -> Result[User, str]:
+        session = self._session()
+        try:
+            row = session.execute(
+                _users_table.select().where(_users_table.c.email == email.value())
+            ).fetchone()
+            if row is None:
+                return Err("User not found.")
+            id_result = UserId.try_create(row.id)
+            name_result = UserName.try_create(row.name)
+            email_result = EmailAddress.try_create(row.email)
+            hash_result = PasswordHash.try_create(row.password_hash)
+            token_result = ValidationToken.try_create(row.validation_token)
+            if (
+                id_result.is_err()
+                or name_result.is_err()
+                or email_result.is_err()
+                or hash_result.is_err()
+                or token_result.is_err()
+            ):
+                return Err("Invalid user data.")
+
+            id_obj = id_result.ok()
+            name_obj = name_result.ok()
+            email_obj = email_result.ok()
+            hash_obj = hash_result.ok()
+            token_obj = token_result.ok()
+            if (
+                id_obj is None
+                or name_obj is None
+                or email_obj is None
+                or hash_obj is None
+                or token_obj is None
+            ):
+                return Err("Invalid user data.")
+
+            return Ok(
+                User(
+                    id_obj,
+                    name_obj,
+                    email_obj,
+                    hash_obj,
+                    bool(row.validated),
+                    token_obj,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            logging.warning(str(exc))
+            return Err(str(exc))
+        finally:
+            session.close()
+
     def find_by_validation_token(self, token: ValidationToken) -> Result[User, str]:
         session = self._session()
         try:

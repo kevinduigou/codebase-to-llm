@@ -144,6 +144,10 @@ class UserRepositoryPort(Protocol):
 
     def find_by_name(self, name: UserName) -> Result[User, str]: ...  # pragma: no cover
 
+    def find_by_email(
+        self, email: EmailAddress
+    ) -> Result[User, str]: ...  # pragma: no cover
+
     def find_by_validation_token(
         self, token: ValidationToken
     ) -> Result[User, str]: ...  # pragma: no cover

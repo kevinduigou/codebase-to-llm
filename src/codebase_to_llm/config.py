@@ -21,6 +21,7 @@ class AppConfig:
     smtp_password: str
     smtp_sender_name: str
     deployment_url: str
+    gcp_bucket_name: str
 
 
 def load_config() -> AppConfig:
@@ -33,6 +34,7 @@ def load_config() -> AppConfig:
         smtp_password=os.getenv("SMTP_PASSWORD", ""),
         smtp_sender_name=os.getenv("SMTP_SENDER_NAME", "CodeToMarket"),
         deployment_url=os.getenv("DEPLOYMENT_URL", "http://localhost:8000"),
+        gcp_bucket_name=os.getenv("GCP_BUCKET_NAME", ""),
     )
 
 

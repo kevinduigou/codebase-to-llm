@@ -81,6 +81,7 @@ from codebase_to_llm.application.uc_remove_rule import RemoveRuleUseCase
 from codebase_to_llm.domain.api_key import ApiKeyId
 from codebase_to_llm.application.uc_register_user import RegisterUserUseCase
 from codebase_to_llm.application.uc_authenticate_user import AuthenticateUserUseCase
+from codebase_to_llm.application.uc_validate_user import ValidateUserUseCase
 from codebase_to_llm.domain.user import User, UserName
 
 from codebase_to_llm.infrastructure.sqlalchemy_api_key_repository import (
@@ -111,6 +112,7 @@ from codebase_to_llm.infrastructure.url_external_source_repository import (
 from codebase_to_llm.infrastructure.sqlalchemy_user_repository import (
     SqlAlchemyUserRepository,
 )
+from codebase_to_llm.infrastructure.brevo_email_sender import BrevoEmailSender
 
 # Load environment variables from .env-development file
 load_dotenv(".env-development")
@@ -194,6 +196,7 @@ _clipboard = InMemoryClipboardService()
 _directory_repo = FileSystemDirectoryRepository(Path.cwd())
 _llm_adapter = OpenAILLMAdapter()
 _user_repo = SqlAlchemyUserRepository()
+_email_sender = BrevoEmailSender()
 
 
 def get_user_repositories(user: User) -> tuple[
@@ -214,18 +217,32 @@ def get_user_repositories(user: User) -> tuple[
 
 class RegisterRequest(BaseModel):
     user_name: str
+    email: str
     password: str
 
 
 @app.post("/register")
 def register_user(request: RegisterRequest) -> dict[str, str]:
-    use_case = RegisterUserUseCase(_user_repo)
-    result = use_case.execute(request.user_name, request.password)
+    use_case = RegisterUserUseCase(_user_repo, _email_sender)
+    result = use_case.execute(request.user_name, request.email, request.password)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
     user = result.ok()
     assert user is not None
     return {"id": user.id().value(), "user_name": user.name().value()}
+
+
+@app.get("/validate")
+def validate_user(token: str) -> FileResponse:
+    """Validate user account using the token from email."""
+    use_case = ValidateUserUseCase(_user_repo)
+    result = use_case.execute(token)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+
+    # Redirect to login page after successful validation
+    html_file_path = Path(__file__).parent / "validation_success.html"
+    return FileResponse(html_file_path, media_type="text/html")
 
 
 class Token(BaseModel):

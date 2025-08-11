@@ -22,6 +22,10 @@
                     <input type="text" id="username" name="username" required>
                 </div>
                 <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
                     <label for="password">Password:</label>
                     <input type="password" id="password" name="password" required>
                 </div>
@@ -45,7 +49,7 @@
                 this.token = localStorage.getItem('access_token');
             }
 
-            async register(username, password) {
+            async register(username, email, password) {
                 const response = await fetch(`${this.baseUrl}/register`, {
                     method: 'POST',
                     headers: {
@@ -53,6 +57,7 @@
                     },
                     body: JSON.stringify({
                         user_name: username,
+                        email: email,
                         password: password
                     })
                 });
@@ -83,6 +88,7 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const username = formData.get('username');
+            const email = formData.get('email');
             const password = formData.get('password');
             const confirmPassword = formData.get('confirmPassword');
 
@@ -99,8 +105,8 @@
             }
 
             try {
-                await api.register(username, password);
-                showMessage('registerMessage', 'Account created successfully! Redirecting to login...');
+                await api.register(username, email, password);
+                showMessage('registerMessage', 'Account created. Check your email to validate before logging in.');
                 setTimeout(() => {
                     window.location.href = '/login';
                 }, 2000);

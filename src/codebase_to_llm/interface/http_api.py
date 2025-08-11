@@ -15,6 +15,7 @@ from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
 
 from codebase_to_llm.application.uc_add_api_key import AddApiKeyUseCase
+from codebase_to_llm.application.uc_add_model import AddModelUseCase
 from codebase_to_llm.application.uc_add_code_snippet_to_context_buffer import (
     AddCodeSnippetToContextBufferUseCase,
 )
@@ -50,8 +51,10 @@ from codebase_to_llm.application.uc_generate_llm_response import (
     GenerateLLMResponseUseCase,
 )
 from codebase_to_llm.application.uc_load_api_keys import LoadApiKeysUseCase
+from codebase_to_llm.application.uc_load_models import LoadModelsUseCase
 from codebase_to_llm.application.uc_modify_prompt import ModifyPromptUseCase
 from codebase_to_llm.application.uc_remove_api_key import RemoveApiKeyUseCase
+from codebase_to_llm.application.uc_remove_model import RemoveModelUseCase
 from codebase_to_llm.application.uc_remove_elmts_from_context_buffer import (
     RemoveElementsFromContextBufferUseCase,
 )
@@ -59,6 +62,7 @@ from codebase_to_llm.application.uc_set_prompt_from_favorite import (
     AddPromptFromFavoriteLisUseCase,
 )
 from codebase_to_llm.application.uc_update_api_key import UpdateApiKeyUseCase
+from codebase_to_llm.application.uc_update_model import UpdateModelUseCase
 from codebase_to_llm.application.uc_add_favorite_prompt import (
     AddFavoritePromptUseCase,
 )
@@ -78,7 +82,7 @@ from codebase_to_llm.application.uc_add_rule import AddRuleUseCase
 from codebase_to_llm.application.uc_get_rules import GetRulesUseCase
 from codebase_to_llm.application.uc_update_rule import UpdateRuleUseCase
 from codebase_to_llm.application.uc_remove_rule import RemoveRuleUseCase
-from codebase_to_llm.domain.api_key import ApiKeyId
+from codebase_to_llm.domain.model import ModelId
 from codebase_to_llm.application.uc_register_user import RegisterUserUseCase
 from codebase_to_llm.application.uc_authenticate_user import AuthenticateUserUseCase
 from codebase_to_llm.application.uc_validate_user import ValidateUserUseCase
@@ -86,6 +90,9 @@ from codebase_to_llm.domain.user import User, UserName
 
 from codebase_to_llm.infrastructure.sqlalchemy_api_key_repository import (
     SqlAlchemyApiKeyRepository,
+)
+from codebase_to_llm.infrastructure.sqlalchemy_model_repository import (
+    SqlAlchemyModelRepository,
 )
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,
@@ -201,6 +208,7 @@ _email_sender = BrevoEmailSender()
 
 def get_user_repositories(user: User) -> tuple[
     SqlAlchemyApiKeyRepository,
+    SqlAlchemyModelRepository,
     SqlAlchemyRulesRepository,
     SqlAlchemyRecentRepository,
     SqlAlchemyFavoritePromptsRepository,
@@ -209,6 +217,7 @@ def get_user_repositories(user: User) -> tuple[
     user_id = user.id().value()
     return (
         SqlAlchemyApiKeyRepository(user_id),
+        SqlAlchemyModelRepository(user_id),
         SqlAlchemyRulesRepository(user_id),
         SqlAlchemyRecentRepository(user_id),
         SqlAlchemyFavoritePromptsRepository(user_id),
@@ -321,10 +330,13 @@ def add_api_key(
     request: AddApiKeyRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    api_key_repo, _, _, _ = get_user_repositories(current_user)
+    api_key_repo, _, _, _, _ = get_user_repositories(current_user)
     use_case = AddApiKeyUseCase(api_key_repo)
     result = use_case.execute(
-        request.id_value, request.url_provider, request.api_key_value
+        current_user.id().value(),
+        request.id_value,
+        request.url_provider,
+        request.api_key_value,
     )
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
@@ -342,7 +354,7 @@ def add_api_key(
 def load_api_keys(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[dict[str, str]]:
-    api_key_repo, _, _, _ = get_user_repositories(current_user)
+    api_key_repo, _, _, _, _ = get_user_repositories(current_user)
     use_case = LoadApiKeysUseCase(api_key_repo)
     result = use_case.execute()
     if result.is_err():
@@ -371,7 +383,7 @@ def update_api_key(
     request: UpdateApiKeyRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    api_key_repo, _, _, _ = get_user_repositories(current_user)
+    api_key_repo, _, _, _, _ = get_user_repositories(current_user)
     use_case = UpdateApiKeyUseCase(api_key_repo)
     result = use_case.execute(
         request.api_key_id, request.new_url_provider, request.new_api_key_value
@@ -393,12 +405,109 @@ def remove_api_key(
     api_key_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    api_key_repo, _, _, _ = get_user_repositories(current_user)
+    api_key_repo, _, _, _, _ = get_user_repositories(current_user)
     use_case = RemoveApiKeyUseCase(api_key_repo)
     result = use_case.execute(api_key_id)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
     return {"id": api_key_id}
+
+
+class AddModelRequest(BaseModel):
+    id_value: str
+    name: str
+    api_key_id: str
+
+
+@app.post("/models")
+def add_model(
+    request: AddModelRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    api_key_repo, model_repo, _, _, _ = get_user_repositories(current_user)
+    use_case = AddModelUseCase(model_repo, api_key_repo)
+    result = use_case.execute(
+        current_user.id().value(),
+        request.id_value,
+        request.name,
+        request.api_key_id,
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    event = result.ok()
+    assert event is not None
+    model = event.model()
+    return {
+        "id": model.id().value(),
+        "name": model.name().value(),
+        "api_key_id": model.api_key_id().value(),
+    }
+
+
+@app.get("/models")
+def load_models(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, str]]:
+    _, model_repo, _, _, _ = get_user_repositories(current_user)
+    use_case = LoadModelsUseCase(model_repo)
+    result = use_case.execute()
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    models = result.ok()
+    if models is None:
+        return []
+    return [
+        {
+            "id": m.id().value(),
+            "name": m.name().value(),
+            "api_key_id": m.api_key_id().value(),
+        }
+        for m in models.models()
+    ]
+
+
+class UpdateModelRequest(BaseModel):
+    model_id: str
+    new_name: str
+    new_api_key_id: str
+
+
+@app.put("/models")
+def update_model(
+    request: UpdateModelRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    api_key_repo, model_repo, _, _, _ = get_user_repositories(current_user)
+    use_case = UpdateModelUseCase(model_repo, api_key_repo)
+    result = use_case.execute(
+        current_user.id().value(),
+        request.model_id,
+        request.new_name,
+        request.new_api_key_id,
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    event = result.ok()
+    assert event is not None
+    model = event.model()
+    return {
+        "id": model.id().value(),
+        "name": model.name().value(),
+        "api_key_id": model.api_key_id().value(),
+    }
+
+
+@app.delete("/models/{model_id}")
+def remove_model(
+    model_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    _, model_repo, _, _, _ = get_user_repositories(current_user)
+    use_case = RemoveModelUseCase(model_repo)
+    result = use_case.execute(model_id)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"id": model_id}
 
 
 class AddFileRequest(BaseModel):
@@ -602,7 +711,7 @@ class FavoritePromptIdRequest(BaseModel):
 def get_favorite_prompts(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, list[dict[str, str]]]:
-    _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
+    _, _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
     use_case = GetFavoritePromptsUseCase(favorite_prompts_repo)
     result = use_case.execute()
     if result.is_err():
@@ -625,7 +734,7 @@ def get_favorite_prompts(
 def get_favorite_prompt(
     prompt_id: str, current_user: Annotated[User, Depends(get_current_user)]
 ) -> dict[str, str]:
-    _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
+    _, _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
     use_case = GetFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(prompt_id)
     if result.is_err():
@@ -644,7 +753,7 @@ def add_favorite_prompt(
     request: FavoritePromptCreateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
+    _, _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
     use_case = AddFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(request.name, request.content)
     if result.is_err():
@@ -663,7 +772,7 @@ def update_favorite_prompt(
     request: FavoritePromptUpdateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
+    _, _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
     use_case = UpdateFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(request.id, request.name, request.content)
     if result.is_err():
@@ -682,7 +791,7 @@ def remove_favorite_prompt(
     request: FavoritePromptIdRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
+    _, _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
     use_case = RemoveFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(request.id)
     if result.is_err():
@@ -712,7 +821,7 @@ class RuleNameRequest(BaseModel):
 def get_rules(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[dict[str, Any]]:
-    _, rules_repo, _, _ = get_user_repositories(current_user)
+    _, _, rules_repo, _, _ = get_user_repositories(current_user)
     use_case = GetRulesUseCase(rules_repo)
     result = use_case.execute()
     if result.is_err():
@@ -735,7 +844,7 @@ def add_rule(
     request: RuleCreateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
-    _, rules_repo, _, _ = get_user_repositories(current_user)
+    _, _, rules_repo, _, _ = get_user_repositories(current_user)
     use_case = AddRuleUseCase(rules_repo)
     result = use_case.execute(
         request.name, request.content, request.description, request.enabled
@@ -757,7 +866,7 @@ def update_rule(
     request: RuleUpdateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
-    _, rules_repo, _, _ = get_user_repositories(current_user)
+    _, _, rules_repo, _, _ = get_user_repositories(current_user)
     use_case = UpdateRuleUseCase(rules_repo)
     result = use_case.execute(
         request.name, request.content, request.description, request.enabled
@@ -779,7 +888,7 @@ def remove_rule(
     request: RuleNameRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    _, rules_repo, _, _ = get_user_repositories(current_user)
+    _, _, rules_repo, _, _ = get_user_repositories(current_user)
     use_case = RemoveRuleUseCase(rules_repo)
     result = use_case.execute(request.name)
     if result.is_err():
@@ -817,7 +926,7 @@ def add_recent_repository_path(
     request: AddRecentRepositoryPathRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    _, _, recent_repo, _ = get_user_repositories(current_user)
+    _, _, _, recent_repo, _ = get_user_repositories(current_user)
     use_case = AddPathToRecentRepositoryListUseCase()
     result = use_case.execute(Path(request.path), recent_repo)
     if result.is_err():
@@ -826,8 +935,7 @@ def add_recent_repository_path(
 
 
 class GenerateResponseRequest(BaseModel):
-    model: str
-    api_key_id: str
+    model_id: str
     include_tree: bool = True
     root_directory_path: str | None = None
 
@@ -837,17 +945,17 @@ def generate_llm_response(
     request: GenerateResponseRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    api_key_repo, rules_repo, _, _ = get_user_repositories(current_user)
-    api_key_id_result = ApiKeyId.try_create(request.api_key_id)
-    if api_key_id_result.is_err():
-        raise HTTPException(status_code=400, detail=api_key_id_result.err())
-    api_key_id_obj = api_key_id_result.ok()
-    assert api_key_id_obj is not None
+    api_key_repo, model_repo, rules_repo, _, _ = get_user_repositories(current_user)
+    model_id_result = ModelId.try_create(request.model_id)
+    if model_id_result.is_err():
+        raise HTTPException(status_code=400, detail=model_id_result.err())
+    model_id_obj = model_id_result.ok()
+    assert model_id_obj is not None
     use_case = GenerateLLMResponseUseCase()
     result = use_case.execute(
-        request.model,
-        api_key_id_obj,
+        model_id_obj,
         _llm_adapter,
+        model_repo,
         api_key_repo,
         _directory_repo,
         _prompt_repo,
@@ -873,7 +981,7 @@ def copy_context(
     request: CopyContextRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    _, rules_repo, _, _ = get_user_repositories(current_user)
+    _, _, rules_repo, _, _ = get_user_repositories(current_user)
     use_case = CopyContextUseCase(_context_buffer, rules_repo, _clipboard)
     result = use_case.execute(
         _directory_repo, _prompt_repo, request.include_tree, request.root_directory_path

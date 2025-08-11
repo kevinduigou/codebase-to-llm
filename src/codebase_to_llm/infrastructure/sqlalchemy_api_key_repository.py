@@ -45,7 +45,10 @@ class SqlAlchemyApiKeyRepository(ApiKeyRepositoryPort):
             keys: list[ApiKey] = []
             for row in rows:
                 key_result = ApiKey.try_create(
-                    row.id, row.url_provider, row.api_key_value
+                    row.id,
+                    row.user_id,
+                    row.url_provider,
+                    row.api_key_value,
                 )
                 if key_result.is_err():
                     return Err(key_result.err() or "Invalid API key data.")
@@ -102,7 +105,12 @@ class SqlAlchemyApiKeyRepository(ApiKeyRepositoryPort):
             ).fetchone()
             if row is None:
                 return Err("API key not found.")
-            key_result = ApiKey.try_create(row.id, row.url_provider, row.api_key_value)
+            key_result = ApiKey.try_create(
+                row.id,
+                row.user_id,
+                row.url_provider,
+                row.api_key_value,
+            )
             if key_result.is_err():
                 return Err(key_result.err() or "Invalid API key data.")
             key = key_result.ok()

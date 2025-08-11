@@ -12,12 +12,17 @@ class AddApiKeyUseCase:
         self._api_key_repo = api_key_repo
 
     def execute(
-        self, id_value: str, url_provider: str, api_key_value: str
+        self,
+        user_id_value: str,
+        id_value: str,
+        url_provider: str,
+        api_key_value: str,
     ) -> Result[ApiKeyAddedEvent, str]:
         """
         Executes the add API key use case.
 
         Args:
+            user_id_value: Identifier of the owner
             id_value: Unique identifier for the API key
             url_provider: URL of the API provider
             api_key_value: The actual API key value
@@ -26,7 +31,9 @@ class AddApiKeyUseCase:
             Result containing ApiKeyAddedEvent or error message
         """
         # Create the API key domain object
-        api_key_result = ApiKey.try_create(id_value, url_provider, api_key_value)
+        api_key_result = ApiKey.try_create(
+            id_value, user_id_value, url_provider, api_key_value
+        )
         if api_key_result.is_err():
             return Err(api_key_result.err() or "Failed to create API key object.")
 

@@ -9,6 +9,8 @@ from codebase_to_llm.domain.api_key import (
     ApiKeyUpdatedEvent,
 )
 
+USER_ID = "user-1"
+
 
 class TestApiKeyId:
     def test_try_create_valid_id_succeeds(self):
@@ -119,7 +121,10 @@ class TestApiKeyValue:
 class TestApiKey:
     def test_try_create_valid_api_key_succeeds(self):
         result = ApiKey.try_create(
-            "openai-key-1", "https://api.openai.com", "sk-1234567890abcdef"
+            "openai-key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
         )
         assert result.is_ok()
         api_key = result.ok()
@@ -129,23 +134,41 @@ class TestApiKey:
         assert api_key.api_key_value().value() == "sk-1234567890abcdef"
 
     def test_try_create_invalid_id_fails(self):
-        result = ApiKey.try_create("", "https://api.openai.com", "sk-1234567890abcdef")
+        result = ApiKey.try_create(
+            "",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
+        )
         assert result.is_err()
         assert "Invalid API Key ID" in (result.err() or "")
 
     def test_try_create_invalid_url_fails(self):
-        result = ApiKey.try_create("openai-key-1", "invalid-url", "sk-1234567890abcdef")
+        result = ApiKey.try_create(
+            "openai-key-1",
+            USER_ID,
+            "invalid-url",
+            "sk-1234567890abcdef",
+        )
         assert result.is_err()
         assert "Invalid URL Provider" in (result.err() or "")
 
     def test_try_create_invalid_key_value_fails(self):
-        result = ApiKey.try_create("openai-key-1", "https://api.openai.com", "short")
+        result = ApiKey.try_create(
+            "openai-key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "short",
+        )
         assert result.is_err()
         assert "Invalid API Key Value" in (result.err() or "")
 
     def test_update_url_provider_returns_new_instance(self):
         api_key_result = ApiKey.try_create(
-            "openai-key-1", "https://api.openai.com", "sk-1234567890abcdef"
+            "openai-key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
         )
         assert api_key_result.is_ok()
         api_key = api_key_result.ok()
@@ -176,13 +199,19 @@ class TestApiKeys:
 
     def test_try_create_with_duplicate_ids_fails(self):
         key1_result = ApiKey.try_create(
-            "key-1", "https://api.openai.com", "sk-1234567890abcdef"
+            "key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
         )
         assert key1_result.is_ok()
         key1 = key1_result.ok()
         assert key1 is not None
         key2_result = ApiKey.try_create(
-            "key-1", "https://api.anthropic.com", "sk-abcdef1234567890"
+            "key-1",
+            USER_ID,
+            "https://api.anthropic.com",
+            "sk-abcdef1234567890",
         )
         assert key2_result.is_ok()
         key2 = key2_result.ok()
@@ -196,7 +225,10 @@ class TestApiKeys:
         api_keys = ApiKeys(())
 
         key_result = ApiKey.try_create(
-            "key-1", "https://api.openai.com", "sk-1234567890abcdef"
+            "key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
         )
         assert key_result.is_ok()
         key = key_result.ok()
@@ -212,7 +244,10 @@ class TestApiKeys:
 
     def test_add_duplicate_api_key_fails(self):
         key_result = ApiKey.try_create(
-            "key-1", "https://api.openai.com", "sk-1234567890abcdef"
+            "key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
         )
         assert key_result.is_ok()
         key = key_result.ok()
@@ -221,7 +256,10 @@ class TestApiKeys:
         api_keys = ApiKeys((key,))
 
         duplicate_key_result = ApiKey.try_create(
-            "key-1", "https://api.anthropic.com", "sk-abcdef1234567890"
+            "key-1",
+            USER_ID,
+            "https://api.anthropic.com",
+            "sk-abcdef1234567890",
         )
         assert duplicate_key_result.is_ok()
         duplicate_key = duplicate_key_result.ok()
@@ -233,7 +271,10 @@ class TestApiKeys:
 
     def test_remove_api_key_succeeds(self):
         key_result = ApiKey.try_create(
-            "key-1", "https://api.openai.com", "sk-1234567890abcdef"
+            "key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
         )
         assert key_result.is_ok()
         key = key_result.ok()
@@ -262,7 +303,10 @@ class TestApiKeys:
 
     def test_update_api_key_succeeds(self):
         key_result = ApiKey.try_create(
-            "key-1", "https://api.openai.com", "sk-1234567890abcdef"
+            "key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
         )
         assert key_result.is_ok()
         key = key_result.ok()
@@ -289,7 +333,10 @@ class TestApiKeys:
 
     def test_find_by_id_succeeds(self):
         key_result = ApiKey.try_create(
-            "key-1", "https://api.openai.com", "sk-1234567890abcdef"
+            "key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
         )
         assert key_result.is_ok()
         key = key_result.ok()
@@ -319,7 +366,10 @@ class TestApiKeys:
 class TestEvents:
     def test_api_key_added_event(self):
         key_result = ApiKey.try_create(
-            "key-1", "https://api.openai.com", "sk-1234567890abcdef"
+            "key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
         )
         assert key_result.is_ok()
         key = key_result.ok()
@@ -339,7 +389,10 @@ class TestEvents:
 
     def test_api_key_updated_event(self):
         key_result = ApiKey.try_create(
-            "key-1", "https://api.openai.com", "sk-1234567890abcdef"
+            "key-1",
+            USER_ID,
+            "https://api.openai.com",
+            "sk-1234567890abcdef",
         )
         assert key_result.is_ok()
         key = key_result.ok()

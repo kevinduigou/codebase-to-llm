@@ -117,6 +117,8 @@ from codebase_to_llm.application.uc_generate_llm_response import (
 from codebase_to_llm.infrastructure.llm_adapter import OpenAILLMAdapter
 from codebase_to_llm.domain.api_key import ApiKeyId
 
+DEFAULT_USER_ID = "default-user"
+
 
 class DragDropFileSystemModel(QFileSystemModel):
     """Custom file system model that supports drag and drop operations."""
@@ -1108,7 +1110,7 @@ class MainWindow(QMainWindow):
 
     def _open_api_keys_manager(self) -> None:
         """Opens the API keys management dialog."""
-        dialog = ApiKeyManagerDialog(self._api_key_repo, parent=self)
+        dialog = ApiKeyManagerDialog(self._api_key_repo, DEFAULT_USER_ID, parent=self)
         dialog.exec()
 
     def _generate_llm_response_in_file(self, file_path: Path) -> None:
@@ -1188,7 +1190,7 @@ if __name__ == "__main__":
         external_repo=UrlExternalSourceRepository(),
         context_buffer=InMemoryContextBufferRepository(),
         prompt_repo=InMemoryPromptRepository(),
-        api_key_repo=FileSystemApiKeyRepository(),
+        api_key_repo=FileSystemApiKeyRepository(DEFAULT_USER_ID),
     )
     window.show()
     sys.exit(app.exec())

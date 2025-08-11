@@ -61,7 +61,7 @@ def main() -> None:  # noqa: D401 (simple verb)
     context_buffer: ContextBufferPort = InMemoryContextBufferRepository()
     prompt_repo = InMemoryPromptRepository()
     external_repo: ExternalSourceRepositoryPort = UrlExternalSourceRepository()
-    api_key_repo: ApiKeyRepositoryPort = FileSystemApiKeyRepository()
+    api_key_repo: ApiKeyRepositoryPort = FileSystemApiKeyRepository("default-user")
 
     window = MainWindow(
         repo,

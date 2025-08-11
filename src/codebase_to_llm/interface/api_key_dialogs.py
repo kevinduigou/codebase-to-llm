@@ -38,16 +38,19 @@ class ApiKeyFormDialog(QDialog):
         "_is_edit_mode",
         "_original_api_key",
         "_api_key_repo",
+        "_user_id",
     )
 
     def __init__(
         self,
         api_key_repo: ApiKeyRepositoryPort,
+        user_id: str,
         api_key: ApiKey | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self._api_key_repo = api_key_repo
+        self._user_id = user_id
         self._is_edit_mode = api_key is not None
         self._original_api_key = api_key
 
@@ -152,7 +155,9 @@ class ApiKeyFormDialog(QDialog):
                 return
             else:
                 add_use_case = AddApiKeyUseCase(self._api_key_repo)
-                add_result = add_use_case.execute(id_value, url_value, key_value)
+                add_result = add_use_case.execute(
+                    self._user_id, id_value, url_value, key_value
+                )
                 if add_result.is_err():
                     QMessageBox.critical(
                         self,
@@ -176,6 +181,7 @@ class ApiKeyManagerDialog(QDialog):
 
     __slots__ = (
         "_api_key_repo",
+        "_user_id",
         "_list_widget",
         "_add_btn",
         "_edit_btn",
@@ -185,10 +191,14 @@ class ApiKeyManagerDialog(QDialog):
     )
 
     def __init__(
-        self, api_key_repo: ApiKeyRepositoryPort, parent: QWidget | None = None
+        self,
+        api_key_repo: ApiKeyRepositoryPort,
+        user_id: str,
+        parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self._api_key_repo = api_key_repo
+        self._user_id = user_id
         self._selected_api_key: ApiKey | None = None
         self._load_use_case = LoadApiKeysUseCase(api_key_repo)
 
@@ -300,7 +310,7 @@ class ApiKeyManagerDialog(QDialog):
 
     def _on_add(self) -> None:
         """Handles the add button click."""
-        dialog = ApiKeyFormDialog(self._api_key_repo, parent=self)
+        dialog = ApiKeyFormDialog(self._api_key_repo, self._user_id, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._refresh_list()
 
@@ -310,7 +320,10 @@ class ApiKeyManagerDialog(QDialog):
             return
 
         dialog = ApiKeyFormDialog(
-            self._api_key_repo, self._selected_api_key, parent=self
+            self._api_key_repo,
+            self._user_id,
+            self._selected_api_key,
+            parent=self,
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._refresh_list()

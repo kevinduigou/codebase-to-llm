@@ -25,13 +25,18 @@ class EncryptedApiKeyRepository(ApiKeyRepositoryPort):
     Falls back to plain text if encryption is not available.
     """
 
-    __slots__ = ("_file_path", "_password")
+    __slots__ = ("_file_path", "_password", "_user_id")
     _file_path: Path
     _password: bytes
+    _user_id: str
 
     def __init__(
-        self, file_path: Path | None = None, password: str = "default_password"
+        self,
+        user_id: str,
+        file_path: Path | None = None,
+        password: str = "default_password",
     ):
+        self._user_id = user_id
         if file_path is None:
             self._file_path = Path.home() / ".dcc_api_keys_encrypted.json"
         else:
@@ -125,7 +130,10 @@ class EncryptedApiKeyRepository(ApiKeyRepositoryPort):
                         return Err(f"Missing required field: {field}")
 
                 api_key_result = ApiKey.try_create(
-                    key_data["id"], key_data["url_provider"], key_data["api_key_value"]
+                    key_data["id"],
+                    self._user_id,
+                    key_data["url_provider"],
+                    key_data["api_key_value"],
                 )
 
                 if api_key_result.is_ok():

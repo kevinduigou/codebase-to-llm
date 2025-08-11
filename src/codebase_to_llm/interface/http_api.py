@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any, final
@@ -193,6 +194,13 @@ def serve_register_ui() -> FileResponse:
 def serve_favorite_prompts_ui() -> FileResponse:
     """Serve the favorite prompts management UI."""
     html_file_path = Path(__file__).parent / "favorite_prompts.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@app.get("/file-manager-test")
+def serve_file_manager_test_ui() -> FileResponse:
+    """Serve the file and directory manager test interface."""
+    html_file_path = Path(__file__).parent / "file_manager_test.html"
     return FileResponse(html_file_path, media_type="text/html")
 
 
@@ -902,7 +910,6 @@ def copy_context(
 
 
 class UploadFileRequest(BaseModel):
-    id_value: str
     name: str
     content: str
     directory_id: str | None = None
@@ -913,9 +920,10 @@ def upload_file(
     request: UploadFileRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    file_id = str(uuid.uuid4())
     use_case = AddFileUseCase(_file_repo, _file_storage)
     result = use_case.execute(
-        request.id_value,
+        file_id,
         current_user.id().value(),
         request.name,
         request.content.encode("utf-8"),

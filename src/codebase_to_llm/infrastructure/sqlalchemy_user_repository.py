@@ -81,11 +81,7 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
             email_result = EmailAddress.try_create(row.email)
             hash_result = PasswordHash.try_create(row.password_hash)
             token_result = ValidationToken.try_create(row.validation_token)
-            if (
-                id_result.is_err()
-                or name_result.is_err()
-                or hash_result.is_err()
-            ):
+            if id_result.is_err() or name_result.is_err() or hash_result.is_err():
                 return Err("Invalid user data.")
 
             id_obj = id_result.ok()
@@ -93,11 +89,7 @@ class SqlAlchemyUserRepository(UserRepositoryPort):
             email_obj = email_result.ok()
             hash_obj = hash_result.ok()
             token_obj = token_result.ok()
-            if (
-                id_obj is None
-                or name_obj is None
-                or hash_obj is None
-            ):
+            if id_obj is None or name_obj is None or hash_obj is None:
                 return Err("Invalid user data.")
 
             return Ok(

@@ -82,6 +82,25 @@ class Rules(ValueObject):
                 parts.append(r.name())
         return "\n".join(parts)
 
+    def add_rule(self, rule: Rule) -> Result["Rules", str]:
+        for existing in self._rules:
+            if existing.name() == rule.name():
+                return Err(f'Rule with name "{rule.name()}" already exists.')
+        return Ok(Rules(self._rules + (rule,)))
+
+    def update_rule(self, rule: Rule) -> Result["Rules", str]:
+        new_rules = []
+        found = False
+        for existing in self._rules:
+            if existing.name() == rule.name():
+                new_rules.append(rule)
+                found = True
+            else:
+                new_rules.append(existing)
+        if not found:
+            return Err(f'Rule with name "{rule.name()}" not found.')
+        return Ok(Rules(tuple(new_rules)))
+
     def update_rule_enabled(self, name: str, enabled: bool) -> "Rules":
         new_rules: tuple[Rule, ...] = tuple()
         for rule in self._rules:

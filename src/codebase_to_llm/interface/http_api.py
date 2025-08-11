@@ -74,6 +74,10 @@ from codebase_to_llm.application.uc_get_favorite_prompts import (
 from codebase_to_llm.application.uc_get_favorite_prompt import (
     GetFavoritePromptUseCase,
 )
+from codebase_to_llm.application.uc_add_rule import AddRuleUseCase
+from codebase_to_llm.application.uc_get_rules import GetRulesUseCase
+from codebase_to_llm.application.uc_update_rule import UpdateRuleUseCase
+from codebase_to_llm.application.uc_remove_rule import RemoveRuleUseCase
 from codebase_to_llm.domain.api_key import ApiKeyId
 from codebase_to_llm.application.uc_register_user import RegisterUserUseCase
 from codebase_to_llm.application.uc_authenticate_user import AuthenticateUserUseCase
@@ -684,6 +688,103 @@ def remove_favorite_prompt(
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
     return {"id": request.id}
+
+
+class RuleCreateRequest(BaseModel):
+    name: str
+    content: str
+    description: str | None = None
+    enabled: bool = True
+
+
+class RuleUpdateRequest(BaseModel):
+    name: str
+    content: str
+    description: str | None = None
+    enabled: bool = True
+
+
+class RuleNameRequest(BaseModel):
+    name: str
+
+
+@app.get("/rules")
+def get_rules(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, Any]]:
+    _, rules_repo, _, _ = get_user_repositories(current_user)
+    use_case = GetRulesUseCase(rules_repo)
+    result = use_case.execute()
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    rules = result.ok()
+    assert rules is not None
+    return [
+        {
+            "name": r.name(),
+            "content": r.content(),
+            "description": r.description(),
+            "enabled": r.enabled(),
+        }
+        for r in rules.rules()
+    ]
+
+
+@app.post("/rules")
+def add_rule(
+    request: RuleCreateRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, Any]:
+    _, rules_repo, _, _ = get_user_repositories(current_user)
+    use_case = AddRuleUseCase(rules_repo)
+    result = use_case.execute(
+        request.name, request.content, request.description, request.enabled
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    rule = result.ok()
+    assert rule is not None
+    return {
+        "name": rule.name(),
+        "content": rule.content(),
+        "description": rule.description(),
+        "enabled": rule.enabled(),
+    }
+
+
+@app.put("/rules")
+def update_rule(
+    request: RuleUpdateRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, Any]:
+    _, rules_repo, _, _ = get_user_repositories(current_user)
+    use_case = UpdateRuleUseCase(rules_repo)
+    result = use_case.execute(
+        request.name, request.content, request.description, request.enabled
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    rule = result.ok()
+    assert rule is not None
+    return {
+        "name": rule.name(),
+        "content": rule.content(),
+        "description": rule.description(),
+        "enabled": rule.enabled(),
+    }
+
+
+@app.delete("/rules")
+def remove_rule(
+    request: RuleNameRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    _, rules_repo, _, _ = get_user_repositories(current_user)
+    use_case = RemoveRuleUseCase(rules_repo)
+    result = use_case.execute(request.name)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"name": request.name}
 
 
 class AddFileAsPromptVariableRequest(BaseModel):

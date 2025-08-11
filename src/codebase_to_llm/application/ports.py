@@ -169,3 +169,21 @@ class LLMAdapterPort(Protocol):
     def generate_response(
         self, prompt: str, model: str, api_key: ApiKey
     ) -> Result[str, str]: ...  # pragma: no cover
+
+
+class FileSystemPort(Protocol):
+    """Pure port for file‑system mutations."""
+
+    def create_file(
+        self, parent: Path, name: str
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def create_folder(
+        self, parent: Path, name: str
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def delete_path(self, path: Path) -> Result[None, str]: ...  # pragma: no cover
+
+    def rename_path(
+        self, path: Path, new_name: str
+    ) -> Result[None, str]: ...  # pragma: no cover

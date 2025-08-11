@@ -9,7 +9,7 @@ from codebase_to_llm.domain.result import Result, Ok, Err
 from codebase_to_llm.config import CONFIG
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
-    from google.cloud import storage  # type: ignore[import-not-found]
+    from google.cloud import storage  # type: ignore[import-untyped]
 
 
 @final
@@ -23,7 +23,7 @@ class GCPFileStorage(FileStoragePort):
         self._bucket_name = bucket_name or CONFIG.gcp_bucket_name
 
     def _client(self) -> "storage.Client":  # pragma: no cover - network
-        from google.cloud import storage
+        from google.cloud import storage  # type: ignore[import-untyped]
 
         return storage.Client()
 

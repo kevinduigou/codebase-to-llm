@@ -25,6 +25,12 @@ class InMemoryUserRepository(UserRepositoryPort):
             return Err("User not found.")
         return Ok(user)
 
+    def find_by_email(self, email: EmailAddress) -> Result[User, str]:
+        for user in self._users.values():
+            if user.email().value() == email.value():
+                return Ok(user)
+        return Err("User not found.")
+
     def find_by_validation_token(self, token: ValidationToken) -> Result[User, str]:
         for user in self._users.values():
             if user.validation_token().value() == token.value():

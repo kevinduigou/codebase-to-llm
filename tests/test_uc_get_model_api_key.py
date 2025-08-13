@@ -57,6 +57,8 @@ def test_get_model_api_key_use_case() -> None:
 
     result = use_case.execute(model_id, model_repo, api_repo)
     assert result.is_ok()
-    model_name, api_key = result.ok()
+    result_value = result.ok()
+    assert result_value is not None
+    model_name, api_key = result_value
     assert model_name == "gpt-4.1"
     assert api_key.id().value() == "k1"

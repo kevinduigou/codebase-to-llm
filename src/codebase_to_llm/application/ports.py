@@ -12,7 +12,7 @@ from codebase_to_llm.domain.user import (
 from codebase_to_llm.domain.context_buffer import (
     ContextBuffer,
     ExternalSource,
-    File,
+    File as BufferFile,
     Snippet,
 )
 from codebase_to_llm.domain.prompt import Prompt, PromptVariable
@@ -21,6 +21,8 @@ from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.rules import Rules
 from codebase_to_llm.domain.favorite_prompts import FavoritePrompts
 from codebase_to_llm.domain.model import Models, Model, ModelId
+from codebase_to_llm.domain.stored_file import StoredFile, StoredFileId
+from codebase_to_llm.domain.directory import Directory, DirectoryId
 
 
 class ClipboardPort(Protocol):
@@ -81,7 +83,7 @@ class ContextBufferPort(Protocol):
         self, url: str
     ) -> Result[None, str]: ...  # pragma: no cover
 
-    def add_file(self, file: File) -> Result[None, str]: ...  # pragma: no cover
+    def add_file(self, file: BufferFile) -> Result[None, str]: ...  # pragma: no cover
     def remove_file(self, path: Path) -> Result[None, str]: ...  # pragma: no cover
 
     def add_snippet(
@@ -94,7 +96,7 @@ class ContextBufferPort(Protocol):
     def get_external_sources(
         self,
     ) -> list[ExternalSource]: ...  # pragma: no cover
-    def get_files(self) -> list[File]: ...  # pragma: no cover
+    def get_files(self) -> list[BufferFile]: ...  # pragma: no cover
     def get_snippets(self) -> list[Snippet]: ...  # pragma: no cover
     def get_context_buffer(self) -> ContextBuffer: ...  # pragma: no cover
 
@@ -180,3 +182,47 @@ class LLMAdapterPort(Protocol):
     def generate_response(
         self, prompt: str, model: str, api_key: ApiKey
     ) -> Result[str, str]: ...  # pragma: no cover
+
+
+class FileStoragePort(Protocol):
+    """Port for persisting file contents."""
+
+    def save(
+        self, file: StoredFile, content: bytes
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def load(self, file: StoredFile) -> Result[bytes, str]: ...  # pragma: no cover
+
+    def delete(self, file: StoredFile) -> Result[None, str]: ...  # pragma: no cover
+
+
+class FileRepositoryPort(Protocol):
+    """Port for CRUD operations on file metadata and access rights."""
+
+    def add(self, file: StoredFile) -> Result[None, str]: ...  # pragma: no cover
+
+    def get(
+        self, file_id: StoredFileId
+    ) -> Result[StoredFile, str]: ...  # pragma: no cover
+
+    def update(self, file: StoredFile) -> Result[None, str]: ...  # pragma: no cover
+
+    def remove(
+        self, file_id: StoredFileId
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+
+class DirectoryStructureRepositoryPort(Protocol):
+    """Port for CRUD operations on user directories."""
+
+    def add(self, directory: Directory) -> Result[None, str]: ...  # pragma: no cover
+
+    def get(
+        self, directory_id: DirectoryId
+    ) -> Result[Directory, str]: ...  # pragma: no cover
+
+    def update(self, directory: Directory) -> Result[None, str]: ...  # pragma: no cover
+
+    def remove(
+        self, directory_id: DirectoryId
+    ) -> Result[None, str]: ...  # pragma: no cover

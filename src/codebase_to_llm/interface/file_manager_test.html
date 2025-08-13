@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File & Directory Manager - Test Interface</title>
+    <link rel="stylesheet" href="web_ui.css">
+    <style>
+        .test-section {
+            background: white;
+            margin-bottom: 20px;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .test-section h3 {
+            color: #1e40af;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .method-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .method-post { background-color: #10b981; }
+        .method-get { background-color: #3b82f6; }
+        .method-put { background-color: #f59e0b; }
+        .method-delete { background-color: #ef4444; }
+        
+        .form-row {
+            display: flex;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 15px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        .form-row .form-group.small {
+            flex: 0 0 150px;
+        }
+        
+        .response-area {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .response-success {
+            border-left: 4px solid #10b981;
+            background-color: #f0fdf4;
+        }
+        
+        .response-error {
+            border-left: 4px solid #ef4444;
+            background-color: #fef2f2;
+        }
+        
+        .file-list, .directory-list {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .file-item, .directory-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .file-item:last-child, .directory-item:last-child {
+            border-bottom: none;
+        }
+        
+        .item-info {
+            flex: 1;
+        }
+        
+        .item-name {
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .item-id {
+            font-size: 12px;
+            color: #6b7280;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .item-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .btn-xs {
+            padding: 4px 8px;
+            font-size: 11px;
+            min-height: 24px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: #6b7280;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .tab:hover {
+            color: #1e40af;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .quick-actions {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .quick-actions h4 {
+            margin: 0 0 10px 0;
+            color: #374151;
+            font-size: 14px;
+        }
+        
+        .quick-actions-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation Bar -->
+        <nav class="navbar">
+            <div class="navbar-content">
+                <div class="navbar-brand">
+                    <h2>File & Directory<br>Test Interface</h2>
+                </div>
+                <div class="navbar-nav">
+                    <div class="account-dropdown">
+                        <button class="account-icon-btn" id="accountBtn" title="Account">
+                            👤
+                        </button>
+                        <div class="account-dropdown-content" id="accountDropdown">
+                            <div class="user-info">
+                                <div class="username" id="currentUsername">User</div>
+                                <div class="role">Logged in</div>
+                            </div>
+                            <button class="account-dropdown-item" onclick="window.location.href='/'">
+                                🏠 Main Interface
+                            </button>
+                            <button class="account-dropdown-item danger" id="logoutBtn">
+                                🚪 Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Interface -->
+        <div class="layout" id="mainInterface">
+            <main class="main-content">
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <h4>Quick Actions</h4>
+                    <div class="quick-actions-buttons">
+                        <button class="btn-sm btn-success" onclick="loadAllFiles()">🔄 Refresh Files</button>
+                        <button class="btn-sm btn-success" onclick="loadAllDirectories()">🔄 Refresh Directories</button>
+                        <button class="btn-sm btn-primary" onclick="generateSampleData()">🎲 Generate Sample Data</button>
+                        <button class="btn-sm btn-danger" onclick="clearAllResponses()">🧹 Clear All Responses</button>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab('files')">📄 Files</div>
+                    <div class="tab" onclick="switchTab('directories')">📁 Directories</div>
+                </div>
+
+                <!-- Files Tab -->
+                <div id="files-tab" class="tab-content active">
+                    <!-- Upload File -->
+                    <div class="test-section">
+                        <h3>
+                            <span class="method-badge method-post">POST</span>
+                            Upload File - /files
+                        </h3>
+                        <form id="uploadFileForm">
+                            <div class="form-row">
+                                <div class="form-group small">
+                                    <label for="fileId">File ID:</label>
+                                    <input type="text" id="fileId" name="id_value" placeholder="file-001" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="fileName">File Name:</label>
+                                    <input type="text" id="fileName" name="name" placeholder="example.txt" required>
+                                </div>
+                                <div class="form-group small">
+                                    <label for="fileDirectoryId">Directory ID:</label>
+                                    <input type="text" id="fileDirectoryId" name="directory_id" placeholder="Optional">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="fileContent">File Content:</label>
+                                <textarea id="fileContent" name="content" placeholder="Enter file content here..." required></textarea>
+                            </div>
+                            <button type="submit" class="btn-success">Upload File</button>
+                        </form>
+                        <div id="uploadFileResponse" class="response-area" style="display: none;"></div>
+                    </div>
+
+                    <!-- Get File -->
+                    <div class="test-section">
+                        <h3>
+                            <span class="method-badge method-get">GET</span>
+                            Get File - /files/{file_id}
+                        </h3>
+                        <form id="getFileForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="getFileId">File ID:</label>
+                                    <input type="text" id="getFileId" name="file_id" placeholder="file-001" required>
+                                </div>
+                                <button type="submit" class="btn-primary">Get File</button>
+                            </div>
+                        </form>
+                        <div id="getFileResponse" class="response-area" style="display: none;"></div>
+                    </div>
+
+                    <!-- Update File -->
+                    <div class="test-section">
+                        <h3>
+                            <span class="method-badge method-put">PUT</span>
+                            Update File - /files/{file_id}
+                        </h3>
+                        <form id="updateFileForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="updateFileId">File ID:</label>
+                                    <input type="text" id="updateFileId" name="file_id" placeholder="file-001" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="updateFileName">New Name:</label>
+                                    <input type="text" id="updateFileName" name="new_name" placeholder="Optional">
+                                </div>
+                                <div class="form-group">
+                                    <label for="updateFileDirectoryId">New Directory ID:</label>
+                                    <input type="text" id="updateFileDirectoryId" name="new_directory_id" placeholder="Optional">
+                                </div>
+                                <button type="submit" class="btn-warning">Update File</button>
+                            </div>
+                        </form>
+                        <div id="updateFileResponse" class="response-area" style="display: none;"></div>
+                    </div>
+
+                    <!-- Delete File -->
+                    <div class="test-section">
+                        <h3>
+                            <span class="method-badge method-delete">DELETE</span>
+                            Delete File - /files/{file_id}
+                        </h3>
+                        <form id="deleteFileForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="deleteFileId">File ID:</label>
+                                    <input type="text" id="deleteFileId" name="file_id" placeholder="file-001" required>
+                                </div>
+                                <button type="submit" class="btn-danger">Delete File</button>
+                            </div>
+                        </form>
+                        <div id="deleteFileResponse" class="response-area" style="display: none;"></div>
+                    </div>
+
+                    <!-- Files List -->
+                    <div class="test-section">
+                        <h3>📋 Files List</h3>
+                        <div id="filesList" class="file-list">
+                            <p>No files loaded. Use the "Refresh Files" button to load files.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Directories Tab -->
+                <div id="directories-tab" class="tab-content">
+                    <!-- Create Directory -->
+                    <div class="test-section">
+                        <h3>
+                            <span class="method-badge method-post">POST</span>
+                            Create Directory - /directories
+                        </h3>
+                        <form id="createDirectoryForm">
+                            <div class="form-row">
+                                <div class="form-group small">
+                                    <label for="directoryId">Directory ID:</label>
+                                    <input type="text" id="directoryId" name="id_value" placeholder="dir-001" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="directoryName">Directory Name:</label>
+                                    <input type="text" id="directoryName" name="name" placeholder="My Directory" required>
+                                </div>
+                                <div class="form-group small">
+                                    <label for="directoryParentId">Parent ID:</label>
+                                    <input type="text" id="directoryParentId" name="parent_id" placeholder="Optional">
+                                </div>
+                                <button type="submit" class="btn-success">Create Directory</button>
+                            </div>
+                        </form>
+                        <div id="createDirectoryResponse" class="response-area" style="display: none;"></div>
+                    </div>
+
+                    <!-- Get Directory -->
+                    <div class="test-section">
+                        <h3>
+                            <span class="method-badge method-get">GET</span>
+                            Get Directory - /directories/{directory_id}
+                        </h3>
+                        <form id="getDirectoryForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="getDirectoryId">Directory ID:</label>
+                                    <input type="text" id="getDirectoryId" name="directory_id" placeholder="dir-001" required>
+                                </div>
+                                <button type="submit" class="btn-primary">Get Directory</button>
+                            </div>
+                        </form>
+                        <div id="getDirectoryResponse" class="response-area" style="display: none;"></div>
+                    </div>
+
+                    <!-- Update Directory -->
+                    <div class="test-section">
+                        <h3>
+                            <span class="method-badge method-put">PUT</span>
+                            Update Directory - /directories/{directory_id}
+                        </h3>
+                        <form id="updateDirectoryForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="updateDirectoryId">Directory ID:</label>
+                                    <input type="text" id="updateDirectoryId" name="directory_id" placeholder="dir-001" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="updateDirectoryName">New Name:</label>
+                                    <input type="text" id="updateDirectoryName" name="new_name" placeholder="Optional">
+                                </div>
+                                <div class="form-group">
+                                    <label for="updateDirectoryParentId">New Parent ID:</label>
+                                    <input type="text" id="updateDirectoryParentId" name="new_parent_id" placeholder="Optional">
+                                </div>
+                                <button type="submit" class="btn-warning">Update Directory</button>
+                            </div>
+                        </form>
+                        <div id="updateDirectoryResponse" class="response-area" style="display: none;"></div>
+                    </div>
+
+                    <!-- Delete Directory -->
+                    <div class="test-section">
+                        <h3>
+                            <span class="method-badge method-delete">DELETE</span>
+                            Delete Directory - /directories/{directory_id}
+                        </h3>
+                        <form id="deleteDirectoryForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="deleteDirectoryId">Directory ID:</label>
+                                    <input type="text" id="deleteDirectoryId" name="directory_id" placeholder="dir-001" required>
+                                </div>
+                                <button type="submit" class="btn-danger">Delete Directory</button>
+                            </div>
+                        </form>
+                        <div id="deleteDirectoryResponse" class="response-area" style="display: none;"></div>
+                    </div>
+
+                    <!-- Directories List -->
+                    <div class="test-section">
+                        <h3>📋 Directories List</h3>
+                        <div id="directoriesList" class="directory-list">
+                            <p>No directories loaded. Use the "Refresh Directories" button to load directories.</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        class ApiClient {
+            constructor() {
+                this.baseUrl = window.location.origin;
+                this.token = localStorage.getItem('access_token');
+            }
+
+            async request(endpoint, options = {}) {
+                const url = `${this.baseUrl}${endpoint}`;
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                };
+
+                if (this.token) {
+                    headers['Authorization'] = `Bearer ${this.token}`;
+                }
+
+                const response = await fetch(url, {
+                    ...options,
+                    headers
+                });
+
+                if (response.status === 401) {
+                    this.logout();
+                    throw new Error('Authentication required');
+                }
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Request failed');
+                }
+
+                return data;
+            }
+
+            logout() {
+                this.token = null;
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('username');
+                window.location.href = '/login';
+            }
+
+            // File operations
+            async uploadFile(idValue, name, content, directoryId = null) {
+                return this.request('/files', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        id_value: idValue,
+                        name: name,
+                        content: content,
+                        directory_id: directoryId
+                    })
+                });
+            }
+
+            async getFile(fileId) {
+                return this.request(`/files/${fileId}`, {
+                    method: 'GET'
+                });
+            }
+
+            async updateFile(fileId, newName = null, newDirectoryId = null) {
+                return this.request(`/files/${fileId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        new_name: newName,
+                        new_directory_id: newDirectoryId
+                    })
+                });
+            }
+
+            async deleteFile(fileId) {
+                return this.request(`/files/${fileId}`, {
+                    method: 'DELETE'
+                });
+            }
+
+            // Directory operations
+            async createDirectory(idValue, name, parentId = null) {
+                return this.request('/directories', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        id_value: idValue,
+                        name: name,
+                        parent_id: parentId
+                    })
+                });
+            }
+
+            async getDirectory(directoryId) {
+                return this.request(`/directories/${directoryId}`, {
+                    method: 'GET'
+                });
+            }
+
+            async updateDirectory(directoryId, newName = null, newParentId = null) {
+                return this.request(`/directories/${directoryId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        new_name: newName,
+                        new_parent_id: newParentId
+                    })
+                });
+            }
+
+            async deleteDirectory(directoryId) {
+                return this.request(`/directories/${directoryId}`, {
+                    method: 'DELETE'
+                });
+            }
+        }
+
+        const api = new ApiClient();
+        let createdFiles = [];
+        let createdDirectories = [];
+
+        // UI Helper Functions
+        function showResponse(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `response-area ${isError ? 'response-error' : 'response-success'}`;
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+
+        function updateAccountInfo() {
+            const username = localStorage.getItem('username');
+            if (username) {
+                document.getElementById('currentUsername').textContent = username;
+            }
+        }
+
+        function toggleAccountDropdown() {
+            const dropdown = document.getElementById('accountDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        function closeAccountDropdown() {
+            const dropdown = document.getElementById('accountDropdown');
+            dropdown.classList.remove('show');
+        }
+
+        function generateRandomId(prefix) {
+            return `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
+        }
+
+        function generateSampleData() {
+            // Generate sample directory data
+            const dirId = generateRandomId('dir');
+            document.getElementById('directoryId').value = dirId;
+            document.getElementById('directoryName').value = `Sample Directory ${Date.now()}`;
+            
+            // Generate sample file data
+            const fileId = generateRandomId('file');
+            document.getElementById('fileId').value = fileId;
+            document.getElementById('fileName').value = `sample-file-${Date.now()}.txt`;
+            document.getElementById('fileContent').value = `This is sample content for testing.\nCreated at: ${new Date().toISOString()}`;
+            
+            alert('Sample data generated! Check the form fields.');
+        }
+
+        function clearAllResponses() {
+            document.querySelectorAll('.response-area').forEach(area => {
+                area.style.display = 'none';
+                area.textContent = '';
+            });
+        }
+
+        async function loadAllFiles() {
+            // Since there's no list endpoint, we'll show the files we've created
+            const filesList = document.getElementById('filesList');
+            if (createdFiles.length === 0) {
+                filesList.innerHTML = '<p>No files created yet. Create some files to see them here.</p>';
+                return;
+            }
+
+            let html = '';
+            for (const file of createdFiles) {
+                html += `
+                    <div class="file-item">
+                        <div class="item-info">
+                            <div class="item-name">📄 ${file.name}</div>
+                            <div class="item-id">ID: ${file.id}</div>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn-xs btn-primary" onclick="quickGetFile('${file.id}')">View</button>
+                            <button class="btn-xs btn-warning" onclick="quickFillFileUpdate('${file.id}', '${file.name}')">Edit</button>
+                            <button class="btn-xs btn-danger" onclick="quickDeleteFile('${file.id}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }
+            filesList.innerHTML = html;
+        }
+
+        async function loadAllDirectories() {
+            // Since there's no list endpoint, we'll show the directories we've created
+            const directoriesList = document.getElementById('directoriesList');
+            if (createdDirectories.length === 0) {
+                directoriesList.innerHTML = '<p>No directories created yet. Create some directories to see them here.</p>';
+                return;
+            }
+
+            let html = '';
+            for (const directory of createdDirectories) {
+                html += `
+                    <div class="directory-item">
+                        <div class="item-info">
+                            <div class="item-name">📁 ${directory.name}</div>
+                            <div class="item-id">ID: ${directory.id}</div>
+                            ${directory.parent_id ? `<div class="item-id">Parent: ${directory.parent_id}</div>` : ''}
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn-xs btn-primary" onclick="quickGetDirectory('${directory.id}')">View</button>
+                            <button class="btn-xs btn-warning" onclick="quickFillDirectoryUpdate('${directory.id}', '${directory.name}')">Edit</button>
+                            <button class="btn-xs btn-danger" onclick="quickDeleteDirectory('${directory.id}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }
+            directoriesList.innerHTML = html;
+        }
+
+        // Quick action functions
+        async function quickGetFile(fileId) {
+            document.getElementById('getFileId').value = fileId;
+            document.getElementById('getFileForm').dispatchEvent(new Event('submit'));
+        }
+
+        async function quickDeleteFile(fileId) {
+            if (confirm(`Are you sure you want to delete file ${fileId}?`)) {
+                document.getElementById('deleteFileId').value = fileId;
+                document.getElementById('deleteFileForm').dispatchEvent(new Event('submit'));
+            }
+        }
+
+        function quickFillFileUpdate(fileId, fileName) {
+            document.getElementById('updateFileId').value = fileId;
+            document.getElementById('updateFileName').value = fileName + ' (updated)';
+            switchTab('files');
+            document.getElementById('updateFileName').focus();
+        }
+
+        async function quickGetDirectory(directoryId) {
+            document.getElementById('getDirectoryId').value = directoryId;
+            document.getElementById('getDirectoryForm').dispatchEvent(new Event('submit'));
+        }
+
+        async function quickDeleteDirectory(directoryId) {
+            if (confirm(`Are you sure you want to delete directory ${directoryId}?`)) {
+                document.getElementById('deleteDirectoryId').value = directoryId;
+                document.getElementById('deleteDirectoryForm').dispatchEvent(new Event('submit'));
+            }
+        }
+
+        function quickFillDirectoryUpdate(directoryId, directoryName) {
+            document.getElementById('updateDirectoryId').value = directoryId;
+            document.getElementById('updateDirectoryName').value = directoryName + ' (updated)';
+            switchTab('directories');
+            document.getElementById('updateDirectoryName').focus();
+        }
+
+        // Form Event Listeners
+        document.getElementById('uploadFileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const idValue = formData.get('id_value');
+            const name = formData.get('name');
+            const content = formData.get('content');
+            const directoryId = formData.get('directory_id') || null;
+
+            try {
+                const result = await api.uploadFile(idValue, name, content, directoryId);
+                showResponse('uploadFileResponse', result);
+                createdFiles.push(result);
+                loadAllFiles();
+                e.target.reset();
+            } catch (error) {
+                showResponse('uploadFileResponse', { error: error.message }, true);
+            }
+        });
+
+        document.getElementById('getFileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const fileId = formData.get('file_id');
+
+            try {
+                const result = await api.getFile(fileId);
+                showResponse('getFileResponse', result);
+            } catch (error) {
+                showResponse('getFileResponse', { error: error.message }, true);
+            }
+        });
+
+        document.getElementById('updateFileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const fileId = formData.get('file_id');
+            const newName = formData.get('new_name') || null;
+            const newDirectoryId = formData.get('new_directory_id') || null;
+
+            try {
+                const result = await api.updateFile(fileId, newName, newDirectoryId);
+                showResponse('updateFileResponse', result);
+                // Update local file list
+                const fileIndex = createdFiles.findIndex(f => f.id === fileId);
+                if (fileIndex !== -1 && newName) {
+                    createdFiles[fileIndex].name = newName;
+                    loadAllFiles();
+                }
+                e.target.reset();
+            } catch (error) {
+                showResponse('updateFileResponse', { error: error.message }, true);
+            }
+        });
+
+        document.getElementById('deleteFileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const fileId = formData.get('file_id');
+
+            try {
+                const result = await api.deleteFile(fileId);
+                showResponse('deleteFileResponse', result);
+                // Remove from local file list
+                createdFiles = createdFiles.filter(f => f.id !== fileId);
+                loadAllFiles();
+                e.target.reset();
+            } catch (error) {
+                showResponse('deleteFileResponse', { error: error.message }, true);
+            }
+        });
+
+        document.getElementById('createDirectoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const idValue = formData.get('id_value');
+            const name = formData.get('name');
+            const parentId = formData.get('parent_id') || null;
+
+            try {
+                const result = await api.createDirectory(idValue, name, parentId);
+                showResponse('createDirectoryResponse', result);
+                createdDirectories.push(result);
+                loadAllDirectories();
+                e.target.reset();
+            } catch (error) {
+                showResponse('createDirectoryResponse', { error: error.message }, true);
+            }
+        });
+
+        document.getElementById('getDirectoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const directoryId = formData.get('directory_id');
+
+            try {
+                const result = await api.getDirectory(directoryId);
+                showResponse('getDirectoryResponse', result);
+            } catch (error) {
+                showResponse('getDirectoryResponse', { error: error.message }, true);
+            }
+        });
+
+        document.getElementById('updateDirectoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const directoryId = formData.get('directory_id');
+            const newName = formData.get('new_name') || null;
+            const newParentId = formData.get('new_parent_id') || null;
+
+            try {
+                const result = await api.updateDirectory(directoryId, newName, newParentId);
+                showResponse('updateDirectoryResponse', result);
+                // Update local directory list
+                const dirIndex = createdDirectories.findIndex(d => d.id === directoryId);
+                if (dirIndex !== -1 && newName) {
+                    createdDirectories[dirIndex].name = newName;
+                    loadAllDirectories();
+                }
+                e.target.reset();
+            } catch (error) {
+                showResponse('updateDirectoryResponse', { error: error.message }, true);
+            }
+        });
+
+        document.getElementById('deleteDirectoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const directoryId = formData.get('directory_id');
+
+            try {
+                const result = await api.deleteDirectory(directoryId);
+                showResponse('deleteDirectoryResponse', result);
+                // Remove from local directory list
+                createdDirectories = createdDirectories.filter(d => d.id !== directoryId);
+                loadAllDirectories();
+                e.target.reset();
+            } catch (error) {
+                showResponse('deleteDirectoryResponse', { error: error.message }, true);
+            }
+        });
+
+        // Account dropdown event listeners
+        document.getElementById('accountBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleAccountDropdown();
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            api.logout();
+            closeAccountDropdown();
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.account-dropdown')) {
+                closeAccountDropdown();
+            }
+        });
+
+        // Initialize
+        if (api.token && localStorage.getItem('username')) {
+            updateAccountInfo();
+        } else {
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>

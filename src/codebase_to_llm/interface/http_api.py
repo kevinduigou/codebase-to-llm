@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any, final
@@ -83,6 +84,14 @@ from codebase_to_llm.application.uc_get_rules import GetRulesUseCase
 from codebase_to_llm.application.uc_update_rule import UpdateRuleUseCase
 from codebase_to_llm.application.uc_remove_rule import RemoveRuleUseCase
 from codebase_to_llm.domain.model import ModelId
+from codebase_to_llm.application.uc_add_file import AddFileUseCase
+from codebase_to_llm.application.uc_get_file import GetFileUseCase
+from codebase_to_llm.application.uc_update_file import UpdateFileUseCase
+from codebase_to_llm.application.uc_delete_file import DeleteFileUseCase
+from codebase_to_llm.application.uc_add_directory import AddDirectoryUseCase
+from codebase_to_llm.application.uc_get_directory import GetDirectoryUseCase
+from codebase_to_llm.application.uc_update_directory import UpdateDirectoryUseCase
+from codebase_to_llm.application.uc_delete_directory import DeleteDirectoryUseCase
 from codebase_to_llm.application.uc_register_user import RegisterUserUseCase
 from codebase_to_llm.application.uc_authenticate_user import AuthenticateUserUseCase
 from codebase_to_llm.application.uc_validate_user import ValidateUserUseCase
@@ -120,6 +129,13 @@ from codebase_to_llm.infrastructure.sqlalchemy_user_repository import (
     SqlAlchemyUserRepository,
 )
 from codebase_to_llm.infrastructure.brevo_email_sender import BrevoEmailSender
+from codebase_to_llm.infrastructure.sqlalchemy_file_repository import (
+    SqlAlchemyFileRepository,
+)
+from codebase_to_llm.infrastructure.sqlalchemy_directory_repository import (
+    SqlAlchemyDirectoryRepository,
+)
+from codebase_to_llm.infrastructure.gcp_file_storage import GCPFileStorage
 
 # Load environment variables from .env-development file
 load_dotenv(".env-development")
@@ -188,6 +204,13 @@ def serve_favorite_prompts_ui() -> FileResponse:
     return FileResponse(html_file_path, media_type="text/html")
 
 
+@app.get("/file-manager-test")
+def serve_file_manager_test_ui() -> FileResponse:
+    """Serve the file and directory manager test interface."""
+    html_file_path = Path(__file__).parent / "file_manager_test.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
 @app.get("/web_ui.css")
 def serve_css() -> FileResponse:
     """Serve the CSS file."""
@@ -204,6 +227,9 @@ _directory_repo = FileSystemDirectoryRepository(Path.cwd())
 _llm_adapter = OpenAILLMAdapter()
 _user_repo = SqlAlchemyUserRepository()
 _email_sender = BrevoEmailSender()
+_file_repo = SqlAlchemyFileRepository()
+_directory_structure_repo = SqlAlchemyDirectoryRepository()
+_file_storage = GCPFileStorage()
 
 
 def get_user_repositories(user: User) -> tuple[
@@ -989,3 +1015,165 @@ def copy_context(
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
     return {"content": _clipboard.text()}
+
+
+class UploadFileRequest(BaseModel):
+    name: str
+    content: str
+    directory_id: str | None = None
+
+
+@app.post("/files")
+def upload_file(
+    request: UploadFileRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    file_id = str(uuid.uuid4())
+    use_case = AddFileUseCase(_file_repo, _file_storage)
+    result = use_case.execute(
+        file_id,
+        current_user.id().value(),
+        request.name,
+        request.content.encode("utf-8"),
+        request.directory_id,
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    file = result.ok()
+    assert file is not None
+    return {"id": file.id().value(), "name": file.name()}
+
+
+@app.get("/files/{file_id}")
+def get_file(
+    file_id: str, current_user: Annotated[User, Depends(get_current_user)]
+) -> dict[str, str | None]:
+    use_case = GetFileUseCase(_file_repo, _file_storage)
+    result = use_case.execute(current_user.id().value(), file_id)
+    if result.is_err():
+        raise HTTPException(status_code=404, detail=result.err())
+    file, content = result.ok() or (None, b"")
+    assert file is not None
+    dir_id = file.directory_id()
+    return {
+        "id": file.id().value(),
+        "name": file.name(),
+        "directory_id": dir_id.value() if dir_id is not None else None,
+        "content": content.decode("utf-8"),
+    }
+
+
+class UpdateFileRequest(BaseModel):
+    new_name: str | None = None
+    new_directory_id: str | None = None
+
+
+@app.put("/files/{file_id}")
+def update_file(
+    file_id: str,
+    request: UpdateFileRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    use_case = UpdateFileUseCase(_file_repo)
+    result = use_case.execute(
+        current_user.id().value(),
+        file_id,
+        request.new_name,
+        request.new_directory_id,
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"status": "updated"}
+
+
+@app.delete("/files/{file_id}")
+def delete_file(
+    file_id: str, current_user: Annotated[User, Depends(get_current_user)]
+) -> dict[str, str]:
+    use_case = DeleteFileUseCase(_file_repo, _file_storage)
+    result = use_case.execute(current_user.id().value(), file_id)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"status": "deleted"}
+
+
+class CreateDirectoryRequest(BaseModel):
+    name: str
+    parent_id: str | None = None
+
+
+@app.post("/directories")
+def create_directory(
+    request: CreateDirectoryRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str | None]:
+    directory_id = str(uuid.uuid4())
+    use_case = AddDirectoryUseCase(_directory_structure_repo)
+    result = use_case.execute(
+        directory_id,
+        current_user.id().value(),
+        request.name,
+        request.parent_id,
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    directory = result.ok()
+    assert directory is not None
+    parent = directory.parent_id()
+    return {
+        "id": directory.id().value(),
+        "name": directory.name(),
+        "parent_id": parent.value() if parent is not None else None,
+    }
+
+
+@app.get("/directories/{directory_id}")
+def get_directory(
+    directory_id: str, current_user: Annotated[User, Depends(get_current_user)]
+) -> dict[str, str | None]:
+    use_case = GetDirectoryUseCase(_directory_structure_repo)
+    result = use_case.execute(current_user.id().value(), directory_id)
+    if result.is_err():
+        raise HTTPException(status_code=404, detail=result.err())
+    directory = result.ok()
+    assert directory is not None
+    parent = directory.parent_id()
+    return {
+        "id": directory.id().value(),
+        "name": directory.name(),
+        "parent_id": parent.value() if parent is not None else None,
+    }
+
+
+class UpdateDirectoryRequest(BaseModel):
+    new_name: str | None = None
+    new_parent_id: str | None = None
+
+
+@app.put("/directories/{directory_id}")
+def update_directory(
+    directory_id: str,
+    request: UpdateDirectoryRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    use_case = UpdateDirectoryUseCase(_directory_structure_repo)
+    result = use_case.execute(
+        current_user.id().value(),
+        directory_id,
+        request.new_name,
+        request.new_parent_id,
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"status": "updated"}
+
+
+@app.delete("/directories/{directory_id}")
+def delete_directory(
+    directory_id: str, current_user: Annotated[User, Depends(get_current_user)]
+) -> dict[str, str]:
+    use_case = DeleteDirectoryUseCase(_directory_structure_repo)
+    result = use_case.execute(current_user.id().value(), directory_id)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"status": "deleted"}

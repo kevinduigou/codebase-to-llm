@@ -1,5 +1,3 @@
-import pytest
-
 from codebase_to_llm.domain.model import (
     ModelId,
     ModelName,

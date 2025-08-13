@@ -5,6 +5,7 @@ from typing_extensions import final
 
 from codebase_to_llm.domain.value_object import ValueObject
 from codebase_to_llm.domain.result import Result, Ok, Err
+from codebase_to_llm.domain.user import UserId
 
 
 @final
@@ -94,20 +95,28 @@ class ApiKeyValue(ValueObject):
 
 @final
 class ApiKey(ValueObject):
-    """An API key with its provider URL and value."""
+    """An API key owned by a specific user."""
 
-    __slots__ = ("_id", "_url_provider", "_api_key_value")
+    __slots__ = ("_id", "_user_id", "_url_provider", "_api_key_value")
     _id: ApiKeyId
+    _user_id: UserId
     _url_provider: UrlProvider
     _api_key_value: ApiKeyValue
 
     @staticmethod
     def try_create(
-        id_value: str, url_provider: str, api_key_value: str
+        id_value: str,
+        user_id_value: str,
+        url_provider: str,
+        api_key_value: str,
     ) -> Result["ApiKey", str]:
         id_result = ApiKeyId.try_create(id_value)
         if id_result.is_err():
             return Err(f"Invalid API Key ID: {id_result.err()}")
+
+        user_id_result = UserId.try_create(user_id_value)
+        if user_id_result.is_err():
+            return Err(f"Invalid user ID: {user_id_result.err()}")
 
         url_result = UrlProvider.try_create(url_provider)
         if url_result.is_err():
@@ -118,21 +127,30 @@ class ApiKey(ValueObject):
             return Err(f"Invalid API Key Value: {key_result.err()}")
 
         id_obj = id_result.ok()
+        user_id_obj = user_id_result.ok()
         url_obj = url_result.ok()
         key_obj = key_result.ok()
-        if id_obj is None or url_obj is None or key_obj is None:
+        if id_obj is None or user_id_obj is None or url_obj is None or key_obj is None:
             return Err("Unexpected error: one of the value objects is None")
-        return Ok(ApiKey(id_obj, url_obj, key_obj))
+        return Ok(ApiKey(id_obj, user_id_obj, url_obj, key_obj))
 
     def __init__(
-        self, id: ApiKeyId, url_provider: UrlProvider, api_key_value: ApiKeyValue
+        self,
+        id: ApiKeyId,
+        user_id: UserId,
+        url_provider: UrlProvider,
+        api_key_value: ApiKeyValue,
     ) -> None:
         self._id = id
+        self._user_id = user_id
         self._url_provider = url_provider
         self._api_key_value = api_key_value
 
     def id(self) -> ApiKeyId:
         return self._id
+
+    def user_id(self) -> UserId:
+        return self._user_id
 
     def url_provider(self) -> UrlProvider:
         return self._url_provider
@@ -142,11 +160,11 @@ class ApiKey(ValueObject):
 
     def update_url_provider(self, new_url_provider: UrlProvider) -> "ApiKey":
         """Returns a new ApiKey with updated URL provider."""
-        return ApiKey(self._id, new_url_provider, self._api_key_value)
+        return ApiKey(self._id, self._user_id, new_url_provider, self._api_key_value)
 
     def update_api_key_value(self, new_api_key_value: ApiKeyValue) -> "ApiKey":
         """Returns a new ApiKey with updated API key value."""
-        return ApiKey(self._id, self._url_provider, new_api_key_value)
+        return ApiKey(self._id, self._user_id, self._url_provider, new_api_key_value)
 
 
 @final

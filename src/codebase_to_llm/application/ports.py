@@ -20,6 +20,7 @@ from codebase_to_llm.domain.prompt import Prompt, PromptVariable
 from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.rules import Rules
 from codebase_to_llm.domain.favorite_prompts import FavoritePrompts
+from codebase_to_llm.domain.model import Models, Model, ModelId
 from codebase_to_llm.domain.stored_file import StoredFile, StoredFileId
 from codebase_to_llm.domain.directory import Directory, DirectoryId
 
@@ -125,6 +126,16 @@ class PromptRepositoryPort(Protocol):
     def set_prompt_variable(
         self, variable_key: str, content: str
     ) -> Result[None, str]: ...  # pragma: no cover
+
+
+class ModelRepositoryPort(Protocol):
+    """Pure port for persisting and loading models."""
+
+    def load_models(self) -> Result[Models, str]: ...  # pragma: no cover
+    def save_models(self, models: Models) -> Result[None, str]: ...  # pragma: no cover
+    def find_model_by_id(
+        self, model_id: ModelId
+    ) -> Result[Model, str]: ...  # pragma: no cover
 
 
 class ApiKeyRepositoryPort(Protocol):

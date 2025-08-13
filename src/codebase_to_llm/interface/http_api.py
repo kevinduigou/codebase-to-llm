@@ -990,7 +990,6 @@ def delete_file(
 
 
 class CreateDirectoryRequest(BaseModel):
-    id_value: str
     name: str
     parent_id: str | None = None
 
@@ -1000,9 +999,10 @@ def create_directory(
     request: CreateDirectoryRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str | None]:
+    directory_id = str(uuid.uuid4())
     use_case = AddDirectoryUseCase(_directory_structure_repo)
     result = use_case.execute(
-        request.id_value,
+        directory_id,
         current_user.id().value(),
         request.name,
         request.parent_id,

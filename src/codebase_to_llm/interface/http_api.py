@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
-import httpx
+import websockets
 
 from codebase_to_llm.application.uc_add_api_key import AddApiKeyUseCase
 from codebase_to_llm.application.uc_add_model import AddModelUseCase
@@ -1366,31 +1366,32 @@ async def websocket_llm(websocket: WebSocket, model_id: str, token: str) -> None
     )
     ws_url = f"{provider_url}/realtime?model={model_name}"
 
-    async with httpx.AsyncClient(timeout=None) as client:
-        async with client.ws_connect(  # type: ignore[attr-defined]
-            ws_url,
-            headers={"Authorization": f"Bearer {api_key.api_key_value().value()}"},
-        ) as provider_ws:
-            tokens = 0
+    async with websockets.connect(
+        ws_url,
+        extra_headers={"Authorization": f"Bearer {api_key.api_key_value().value()}"},
+    ) as provider_ws:
+        tokens = 0
 
-            async def _forward_user_to_provider() -> None:
-                while True:
-                    data = await websocket.receive_text()
-                    await provider_ws.send_text(data)
+        async def _forward_user_to_provider() -> None:
+            async for message in websocket.iter_text():
+                await provider_ws.send(message)
 
-            async def _forward_provider_to_user() -> None:
-                nonlocal tokens
-                while True:
-                    data = await provider_ws.receive_text()
-                    tokens += len(data.split())
-                    await websocket.send_text(data)
-
-            try:
-                await asyncio.gather(
-                    _forward_user_to_provider(), _forward_provider_to_user()
+        async def _forward_provider_to_user() -> None:
+            nonlocal tokens
+            async for message in provider_ws:
+                # Ensure message is a string for FastAPI WebSocket
+                text_message = (
+                    message if isinstance(message, str) else message.decode("utf-8")
                 )
-            except WebSocketDisconnect:
-                pass
+                tokens += len(text_message.split())
+                await websocket.send_text(text_message)
+
+        try:
+            await asyncio.gather(
+                _forward_user_to_provider(), _forward_provider_to_user()
+            )
+        except WebSocketDisconnect:
+            pass
 
     _ = _metrics.record_tokens(user.name(), tokens)
 

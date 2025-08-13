@@ -8,7 +8,7 @@ from typing import Annotated, Any, final
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -163,7 +163,14 @@ class InMemoryClipboardService:
         return self._content
 
 
-app = FastAPI()
+# FastAPI app with enhanced documentation
+app = FastAPI(
+    title="Codebase to LLM API",
+    description="API for managing codebase context, prompts, and LLM interactions",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
 
 # Add CORS middleware
 cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
@@ -174,49 +181,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
-
-
-@app.get("/")
-def serve_web_ui() -> FileResponse:
-    """Serve the web UI HTML file."""
-    html_file_path = Path(__file__).parent / "web_ui.html"
-    return FileResponse(html_file_path, media_type="text/html")
-
-
-@app.get("/login")
-def serve_login_ui() -> FileResponse:
-    """Serve the login UI HTML file."""
-    html_file_path = Path(__file__).parent / "login.html"
-    return FileResponse(html_file_path, media_type="text/html")
-
-
-@app.get("/register")
-def serve_register_ui() -> FileResponse:
-    """Serve the registration UI HTML file."""
-    html_file_path = Path(__file__).parent / "register.html"
-    return FileResponse(html_file_path, media_type="text/html")
-
-
-@app.get("/favorite-prompts-ui")
-def serve_favorite_prompts_ui() -> FileResponse:
-    """Serve the favorite prompts management UI."""
-    html_file_path = Path(__file__).parent / "favorite_prompts.html"
-    return FileResponse(html_file_path, media_type="text/html")
-
-
-@app.get("/file-manager-test")
-def serve_file_manager_test_ui() -> FileResponse:
-    """Serve the file and directory manager test interface."""
-    html_file_path = Path(__file__).parent / "file_manager_test.html"
-    return FileResponse(html_file_path, media_type="text/html")
-
-
-@app.get("/web_ui.css")
-def serve_css() -> FileResponse:
-    """Serve the CSS file."""
-    css_file_path = Path(__file__).parent / "web_ui.css"
-    return FileResponse(css_file_path, media_type="text/css")
-
 
 # Repositories and services shared across requests (user-independent)
 _context_buffer = InMemoryContextBufferRepository()
@@ -250,39 +214,159 @@ def get_user_repositories(user: User) -> tuple[
     )
 
 
+# ============================================================================
+# PYDANTIC MODELS
+# ============================================================================
+
+
 class RegisterRequest(BaseModel):
     user_name: str
     email: str
     password: str
 
 
-@app.post("/register")
-def register_user(request: RegisterRequest) -> dict[str, str]:
-    use_case = RegisterUserUseCase(_user_repo, _email_sender)
-    result = use_case.execute(request.user_name, request.email, request.password)
-    if result.is_err():
-        raise HTTPException(status_code=400, detail=result.err())
-    user = result.ok()
-    assert user is not None
-    return {"id": user.id().value(), "user_name": user.name().value()}
-
-
-@app.get("/validate")
-def validate_user(token: str) -> FileResponse:
-    """Validate user account using the token from email."""
-    use_case = ValidateUserUseCase(_user_repo)
-    result = use_case.execute(token)
-    if result.is_err():
-        raise HTTPException(status_code=400, detail=result.err())
-
-    # Redirect to login page after successful validation
-    html_file_path = Path(__file__).parent / "validation_success.html"
-    return FileResponse(html_file_path, media_type="text/html")
-
-
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class AddApiKeyRequest(BaseModel):
+    id_value: str
+    url_provider: str
+    api_key_value: str
+
+
+class UpdateApiKeyRequest(BaseModel):
+    api_key_id: str
+    new_url_provider: str
+    new_api_key_value: str
+
+
+class AddModelRequest(BaseModel):
+    id_value: str
+    name: str
+    api_key_id: str
+
+
+class UpdateModelRequest(BaseModel):
+    model_id: str
+    new_name: str
+    new_api_key_id: str
+
+
+class AddFileRequest(BaseModel):
+    path: str
+
+
+class AddSnippetRequest(BaseModel):
+    path: str
+    start: int
+    end: int
+    text: str
+
+
+class AddExternalSourceRequest(BaseModel):
+    url: str
+    include_timestamps: bool = False
+
+
+class RemoveExternalSourceRequest(BaseModel):
+    url: str
+
+
+class RemoveElementsRequest(BaseModel):
+    elements: list[str]
+
+
+class AddPromptFromFileRequest(BaseModel):
+    path: str
+
+
+class ModifyPromptRequest(BaseModel):
+    new_content: str
+
+
+class SetPromptFromFavoriteRequest(BaseModel):
+    content: str
+
+
+class FavoritePromptCreateRequest(BaseModel):
+    name: str
+    content: str
+
+
+class FavoritePromptUpdateRequest(BaseModel):
+    id: str
+    name: str
+    content: str
+
+
+class FavoritePromptIdRequest(BaseModel):
+    id: str
+
+
+class RuleCreateRequest(BaseModel):
+    name: str
+    content: str
+    description: str | None = None
+    enabled: bool = True
+
+
+class RuleUpdateRequest(BaseModel):
+    name: str
+    content: str
+    description: str | None = None
+    enabled: bool = True
+
+
+class RuleNameRequest(BaseModel):
+    name: str
+
+
+class AddFileAsPromptVariableRequest(BaseModel):
+    variable_key: str
+    relative_path: str
+
+
+class AddRecentRepositoryPathRequest(BaseModel):
+    path: str
+
+
+class GenerateResponseRequest(BaseModel):
+    model_id: str
+    include_tree: bool = True
+    root_directory_path: str | None = None
+
+
+class CopyContextRequest(BaseModel):
+    include_tree: bool = True
+    root_directory_path: str | None = None
+
+
+class UploadFileRequest(BaseModel):
+    name: str
+    content: str
+    directory_id: str | None = None
+
+
+class UpdateFileRequest(BaseModel):
+    new_name: str | None = None
+    new_directory_id: str | None = None
+
+
+class CreateDirectoryRequest(BaseModel):
+    name: str
+    parent_id: str | None = None
+
+
+class UpdateDirectoryRequest(BaseModel):
+    new_name: str | None = None
+    new_parent_id: str | None = None
+
+
+# ============================================================================
+# AUTHENTICATION UTILITIES
+# ============================================================================
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -324,10 +408,92 @@ def get_current_user(
     return user
 
 
-@app.post("/token")
+# ============================================================================
+# UI ROUTES (Static Files)
+# ============================================================================
+
+ui_router = APIRouter(tags=["UI"], include_in_schema=False)
+
+
+@ui_router.get("/")
+def serve_web_ui() -> FileResponse:
+    """Serve the web UI HTML file."""
+    html_file_path = Path(__file__).parent / "web_ui.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@ui_router.get("/login")
+def serve_login_ui() -> FileResponse:
+    """Serve the login UI HTML file."""
+    html_file_path = Path(__file__).parent / "login.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@ui_router.get("/register")
+def serve_register_ui() -> FileResponse:
+    """Serve the registration UI HTML file."""
+    html_file_path = Path(__file__).parent / "register.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@ui_router.get("/favorite-prompts-ui")
+def serve_favorite_prompts_ui() -> FileResponse:
+    """Serve the favorite prompts management UI."""
+    html_file_path = Path(__file__).parent / "favorite_prompts.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@ui_router.get("/file-manager-test")
+def serve_file_manager_test_ui() -> FileResponse:
+    """Serve the file and directory manager test interface."""
+    html_file_path = Path(__file__).parent / "file_manager_test.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@ui_router.get("/web_ui.css")
+def serve_css() -> FileResponse:
+    """Serve the CSS file."""
+    css_file_path = Path(__file__).parent / "web_ui.css"
+    return FileResponse(css_file_path, media_type="text/css")
+
+
+# ============================================================================
+# AUTHENTICATION & USER MANAGEMENT
+# ============================================================================
+
+auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+@auth_router.post("/register", summary="Register a new user")
+def register_user(request: RegisterRequest) -> dict[str, str]:
+    """Register a new user account with email validation."""
+    use_case = RegisterUserUseCase(_user_repo, _email_sender)
+    result = use_case.execute(request.user_name, request.email, request.password)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    user = result.ok()
+    assert user is not None
+    return {"id": user.id().value(), "user_name": user.name().value()}
+
+
+@auth_router.get("/validate", summary="Validate user account")
+def validate_user(token: str) -> FileResponse:
+    """Validate user account using the token from email."""
+    use_case = ValidateUserUseCase(_user_repo)
+    result = use_case.execute(token)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+
+    # Redirect to login page after successful validation
+    html_file_path = Path(__file__).parent / "validation_success.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@auth_router.post("/token", summary="Login and get access token")
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
 ) -> Token:
+    """Authenticate user and return access token."""
     use_case = AuthenticateUserUseCase(_user_repo)
     result = use_case.execute(form_data.username, form_data.password)
     if result.is_err():
@@ -345,17 +511,19 @@ def login_for_access_token(
     return Token(access_token=access_token, token_type="bearer")
 
 
-class AddApiKeyRequest(BaseModel):
-    id_value: str
-    url_provider: str
-    api_key_value: str
+# ============================================================================
+# API KEYS MANAGEMENT
+# ============================================================================
+
+api_keys_router = APIRouter(prefix="/api-keys", tags=["API Keys"])
 
 
-@app.post("/api-keys")
+@api_keys_router.post("/", summary="Add a new API key")
 def add_api_key(
     request: AddApiKeyRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Add a new API key for the authenticated user."""
     api_key_repo, _, _, _, _ = get_user_repositories(current_user)
     use_case = AddApiKeyUseCase(api_key_repo)
     result = use_case.execute(
@@ -376,10 +544,11 @@ def add_api_key(
     }
 
 
-@app.get("/api-keys")
+@api_keys_router.get("/", summary="List all API keys")
 def load_api_keys(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[dict[str, str]]:
+    """Get all API keys for the authenticated user."""
     api_key_repo, _, _, _, _ = get_user_repositories(current_user)
     use_case = LoadApiKeysUseCase(api_key_repo)
     result = use_case.execute()
@@ -398,17 +567,12 @@ def load_api_keys(
     ]
 
 
-class UpdateApiKeyRequest(BaseModel):
-    api_key_id: str
-    new_url_provider: str
-    new_api_key_value: str
-
-
-@app.put("/api-keys")
+@api_keys_router.put("/", summary="Update an API key")
 def update_api_key(
     request: UpdateApiKeyRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Update an existing API key."""
     api_key_repo, _, _, _, _ = get_user_repositories(current_user)
     use_case = UpdateApiKeyUseCase(api_key_repo)
     result = use_case.execute(
@@ -426,11 +590,12 @@ def update_api_key(
     }
 
 
-@app.delete("/api-keys/{api_key_id}")
+@api_keys_router.delete("/{api_key_id}", summary="Delete an API key")
 def remove_api_key(
     api_key_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Delete an API key by ID."""
     api_key_repo, _, _, _, _ = get_user_repositories(current_user)
     use_case = RemoveApiKeyUseCase(api_key_repo)
     result = use_case.execute(api_key_id)
@@ -439,17 +604,19 @@ def remove_api_key(
     return {"id": api_key_id}
 
 
-class AddModelRequest(BaseModel):
-    id_value: str
-    name: str
-    api_key_id: str
+# ============================================================================
+# MODELS MANAGEMENT
+# ============================================================================
+
+models_router = APIRouter(prefix="/models", tags=["Models"])
 
 
-@app.post("/models")
+@models_router.post("/", summary="Add a new model")
 def add_model(
     request: AddModelRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Add a new LLM model configuration."""
     api_key_repo, model_repo, _, _, _ = get_user_repositories(current_user)
     use_case = AddModelUseCase(model_repo, api_key_repo)
     result = use_case.execute(
@@ -470,10 +637,11 @@ def add_model(
     }
 
 
-@app.get("/models")
+@models_router.get("/", summary="List all models")
 def load_models(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[dict[str, str]]:
+    """Get all LLM models for the authenticated user."""
     _, model_repo, _, _, _ = get_user_repositories(current_user)
     use_case = LoadModelsUseCase(model_repo)
     result = use_case.execute()
@@ -492,17 +660,12 @@ def load_models(
     ]
 
 
-class UpdateModelRequest(BaseModel):
-    model_id: str
-    new_name: str
-    new_api_key_id: str
-
-
-@app.put("/models")
+@models_router.put("/", summary="Update a model")
 def update_model(
     request: UpdateModelRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Update an existing model configuration."""
     api_key_repo, model_repo, _, _, _ = get_user_repositories(current_user)
     use_case = UpdateModelUseCase(model_repo, api_key_repo)
     result = use_case.execute(
@@ -523,11 +686,12 @@ def update_model(
     }
 
 
-@app.delete("/models/{model_id}")
+@models_router.delete("/{model_id}", summary="Delete a model")
 def remove_model(
     model_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Delete a model configuration by ID."""
     _, model_repo, _, _, _ = get_user_repositories(current_user)
     use_case = RemoveModelUseCase(model_repo)
     result = use_case.execute(model_id)
@@ -536,15 +700,19 @@ def remove_model(
     return {"id": model_id}
 
 
-class AddFileRequest(BaseModel):
-    path: str
+# ============================================================================
+# CONTEXT BUFFER MANAGEMENT
+# ============================================================================
+
+context_router = APIRouter(prefix="/context-buffer", tags=["Context Buffer"])
 
 
-@app.post("/context-buffer/file")
+@context_router.post("/file", summary="Add file to context buffer")
 def add_file_to_context_buffer(
     request: AddFileRequest,
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Add a complete file to the context buffer."""
     use_case = AddFileToContextBufferUseCase(_context_buffer)
     result = use_case.execute(Path(request.path))
     if result.is_err():
@@ -552,18 +720,12 @@ def add_file_to_context_buffer(
     return {"path": request.path}
 
 
-class AddSnippetRequest(BaseModel):
-    path: str
-    start: int
-    end: int
-    text: str
-
-
-@app.post("/context-buffer/snippet")
+@context_router.post("/snippet", summary="Add code snippet to context buffer")
 def add_snippet_to_context_buffer(
     request: AddSnippetRequest,
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
+    """Add a specific code snippet to the context buffer."""
     use_case = AddCodeSnippetToContextBufferUseCase(_context_buffer)
     result = use_case.execute(
         Path(request.path), request.start, request.end, request.text
@@ -579,16 +741,12 @@ def add_snippet_to_context_buffer(
     }
 
 
-class AddExternalSourceRequest(BaseModel):
-    url: str
-    include_timestamps: bool = False
-
-
-@app.post("/context-buffer/external")
+@context_router.post("/external", summary="Add external source to context buffer")
 def add_external_source(
     request: AddExternalSourceRequest,
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Add an external URL source to the context buffer."""
     use_case = AddExternalSourceToContextBufferUseCase(_context_buffer, _external_repo)
     result = use_case.execute(request.url, request.include_timestamps)
     if result.is_err():
@@ -598,10 +756,11 @@ def add_external_source(
     return {"url": url_val}
 
 
-@app.get("/context-buffer/external")
+@context_router.get("/external", summary="Get external sources")
 def get_external_sources(
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, list[str]]:
+    """Get all external sources in the context buffer."""
     use_case = GetExternalSourcesUseCase(_context_buffer)
     result = use_case.execute()
     if result.is_err():
@@ -610,15 +769,12 @@ def get_external_sources(
     return {"external_sources": [src.url for src in sources]}
 
 
-class RemoveExternalSourceRequest(BaseModel):
-    url: str
-
-
-@app.delete("/context-buffer/external")
+@context_router.delete("/external", summary="Remove external source")
 def remove_external_source(
     request: RemoveExternalSourceRequest,
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Remove a specific external source from the context buffer."""
     use_case = RemoveExternalSourceUseCase(_context_buffer)
     result = use_case.execute(request.url)
     if result.is_err():
@@ -626,10 +782,11 @@ def remove_external_source(
     return {"removed": request.url}
 
 
-@app.delete("/context-buffer/external/all")
+@context_router.delete("/external/all", summary="Remove all external sources")
 def remove_all_external_sources(
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Remove all external sources from the context buffer."""
     use_case = RemoveAllExternalSourcesUseCase(_context_buffer)
     result = use_case.execute()
     if result.is_err():
@@ -637,10 +794,11 @@ def remove_all_external_sources(
     return {"status": "cleared"}
 
 
-@app.delete("/context-buffer/all")
+@context_router.delete("/all", summary="Clear entire context buffer")
 def clear_context_buffer(
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Clear all content from the context buffer."""
     use_case = ClearContextBufferUseCase(_context_buffer)
     result = use_case.execute()
     if result.is_err():
@@ -648,15 +806,12 @@ def clear_context_buffer(
     return {"status": "cleared"}
 
 
-class RemoveElementsRequest(BaseModel):
-    elements: list[str]
-
-
-@app.delete("/context-buffer")
+@context_router.delete("/", summary="Remove specific elements from context buffer")
 def remove_elements_from_context_buffer(
     request: RemoveElementsRequest,
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, list[str]]:
+    """Remove specific elements from the context buffer."""
     use_case = RemoveElementsFromContextBufferUseCase(_context_buffer)
     result = use_case.execute(request.elements)
     if result.is_err():
@@ -664,15 +819,19 @@ def remove_elements_from_context_buffer(
     return {"removed": request.elements}
 
 
-class AddPromptFromFileRequest(BaseModel):
-    path: str
+# ============================================================================
+# PROMPT MANAGEMENT
+# ============================================================================
+
+prompt_router = APIRouter(prefix="/prompt", tags=["Prompt Management"])
 
 
-@app.post("/prompt/from-file")
+@prompt_router.post("/from-file", summary="Load prompt from file")
 def add_prompt_from_file(
     request: AddPromptFromFileRequest,
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Load a prompt from a file."""
     use_case = AddPromptFromFileUseCase(_prompt_repo)
     result = use_case.execute(Path(request.path))
     if result.is_err():
@@ -682,15 +841,12 @@ def add_prompt_from_file(
     return {"content": prompt.get_content()}
 
 
-class ModifyPromptRequest(BaseModel):
-    new_content: str
-
-
-@app.post("/prompt/modify")
+@prompt_router.post("/modify", summary="Modify current prompt")
 def modify_prompt(
     request: ModifyPromptRequest,
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Modify the current prompt content."""
     use_case = ModifyPromptUseCase(_prompt_repo)
     result = use_case.execute(request.new_content)
     if result.is_err():
@@ -700,15 +856,12 @@ def modify_prompt(
     return {"content": event.new_prompt.get_content()}
 
 
-class SetPromptFromFavoriteRequest(BaseModel):
-    content: str
-
-
-@app.post("/prompt/from-favorite")
+@prompt_router.post("/from-favorite", summary="Set prompt from favorite")
 def set_prompt_from_favorite(
     request: SetPromptFromFavoriteRequest,
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Set the current prompt from a favorite prompt."""
     use_case = AddPromptFromFavoriteLisUseCase(_prompt_repo)
     result = use_case.execute(request.content)
     if result.is_err():
@@ -718,25 +871,37 @@ def set_prompt_from_favorite(
     return {"content": prompt.get_content()}
 
 
-class FavoritePromptCreateRequest(BaseModel):
-    name: str
-    content: str
+@prompt_router.post("/variable", summary="Add file as prompt variable")
+def add_file_as_prompt_variable(
+    request: AddFileAsPromptVariableRequest,
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    """Add a file as a variable in the prompt."""
+    use_case = AddFileAsPromptVariableUseCase(_prompt_repo)
+    result = use_case.execute(
+        _directory_repo, request.variable_key, Path(request.relative_path)
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    event = result.ok()
+    assert event is not None
+    return {"file_path": event.file_path, "variable_key": event.variable_key}
 
 
-class FavoritePromptUpdateRequest(BaseModel):
-    id: str
-    name: str
-    content: str
+# ============================================================================
+# FAVORITE PROMPTS MANAGEMENT
+# ============================================================================
+
+favorite_prompts_router = APIRouter(
+    prefix="/favorite-prompts", tags=["Favorite Prompts"]
+)
 
 
-class FavoritePromptIdRequest(BaseModel):
-    id: str
-
-
-@app.get("/favorite-prompts")
+@favorite_prompts_router.get("/", summary="Get all favorite prompts")
 def get_favorite_prompts(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, list[dict[str, str]]]:
+    """Get all favorite prompts for the authenticated user."""
     _, _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
     use_case = GetFavoritePromptsUseCase(favorite_prompts_repo)
     result = use_case.execute()
@@ -756,10 +921,11 @@ def get_favorite_prompts(
     }
 
 
-@app.get("/favorite-prompt/{prompt_id}")
+@favorite_prompts_router.get("/{prompt_id}", summary="Get favorite prompt by ID")
 def get_favorite_prompt(
     prompt_id: str, current_user: Annotated[User, Depends(get_current_user)]
 ) -> dict[str, str]:
+    """Get a specific favorite prompt by ID."""
     _, _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
     use_case = GetFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(prompt_id)
@@ -774,11 +940,12 @@ def get_favorite_prompt(
     }
 
 
-@app.post("/favorite-prompts")
+@favorite_prompts_router.post("/", summary="Create a new favorite prompt")
 def add_favorite_prompt(
     request: FavoritePromptCreateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Create a new favorite prompt."""
     _, _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
     use_case = AddFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(request.name, request.content)
@@ -793,11 +960,12 @@ def add_favorite_prompt(
     }
 
 
-@app.put("/favorite-prompts")
+@favorite_prompts_router.put("/", summary="Update a favorite prompt")
 def update_favorite_prompt(
     request: FavoritePromptUpdateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Update an existing favorite prompt."""
     _, _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
     use_case = UpdateFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(request.id, request.name, request.content)
@@ -812,11 +980,12 @@ def update_favorite_prompt(
     }
 
 
-@app.delete("/favorite-prompts")
+@favorite_prompts_router.delete("/", summary="Delete a favorite prompt")
 def remove_favorite_prompt(
     request: FavoritePromptIdRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Delete a favorite prompt."""
     _, _, _, _, favorite_prompts_repo = get_user_repositories(current_user)
     use_case = RemoveFavoritePromptUseCase(favorite_prompts_repo)
     result = use_case.execute(request.id)
@@ -825,28 +994,18 @@ def remove_favorite_prompt(
     return {"id": request.id}
 
 
-class RuleCreateRequest(BaseModel):
-    name: str
-    content: str
-    description: str | None = None
-    enabled: bool = True
+# ============================================================================
+# RULES MANAGEMENT
+# ============================================================================
+
+rules_router = APIRouter(prefix="/rules", tags=["Rules Management"])
 
 
-class RuleUpdateRequest(BaseModel):
-    name: str
-    content: str
-    description: str | None = None
-    enabled: bool = True
-
-
-class RuleNameRequest(BaseModel):
-    name: str
-
-
-@app.get("/rules")
+@rules_router.get("/", summary="Get all rules")
 def get_rules(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[dict[str, Any]]:
+    """Get all rules for the authenticated user."""
     _, _, rules_repo, _, _ = get_user_repositories(current_user)
     use_case = GetRulesUseCase(rules_repo)
     result = use_case.execute()
@@ -865,11 +1024,12 @@ def get_rules(
     ]
 
 
-@app.post("/rules")
+@rules_router.post("/", summary="Create a new rule")
 def add_rule(
     request: RuleCreateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
+    """Create a new rule."""
     _, _, rules_repo, _, _ = get_user_repositories(current_user)
     use_case = AddRuleUseCase(rules_repo)
     result = use_case.execute(
@@ -887,11 +1047,12 @@ def add_rule(
     }
 
 
-@app.put("/rules")
+@rules_router.put("/", summary="Update a rule")
 def update_rule(
     request: RuleUpdateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
+    """Update an existing rule."""
     _, _, rules_repo, _, _ = get_user_repositories(current_user)
     use_case = UpdateRuleUseCase(rules_repo)
     result = use_case.execute(
@@ -909,11 +1070,12 @@ def update_rule(
     }
 
 
-@app.delete("/rules")
+@rules_router.delete("/", summary="Delete a rule")
 def remove_rule(
     request: RuleNameRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Delete a rule by name."""
     _, _, rules_repo, _, _ = get_user_repositories(current_user)
     use_case = RemoveRuleUseCase(rules_repo)
     result = use_case.execute(request.name)
@@ -922,55 +1084,182 @@ def remove_rule(
     return {"name": request.name}
 
 
-class AddFileAsPromptVariableRequest(BaseModel):
-    variable_key: str
-    relative_path: str
+# ============================================================================
+# FILE MANAGEMENT
+# ============================================================================
+
+files_router = APIRouter(prefix="/files", tags=["File Management"])
 
 
-@app.post("/prompt/variable")
-def add_file_as_prompt_variable(
-    request: AddFileAsPromptVariableRequest,
-    _current_user: Annotated[User, Depends(get_current_user)],
+@files_router.post("/", summary="Upload a new file")
+def upload_file(
+    request: UploadFileRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    use_case = AddFileAsPromptVariableUseCase(_prompt_repo)
+    """Upload a new file to the system."""
+    file_id = str(uuid.uuid4())
+    use_case = AddFileUseCase(_file_repo, _file_storage)
     result = use_case.execute(
-        _directory_repo, request.variable_key, Path(request.relative_path)
+        file_id,
+        current_user.id().value(),
+        request.name,
+        request.content.encode("utf-8"),
+        request.directory_id,
     )
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
-    event = result.ok()
-    assert event is not None
-    return {"file_path": event.file_path, "variable_key": event.variable_key}
+    file = result.ok()
+    assert file is not None
+    return {"id": file.id().value(), "name": file.name()}
 
 
-class AddRecentRepositoryPathRequest(BaseModel):
-    path: str
+@files_router.get("/{file_id}", summary="Get file by ID")
+def get_file(
+    file_id: str, current_user: Annotated[User, Depends(get_current_user)]
+) -> dict[str, str | None]:
+    """Get a file by its ID."""
+    use_case = GetFileUseCase(_file_repo, _file_storage)
+    result = use_case.execute(current_user.id().value(), file_id)
+    if result.is_err():
+        raise HTTPException(status_code=404, detail=result.err())
+    file, content = result.ok() or (None, b"")
+    assert file is not None
+    dir_id = file.directory_id()
+    return {
+        "id": file.id().value(),
+        "name": file.name(),
+        "directory_id": dir_id.value() if dir_id is not None else None,
+        "content": content.decode("utf-8"),
+    }
 
 
-@app.post("/recent-repositories")
-def add_recent_repository_path(
-    request: AddRecentRepositoryPathRequest,
+@files_router.put("/{file_id}", summary="Update file")
+def update_file(
+    file_id: str,
+    request: UpdateFileRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    _, _, _, recent_repo, _ = get_user_repositories(current_user)
-    use_case = AddPathToRecentRepositoryListUseCase()
-    result = use_case.execute(Path(request.path), recent_repo)
+    """Update file metadata."""
+    use_case = UpdateFileUseCase(_file_repo)
+    result = use_case.execute(
+        current_user.id().value(),
+        file_id,
+        request.new_name,
+        request.new_directory_id,
+    )
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
-    return {"path": request.path}
+    return {"status": "updated"}
 
 
-class GenerateResponseRequest(BaseModel):
-    model_id: str
-    include_tree: bool = True
-    root_directory_path: str | None = None
+@files_router.delete("/{file_id}", summary="Delete file")
+def delete_file(
+    file_id: str, current_user: Annotated[User, Depends(get_current_user)]
+) -> dict[str, str]:
+    """Delete a file by its ID."""
+    use_case = DeleteFileUseCase(_file_repo, _file_storage)
+    result = use_case.execute(current_user.id().value(), file_id)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"status": "deleted"}
 
 
-@app.post("/llm-response")
+# ============================================================================
+# DIRECTORY MANAGEMENT
+# ============================================================================
+
+directories_router = APIRouter(prefix="/directories", tags=["Directory Management"])
+
+
+@directories_router.post("/", summary="Create a new directory")
+def create_directory(
+    request: CreateDirectoryRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str | None]:
+    """Create a new directory."""
+    directory_id = str(uuid.uuid4())
+    use_case = AddDirectoryUseCase(_directory_structure_repo)
+    result = use_case.execute(
+        directory_id,
+        current_user.id().value(),
+        request.name,
+        request.parent_id,
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    directory = result.ok()
+    assert directory is not None
+    parent = directory.parent_id()
+    return {
+        "id": directory.id().value(),
+        "name": directory.name(),
+        "parent_id": parent.value() if parent is not None else None,
+    }
+
+
+@directories_router.get("/{directory_id}", summary="Get directory by ID")
+def get_directory(
+    directory_id: str, current_user: Annotated[User, Depends(get_current_user)]
+) -> dict[str, str | None]:
+    """Get a directory by its ID."""
+    use_case = GetDirectoryUseCase(_directory_structure_repo)
+    result = use_case.execute(current_user.id().value(), directory_id)
+    if result.is_err():
+        raise HTTPException(status_code=404, detail=result.err())
+    directory = result.ok()
+    assert directory is not None
+    parent = directory.parent_id()
+    return {
+        "id": directory.id().value(),
+        "name": directory.name(),
+        "parent_id": parent.value() if parent is not None else None,
+    }
+
+
+@directories_router.put("/{directory_id}", summary="Update directory")
+def update_directory(
+    directory_id: str,
+    request: UpdateDirectoryRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    """Update directory metadata."""
+    use_case = UpdateDirectoryUseCase(_directory_structure_repo)
+    result = use_case.execute(
+        current_user.id().value(),
+        directory_id,
+        request.new_name,
+        request.new_parent_id,
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"status": "updated"}
+
+
+@directories_router.delete("/{directory_id}", summary="Delete directory")
+def delete_directory(
+    directory_id: str, current_user: Annotated[User, Depends(get_current_user)]
+) -> dict[str, str]:
+    """Delete a directory by its ID."""
+    use_case = DeleteDirectoryUseCase(_directory_structure_repo)
+    result = use_case.execute(current_user.id().value(), directory_id)
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"status": "deleted"}
+
+
+# ============================================================================
+# LLM & CONTEXT OPERATIONS
+# ============================================================================
+
+llm_router = APIRouter(prefix="/llm", tags=["LLM Operations"])
+
+
+@llm_router.post("/response", summary="Generate LLM response")
 def generate_llm_response(
     request: GenerateResponseRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Generate a response from the LLM using the current context."""
     api_key_repo, model_repo, rules_repo, _, _ = get_user_repositories(current_user)
     model_id_result = ModelId.try_create(request.model_id)
     if model_id_result.is_err():
@@ -997,16 +1286,12 @@ def generate_llm_response(
     return {"response": event.response}
 
 
-class CopyContextRequest(BaseModel):
-    include_tree: bool = True
-    root_directory_path: str | None = None
-
-
-@app.post("/context/copy")
+@llm_router.post("/context/copy", summary="Copy context to clipboard")
 def copy_context(
     request: CopyContextRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
+    """Copy the current context to clipboard."""
     _, _, rules_repo, _, _ = get_user_repositories(current_user)
     use_case = CopyContextUseCase(_context_buffer, rules_repo, _clipboard)
     result = use_case.execute(
@@ -1017,163 +1302,66 @@ def copy_context(
     return {"content": _clipboard.text()}
 
 
-class UploadFileRequest(BaseModel):
-    name: str
-    content: str
-    directory_id: str | None = None
+# ============================================================================
+# RECENT REPOSITORIES
+# ============================================================================
+
+recent_router = APIRouter(prefix="/recent-repositories", tags=["Recent Repositories"])
 
 
-@app.post("/files")
-def upload_file(
-    request: UploadFileRequest,
+@recent_router.post("/", summary="Add recent repository path")
+def add_recent_repository_path(
+    request: AddRecentRepositoryPathRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    file_id = str(uuid.uuid4())
-    use_case = AddFileUseCase(_file_repo, _file_storage)
-    result = use_case.execute(
-        file_id,
-        current_user.id().value(),
-        request.name,
-        request.content.encode("utf-8"),
-        request.directory_id,
-    )
+    """Add a repository path to the recent repositories list."""
+    _, _, _, recent_repo, _ = get_user_repositories(current_user)
+    use_case = AddPathToRecentRepositoryListUseCase()
+    result = use_case.execute(Path(request.path), recent_repo)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
-    file = result.ok()
-    assert file is not None
-    return {"id": file.id().value(), "name": file.name()}
+    return {"path": request.path}
 
 
-@app.get("/files/{file_id}")
-def get_file(
-    file_id: str, current_user: Annotated[User, Depends(get_current_user)]
-) -> dict[str, str | None]:
-    use_case = GetFileUseCase(_file_repo, _file_storage)
-    result = use_case.execute(current_user.id().value(), file_id)
-    if result.is_err():
-        raise HTTPException(status_code=404, detail=result.err())
-    file, content = result.ok() or (None, b"")
-    assert file is not None
-    dir_id = file.directory_id()
-    return {
-        "id": file.id().value(),
-        "name": file.name(),
-        "directory_id": dir_id.value() if dir_id is not None else None,
-        "content": content.decode("utf-8"),
-    }
+# ============================================================================
+# LEGACY ENDPOINTS (for backward compatibility)
+# ============================================================================
 
 
-class UpdateFileRequest(BaseModel):
-    new_name: str | None = None
-    new_directory_id: str | None = None
+# Keep some legacy endpoints for backward compatibility
+@app.post("/register")
+def register_user_legacy(request: RegisterRequest) -> dict[str, str]:
+    """Legacy endpoint - use /auth/register instead."""
+    return register_user(request)
 
 
-@app.put("/files/{file_id}")
-def update_file(
-    file_id: str,
-    request: UpdateFileRequest,
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> dict[str, str]:
-    use_case = UpdateFileUseCase(_file_repo)
-    result = use_case.execute(
-        current_user.id().value(),
-        file_id,
-        request.new_name,
-        request.new_directory_id,
-    )
-    if result.is_err():
-        raise HTTPException(status_code=400, detail=result.err())
-    return {"status": "updated"}
+@app.get("/validate")
+def validate_user_legacy(token: str) -> FileResponse:
+    """Legacy endpoint - use /auth/validate instead."""
+    return validate_user(token)
 
 
-@app.delete("/files/{file_id}")
-def delete_file(
-    file_id: str, current_user: Annotated[User, Depends(get_current_user)]
-) -> dict[str, str]:
-    use_case = DeleteFileUseCase(_file_repo, _file_storage)
-    result = use_case.execute(current_user.id().value(), file_id)
-    if result.is_err():
-        raise HTTPException(status_code=400, detail=result.err())
-    return {"status": "deleted"}
+@app.post("/token")
+def login_for_access_token_legacy(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+) -> Token:
+    """Legacy endpoint - use /auth/token instead."""
+    return login_for_access_token(form_data)
 
 
-class CreateDirectoryRequest(BaseModel):
-    name: str
-    parent_id: str | None = None
+# ============================================================================
+# REGISTER ALL ROUTERS
+# ============================================================================
 
-
-@app.post("/directories")
-def create_directory(
-    request: CreateDirectoryRequest,
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> dict[str, str | None]:
-    directory_id = str(uuid.uuid4())
-    use_case = AddDirectoryUseCase(_directory_structure_repo)
-    result = use_case.execute(
-        directory_id,
-        current_user.id().value(),
-        request.name,
-        request.parent_id,
-    )
-    if result.is_err():
-        raise HTTPException(status_code=400, detail=result.err())
-    directory = result.ok()
-    assert directory is not None
-    parent = directory.parent_id()
-    return {
-        "id": directory.id().value(),
-        "name": directory.name(),
-        "parent_id": parent.value() if parent is not None else None,
-    }
-
-
-@app.get("/directories/{directory_id}")
-def get_directory(
-    directory_id: str, current_user: Annotated[User, Depends(get_current_user)]
-) -> dict[str, str | None]:
-    use_case = GetDirectoryUseCase(_directory_structure_repo)
-    result = use_case.execute(current_user.id().value(), directory_id)
-    if result.is_err():
-        raise HTTPException(status_code=404, detail=result.err())
-    directory = result.ok()
-    assert directory is not None
-    parent = directory.parent_id()
-    return {
-        "id": directory.id().value(),
-        "name": directory.name(),
-        "parent_id": parent.value() if parent is not None else None,
-    }
-
-
-class UpdateDirectoryRequest(BaseModel):
-    new_name: str | None = None
-    new_parent_id: str | None = None
-
-
-@app.put("/directories/{directory_id}")
-def update_directory(
-    directory_id: str,
-    request: UpdateDirectoryRequest,
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> dict[str, str]:
-    use_case = UpdateDirectoryUseCase(_directory_structure_repo)
-    result = use_case.execute(
-        current_user.id().value(),
-        directory_id,
-        request.new_name,
-        request.new_parent_id,
-    )
-    if result.is_err():
-        raise HTTPException(status_code=400, detail=result.err())
-    return {"status": "updated"}
-
-
-@app.delete("/directories/{directory_id}")
-def delete_directory(
-    directory_id: str, current_user: Annotated[User, Depends(get_current_user)]
-) -> dict[str, str]:
-    use_case = DeleteDirectoryUseCase(_directory_structure_repo)
-    result = use_case.execute(current_user.id().value(), directory_id)
-    if result.is_err():
-        raise HTTPException(status_code=400, detail=result.err())
-    return {"status": "deleted"}
+app.include_router(ui_router)
+app.include_router(auth_router)
+app.include_router(api_keys_router)
+app.include_router(models_router)
+app.include_router(context_router)
+app.include_router(prompt_router)
+app.include_router(favorite_prompts_router)
+app.include_router(rules_router)
+app.include_router(files_router)
+app.include_router(directories_router)
+app.include_router(llm_router)
+app.include_router(recent_router)

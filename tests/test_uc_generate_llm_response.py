@@ -10,7 +10,7 @@ from codebase_to_llm.application.ports import (
 from codebase_to_llm.application.uc_generate_llm_response import (
     GenerateLLMResponseUseCase,
 )
-from codebase_to_llm.domain.api_key import ApiKeyId, ApiKey, ApiKeys
+from codebase_to_llm.domain.api_key import ApiKey, ApiKeys
 from codebase_to_llm.domain.model import Model, Models, ModelId
 from codebase_to_llm.infrastructure.filesystem_directory_repository import (
     FileSystemDirectoryRepository,

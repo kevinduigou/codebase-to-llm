@@ -226,3 +226,11 @@ class DirectoryStructureRepositoryPort(Protocol):
     def remove(
         self, directory_id: DirectoryId
     ) -> Result[None, str]: ...  # pragma: no cover
+
+
+class MetricsPort(Protocol):
+    """Port for recording observability metrics."""
+
+    def record_tokens(
+        self, user: UserName, tokens: int
+    ) -> Result[None, str]: ...  # pragma: no cover

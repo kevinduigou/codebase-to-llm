@@ -5,15 +5,25 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any, final
+import asyncio
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, status, APIRouter
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
+import httpx
 
 from codebase_to_llm.application.uc_add_api_key import AddApiKeyUseCase
 from codebase_to_llm.application.uc_add_model import AddModelUseCase
@@ -83,6 +93,9 @@ from codebase_to_llm.application.uc_add_rule import AddRuleUseCase
 from codebase_to_llm.application.uc_get_rules import GetRulesUseCase
 from codebase_to_llm.application.uc_update_rule import UpdateRuleUseCase
 from codebase_to_llm.application.uc_remove_rule import RemoveRuleUseCase
+from codebase_to_llm.application.uc_get_model_api_key import (
+    GetModelApiKeyUseCase,
+)
 from codebase_to_llm.domain.model import ModelId
 from codebase_to_llm.application.uc_add_file import AddFileUseCase
 from codebase_to_llm.application.uc_get_file import GetFileUseCase
@@ -136,6 +149,9 @@ from codebase_to_llm.infrastructure.sqlalchemy_directory_repository import (
     SqlAlchemyDirectoryRepository,
 )
 from codebase_to_llm.infrastructure.gcp_file_storage import GCPFileStorage
+from codebase_to_llm.infrastructure.logging_metrics_service import (
+    LoggingMetricsService,
+)
 
 # Load environment variables from .env-development file
 load_dotenv(".env-development")
@@ -194,6 +210,7 @@ _email_sender = BrevoEmailSender()
 _file_repo = SqlAlchemyFileRepository()
 _directory_structure_repo = SqlAlchemyDirectoryRepository()
 _file_storage = GCPFileStorage()
+_metrics = LoggingMetricsService()
 
 
 def get_user_repositories(user: User) -> tuple[
@@ -1300,6 +1317,82 @@ def generate_llm_response(
     event = result.ok()
     assert event is not None
     return {"response": event.response}
+
+
+@app.websocket("/ws/model/{model_id}")
+async def websocket_llm(websocket: WebSocket, model_id: str, token: str) -> None:
+    await websocket.accept()
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        name_result = UserName.try_create(str(username))
+        if name_result.is_err():
+            await websocket.close(code=1008)
+            return
+        name = name_result.ok()
+        assert name is not None
+        user_result = _user_repo.find_by_name(name)
+        if user_result.is_err():
+            await websocket.close(code=1008)
+            return
+        user = user_result.ok()
+        if user is None:
+            await websocket.close(code=1008)
+            return
+    except InvalidTokenError:
+        await websocket.close(code=1008)
+        return
+
+    model_id_result = ModelId.try_create(model_id)
+    if model_id_result.is_err():
+        await websocket.close(code=1003)
+        return
+    model_id_obj = model_id_result.ok()
+    assert model_id_obj is not None
+
+    api_key_repo, model_repo, _, _, _ = get_user_repositories(user)
+    use_case = GetModelApiKeyUseCase()
+    details_result = use_case.execute(model_id_obj, model_repo, api_key_repo)
+    if details_result.is_err():
+        await websocket.close(code=1011)
+        return
+    details = details_result.ok()
+    if details is None:
+        await websocket.close(code=1011)
+        return
+    model_name, api_key = details
+    provider_url = (
+        api_key.url_provider().value().replace("https://", "wss://").rstrip("/")
+    )
+    ws_url = f"{provider_url}/realtime?model={model_name}"
+
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.ws_connect(  # type: ignore[attr-defined]
+            ws_url,
+            headers={"Authorization": f"Bearer {api_key.api_key_value().value()}"},
+        ) as provider_ws:
+            tokens = 0
+
+            async def _forward_user_to_provider() -> None:
+                while True:
+                    data = await websocket.receive_text()
+                    await provider_ws.send_text(data)
+
+            async def _forward_provider_to_user() -> None:
+                nonlocal tokens
+                while True:
+                    data = await provider_ws.receive_text()
+                    tokens += len(data.split())
+                    await websocket.send_text(data)
+
+            try:
+                await asyncio.gather(
+                    _forward_user_to_provider(), _forward_provider_to_user()
+                )
+            except WebSocketDisconnect:
+                pass
+
+    _ = _metrics.record_tokens(user.name(), tokens)
 
 
 # ============================================================================

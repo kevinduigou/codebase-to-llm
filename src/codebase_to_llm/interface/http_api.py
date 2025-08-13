@@ -819,6 +819,22 @@ def remove_elements_from_context_buffer(
     return {"removed": request.elements}
 
 
+@context_router.post("/copy", summary="Copy context to clipboard")
+def copy_context(
+    request: CopyContextRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    """Copy the current context to clipboard."""
+    _, _, rules_repo, _, _ = get_user_repositories(current_user)
+    use_case = CopyContextUseCase(_context_buffer, rules_repo, _clipboard)
+    result = use_case.execute(
+        _directory_repo, _prompt_repo, request.include_tree, request.root_directory_path
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    return {"content": _clipboard.text()}
+
+
 # ============================================================================
 # PROMPT MANAGEMENT
 # ============================================================================
@@ -1284,22 +1300,6 @@ def generate_llm_response(
     event = result.ok()
     assert event is not None
     return {"response": event.response}
-
-
-@llm_router.post("/context/copy", summary="Copy context to clipboard")
-def copy_context(
-    request: CopyContextRequest,
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> dict[str, str]:
-    """Copy the current context to clipboard."""
-    _, _, rules_repo, _, _ = get_user_repositories(current_user)
-    use_case = CopyContextUseCase(_context_buffer, rules_repo, _clipboard)
-    result = use_case.execute(
-        _directory_repo, _prompt_repo, request.include_tree, request.root_directory_path
-    )
-    if result.is_err():
-        raise HTTPException(status_code=400, detail=result.err())
-    return {"content": _clipboard.text()}
 
 
 # ============================================================================

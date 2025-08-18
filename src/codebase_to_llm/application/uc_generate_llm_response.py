@@ -60,7 +60,7 @@ class GenerateLLMResponseUseCase:
             return Err("Failed to get API key")
 
         generate_response_result = llm_adapter.generate_response(
-            full_context, model.name().value(), api_key
+            full_context, model.name().value(), api_key, None
         )
 
         if generate_response_result.is_err():

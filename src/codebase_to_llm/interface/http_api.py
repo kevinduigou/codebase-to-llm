@@ -1369,31 +1369,43 @@ def test_message_generation(
             # Optional: send a comment line to open the stream promptly
             yield b": stream-start\n\n"
 
-            for event in response_stream.ok():
-                match event:
-                    case ResponseTextDeltaEvent(delta=delta):
-                        # Send text deltas as SSE data events
-                        payload = {"type": "response.output_text.delta", "delta": delta}
-                        yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+            stream = response_stream.ok()
+            if stream is not None:
+                for event in stream:
+                    match event:
+                        case ResponseTextDeltaEvent(delta=delta):
+                            # Send text deltas as SSE data events
+                            payload = {"type": "response.output_text.delta", "delta": delta}
+                            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
 
-                    case ResponseCompletedEvent(response=resp):
-                        # Final event: includes response.id you’ll reuse later
-                        payload = {
-                            "type": "response.completed",
-                            "response": {
-                                "id": resp.id,
-                                "status": getattr(resp, "status", "completed"),
-                                "usage": getattr(resp, "usage", None),
-                                # include anything else you need
-                            },
-                        }
-                        yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
-                        # Optionally a terminator comment
-                        yield b": stream-end\n\n"
+                        case ResponseCompletedEvent(response=resp):
+                            # Final event: includes response.id you'll reuse later
+                            usage = getattr(resp, "usage", None)
+                            usage_dict = None
+                            if usage is not None:
+                                # Convert ResponseUsage object to dictionary for JSON serialization
+                                usage_dict = {
+                                    "completion_tokens": getattr(usage, "completion_tokens", None),
+                                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                                    "total_tokens": getattr(usage, "total_tokens", None),
+                                }
+                            
+                            payload = {
+                                "type": "response.completed",
+                                "response": {
+                                    "id": resp.id,
+                                    "status": getattr(resp, "status", "completed"),
+                                    "usage": usage_dict,
+                                    # include anything else you need
+                                },
+                            }
+                            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+                            # Optionally a terminator comment
+                            yield b": stream-end\n\n"
 
-                    case _:
-                        # ignore other event types or forward them similarly
-                        pass
+                        case _:
+                            # ignore other event types or forward them similarly
+                            pass
 
         return StreamingResponse(gen(), media_type="text/event-stream")
 

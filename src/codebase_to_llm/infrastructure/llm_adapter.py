@@ -1,3 +1,4 @@
+from typing import Any
 from codebase_to_llm.application.ports import LLMAdapterPort
 from openai import OpenAI, Stream
 
@@ -12,7 +13,7 @@ class OpenAILLMAdapter(LLMAdapterPort):
         model: str,
         api_key: ApiKey,
         previous_response_id: str | None = None,
-    ) -> Result[Stream, str]:
+    ) -> Result[Stream[Any], str]:
         print(f"Generating response for {model} with API key {api_key}")
         print(f"Prompt: {prompt}")
         print(f"Model: {model}")

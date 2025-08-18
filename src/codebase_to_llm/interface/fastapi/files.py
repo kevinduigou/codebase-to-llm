@@ -50,7 +50,10 @@ def download_file(
     if result.is_err():
         raise HTTPException(status_code=404, detail=result.err())
 
-    file, content = result.ok()  # file: your domain object, content: bytes
+    result_data = result.ok()
+    if result_data is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    file, content = result_data  # file: your domain object, content: bytes
     mt, _ = mimetypes.guess_type(file.name())
     headers = {"Content-Disposition": f'attachment; filename="{file.name()}"'}
     return Response(
@@ -68,8 +71,10 @@ def get_file(
     result = use_case.execute(current_user.id().value(), file_id)
     if result.is_err():
         raise HTTPException(status_code=404, detail=result.err())
-    file, content = result.ok() or (None, b"")
-    assert file is not None
+    result_data = result.ok()
+    if result_data is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    file, content = result_data
     dir_id = file.directory_id()
     return {
         "id": file.id().value(),

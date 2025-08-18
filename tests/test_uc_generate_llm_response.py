@@ -35,10 +35,13 @@ class TestGenerateLLMResponseUseCase:
     @pytest.mark.skip(reason="Temporarily disabled for CI pipeline")
     def test_generate_llm_response(self):
 
-        with patch(
-            "codebase_to_llm.application.uc_generate_llm_response.get_full_context",
-            return_value=Ok("Just say Hello no more!"),
-        ), patch.object(RulesRepository, "load_rules", return_value=Ok(Rules(()))):
+        with (
+            patch(
+                "codebase_to_llm.application.uc_generate_llm_response.get_full_context",
+                return_value=Ok("Just say Hello no more!"),
+            ),
+            patch.object(RulesRepository, "load_rules", return_value=Ok(Rules(()))),
+        ):
             llm_adapter = OpenAILLMAdapter()
             rules_repo = RulesRepository()
             prompts_repo: PromptRepositoryPort = InMemoryPromptRepository()

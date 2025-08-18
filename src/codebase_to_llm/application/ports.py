@@ -180,7 +180,7 @@ class LLMAdapterPort(Protocol):
     """Pure port for LLM adapters."""
 
     def generate_response(
-        self, prompt: str, model: str, api_key: ApiKey
+        self, prompt: str, model: str, api_key: ApiKey, previous_response_id: str | None
     ) -> Result[str, str]: ...  # pragma: no cover
 
 

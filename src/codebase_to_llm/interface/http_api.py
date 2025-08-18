@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Annotated, Any, final
+from typing import Annotated, Any, Literal, Optional, final
 
 import jwt
 from dotenv import load_dotenv
@@ -21,7 +22,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from openai import Stream
 from pydantic import BaseModel
-from openai.types.responses import ResponseTextDeltaEvent
+from openai.types.responses import ResponseTextDeltaEvent, ResponseCompletedEvent
 
 from codebase_to_llm.application.uc_add_api_key import AddApiKeyUseCase
 from codebase_to_llm.application.uc_add_model import AddModelUseCase
@@ -357,6 +358,8 @@ class GenerateResponseRequest(BaseModel):
 class TestMessageRequest(BaseModel):
     model_id: str
     message: str
+    previous_response_id: Optional[str] = None  
+    stream_format: Literal["sse", "ndjson"] = "sse"  # optional: choose stream wire format
 
 
 class CopyContextRequest(BaseModel):
@@ -1334,20 +1337,16 @@ def generate_llm_response(
 def test_message_generation(
     request: TestMessageRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-) -> dict[str, str]:
-    """Test message generation with a specific model and message (not via websocket)."""
+) -> StreamingResponse:
     api_key_repo, model_repo, _, _, _ = get_user_repositories(current_user)
 
-    # Validate model ID
     model_id_result = ModelId.try_create(request.model_id)
     if model_id_result.is_err():
         raise HTTPException(status_code=400, detail=model_id_result.err())
     model_id_obj = model_id_result.ok()
     assert model_id_obj is not None
 
-    # Get model and API key details
-    use_case = GetModelApiKeyUseCase()
-    details_result = use_case.execute(model_id_obj, model_repo, api_key_repo)
+    details_result = GetModelApiKeyUseCase().execute(model_id_obj, model_repo, api_key_repo)
     if details_result.is_err():
         raise HTTPException(status_code=400, detail=details_result.err())
     details = details_result.ok()
@@ -1356,28 +1355,50 @@ def test_message_generation(
 
     model_name, api_key = details
 
-    # Use the LLM adapter to generate a simple response
+    # Pass through an optional previous_response_id from the request if you support it
+    # (add it to your TestMessageRequest pydantic model)
     try:
         response_stream: Result[Stream, str] = _llm_adapter.generate_response(
             request.message,
             model_name,
             api_key,
+            previous_response_id=getattr(request, "previous_response_id", None),
         )
 
-        def response_generation():
+        def gen():
+            # Optional: send a comment line to open the stream promptly
+            yield b": stream-start\n\n"
+
             for event in response_stream.ok():
                 match event:
                     case ResponseTextDeltaEvent(delta=delta):
-                        yield delta
+                        # Send text deltas as SSE data events
+                        payload = {"type": "response.output_text.delta", "delta": delta}
+                        yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+
+                    case ResponseCompletedEvent(response=resp):
+                        # Final event: includes response.id you’ll reuse later
+                        payload = {
+                            "type": "response.completed",
+                            "response": {
+                                "id": resp.id,
+                                "status": getattr(resp, "status", "completed"),
+                                "usage": getattr(resp, "usage", None),
+                                # include anything else you need
+                            },
+                        }
+                        yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+                        # Optionally a terminator comment
+                        yield b": stream-end\n\n"
+
                     case _:
-                        # ignore other event types
+                        # ignore other event types or forward them similarly
                         pass
 
-        return StreamingResponse(response_generation())
+        return StreamingResponse(gen(), media_type="text/event-stream")
+
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error generating response: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
 
 
 # ============================================================================

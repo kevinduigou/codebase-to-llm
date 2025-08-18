@@ -11,6 +11,7 @@ class OpenAILLMAdapter(LLMAdapterPort):
         prompt: str,
         model: str,
         api_key: ApiKey,
+        previous_response_id: str | None = None,
     ) -> Result[Stream, str]:
         print(f"Generating response for {model} with API key {api_key}")
         print(f"Prompt: {prompt}")
@@ -22,7 +23,7 @@ class OpenAILLMAdapter(LLMAdapterPort):
         client = OpenAI(api_key=api_key_value)
         try:
             response: Stream = client.responses.create(
-                model=model, input=prompt, stream=True
+                model=model, input=prompt, stream=True,previous_response_id=previous_response_id
             )
 
             return Ok(response)

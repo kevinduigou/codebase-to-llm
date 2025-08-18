@@ -73,10 +73,10 @@ def get_full_context(
     if context_buffer.get_external_sources():
         for external_source in context_buffer.get_external_sources():
             if external_source.is_youtube_transcript:
-                tag = "<video_transcript>"
+                tag = f"<video_transcript for {external_source.url}>"
                 parts.append(tag)
                 parts.append(external_source.content)
-                parts.append("</video_transcript>")
+                parts.append(f"</video_transcript for {external_source.url}>")
             else:
                 tag = f"<{external_source.url}>"
                 parts.append(tag)

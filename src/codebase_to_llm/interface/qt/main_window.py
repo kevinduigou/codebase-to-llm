@@ -105,7 +105,7 @@ from codebase_to_llm.application.uc_set_prompt_from_favorite import (
     AddPromptFromFavoriteLisUseCase,
 )
 
-from codebase_to_llm.interface.api_key_dialogs import ApiKeyManagerDialog
+from .api_key_dialogs import ApiKeyManagerDialog
 from codebase_to_llm.application.ports import ApiKeyRepositoryPort
 from codebase_to_llm.infrastructure.filesystem_api_key_repository import (
     FileSystemApiKeyRepository,

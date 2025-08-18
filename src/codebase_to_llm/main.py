@@ -37,7 +37,7 @@ from codebase_to_llm.infrastructure.qt_clipboard_service import QtClipboardServi
 from codebase_to_llm.infrastructure.url_external_source_repository import (
     UrlExternalSourceRepository,
 )
-from codebase_to_llm.interface.main_window import MainWindow
+from codebase_to_llm.interface.qt.main_window import MainWindow
 
 
 def main() -> None:  # noqa: D401 (simple verb)

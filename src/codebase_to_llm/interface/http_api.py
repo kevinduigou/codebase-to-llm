@@ -358,8 +358,10 @@ class GenerateResponseRequest(BaseModel):
 class TestMessageRequest(BaseModel):
     model_id: str
     message: str
-    previous_response_id: Optional[str] = None  
-    stream_format: Literal["sse", "ndjson"] = "sse"  # optional: choose stream wire format
+    previous_response_id: Optional[str] = None
+    stream_format: Literal["sse", "ndjson"] = (
+        "sse"  # optional: choose stream wire format
+    )
 
 
 class CopyContextRequest(BaseModel):
@@ -1346,7 +1348,9 @@ def test_message_generation(
     model_id_obj = model_id_result.ok()
     assert model_id_obj is not None
 
-    details_result = GetModelApiKeyUseCase().execute(model_id_obj, model_repo, api_key_repo)
+    details_result = GetModelApiKeyUseCase().execute(
+        model_id_obj, model_repo, api_key_repo
+    )
     if details_result.is_err():
         raise HTTPException(status_code=400, detail=details_result.err())
     details = details_result.ok()
@@ -1375,8 +1379,13 @@ def test_message_generation(
                     match event:
                         case ResponseTextDeltaEvent(delta=delta):
                             # Send text deltas as SSE data events
-                            payload = {"type": "response.output_text.delta", "delta": delta}
-                            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+                            payload = {
+                                "type": "response.output_text.delta",
+                                "delta": delta,
+                            }
+                            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode(
+                                "utf-8"
+                            )
 
                         case ResponseCompletedEvent(response=resp):
                             # Final event: includes response.id you'll reuse later
@@ -1385,11 +1394,17 @@ def test_message_generation(
                             if usage is not None:
                                 # Convert ResponseUsage object to dictionary for JSON serialization
                                 usage_dict = {
-                                    "completion_tokens": getattr(usage, "completion_tokens", None),
-                                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
-                                    "total_tokens": getattr(usage, "total_tokens", None),
+                                    "completion_tokens": getattr(
+                                        usage, "completion_tokens", None
+                                    ),
+                                    "prompt_tokens": getattr(
+                                        usage, "prompt_tokens", None
+                                    ),
+                                    "total_tokens": getattr(
+                                        usage, "total_tokens", None
+                                    ),
                                 }
-                            
+
                             payload = {
                                 "type": "response.completed",
                                 "response": {
@@ -1399,7 +1414,9 @@ def test_message_generation(
                                     # include anything else you need
                                 },
                             }
-                            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+                            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode(
+                                "utf-8"
+                            )
                             # Optionally a terminator comment
                             yield b": stream-end\n\n"
 
@@ -1410,7 +1427,9 @@ def test_message_generation(
         return StreamingResponse(gen(), media_type="text/event-stream")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error generating response: {str(e)}"
+        )
 
 
 # ============================================================================

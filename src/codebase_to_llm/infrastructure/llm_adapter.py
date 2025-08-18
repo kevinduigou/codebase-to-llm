@@ -24,7 +24,10 @@ class OpenAILLMAdapter(LLMAdapterPort):
         client = OpenAI(api_key=api_key_value)
         try:
             response: Stream = client.responses.create(
-                model=model, input=prompt, stream=True,previous_response_id=previous_response_id
+                model=model,
+                input=prompt,
+                stream=True,
+                previous_response_id=previous_response_id,
             )
 
             return Ok(response)

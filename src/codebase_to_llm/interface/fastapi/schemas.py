@@ -155,3 +155,14 @@ class CreateDirectoryRequest(BaseModel):
 class UpdateDirectoryRequest(BaseModel):
     new_name: str | None = None
     new_parent_id: str | None = None
+
+
+class YouTubeDownloadRequest(BaseModel):
+    url: str
+    start: str
+    end: str
+
+
+class TaskStatusResponse(BaseModel):
+    status: str
+    file_id: str | None = None

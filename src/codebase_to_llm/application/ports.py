@@ -239,3 +239,15 @@ class MetricsPort(Protocol):
     def record_tokens(
         self, user: UserName, tokens: int
     ) -> Result[None, str]: ...  # pragma: no cover
+
+
+class DownloadTaskPort(Protocol):
+    """Port for long-running download tasks."""
+
+    def enqueue_youtube_download(
+        self, url: str, start: str, end: str
+    ) -> Result[str, str]: ...  # pragma: no cover
+
+    def get_task_status(
+        self, task_id: str
+    ) -> Result[tuple[str, str | None], str]: ...  # pragma: no cover

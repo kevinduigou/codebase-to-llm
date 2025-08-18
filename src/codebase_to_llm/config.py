@@ -22,6 +22,7 @@ class AppConfig:
     smtp_sender_name: str
     deployment_url: str
     gcp_bucket_name: str
+    redis_url: str
 
 
 def load_config() -> AppConfig:
@@ -35,6 +36,7 @@ def load_config() -> AppConfig:
         smtp_sender_name=os.getenv("SMTP_SENDER_NAME", "CodeToMarket"),
         deployment_url=os.getenv("DEPLOYMENT_URL", "http://localhost:8000"),
         gcp_bucket_name=os.getenv("GCP_BUCKET_NAME", ""),
+        redis_url=os.getenv("REDIS_URL", "redis://redis:6379/0"),
     )
 
 

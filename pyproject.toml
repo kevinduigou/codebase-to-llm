@@ -53,3 +53,10 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/**" = ["F401", "E402"]   # or ignore everything: ["ALL"]

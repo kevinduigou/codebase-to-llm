@@ -60,14 +60,25 @@ class GenerateLLMResponseUseCase:
             return Err("Failed to get API key")
 
         generate_response_result = llm_adapter.generate_response(
-            full_context, model.name().value(), api_key
+            full_context, model.name().value(), api_key, None
         )
 
         if generate_response_result.is_err():
             return Err(generate_response_result.err() or "Error generating response")
 
-        response_text = generate_response_result.ok()
-        if response_text is None:
-            return Err("Failed to get response text")
+        response_stream = generate_response_result.ok()
+        if response_stream is None:
+            return Err("Failed to get response stream")
+
+        # Convert stream to string by collecting all chunks
+        try:
+            response_text = ""
+            for chunk in response_stream:
+                if hasattr(chunk, "choices") and chunk.choices:
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, "content") and delta.content:
+                        response_text += delta.content
+        except Exception as e:
+            return Err(f"Error processing response stream: {e}")
 
         return Ok(ResponseGenerated(response_text))

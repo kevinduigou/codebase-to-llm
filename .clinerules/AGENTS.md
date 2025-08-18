@@ -35,7 +35,7 @@
 ## Buildng and Testing
 
 - Once a modification is done on Python files, always perform 
-uv run pytest then if it ok follow with
+uv run pytest ./tests then if it ok follow with
 uv run ruff check ./src/ then if it ok follow with
 uv run mypy ./src/ then if it ok follow with
 

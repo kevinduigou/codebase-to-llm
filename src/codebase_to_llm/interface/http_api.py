@@ -1,19 +1,28 @@
 from __future__ import annotations
 
+import json
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Annotated, Any, final
+from typing import Annotated, Any, Literal, Optional, final
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, status, APIRouter
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    HTTPException,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
+from openai import Stream
 from pydantic import BaseModel
+from openai.types.responses import ResponseTextDeltaEvent, ResponseCompletedEvent
 
 from codebase_to_llm.application.uc_add_api_key import AddApiKeyUseCase
 from codebase_to_llm.application.uc_add_model import AddModelUseCase
@@ -83,6 +92,9 @@ from codebase_to_llm.application.uc_add_rule import AddRuleUseCase
 from codebase_to_llm.application.uc_get_rules import GetRulesUseCase
 from codebase_to_llm.application.uc_update_rule import UpdateRuleUseCase
 from codebase_to_llm.application.uc_remove_rule import RemoveRuleUseCase
+from codebase_to_llm.application.uc_get_model_api_key import (
+    GetModelApiKeyUseCase,
+)
 from codebase_to_llm.domain.model import ModelId
 from codebase_to_llm.application.uc_add_file import AddFileUseCase
 from codebase_to_llm.application.uc_get_file import GetFileUseCase
@@ -95,6 +107,7 @@ from codebase_to_llm.application.uc_delete_directory import DeleteDirectoryUseCa
 from codebase_to_llm.application.uc_register_user import RegisterUserUseCase
 from codebase_to_llm.application.uc_authenticate_user import AuthenticateUserUseCase
 from codebase_to_llm.application.uc_validate_user import ValidateUserUseCase
+from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.user import User, UserName
 
 from codebase_to_llm.infrastructure.sqlalchemy_api_key_repository import (
@@ -136,6 +149,9 @@ from codebase_to_llm.infrastructure.sqlalchemy_directory_repository import (
     SqlAlchemyDirectoryRepository,
 )
 from codebase_to_llm.infrastructure.gcp_file_storage import GCPFileStorage
+from codebase_to_llm.infrastructure.logging_metrics_service import (
+    LoggingMetricsService,
+)
 
 # Load environment variables from .env-development file
 load_dotenv(".env-development")
@@ -194,6 +210,7 @@ _email_sender = BrevoEmailSender()
 _file_repo = SqlAlchemyFileRepository()
 _directory_structure_repo = SqlAlchemyDirectoryRepository()
 _file_storage = GCPFileStorage()
+_metrics = LoggingMetricsService()
 
 
 def get_user_repositories(user: User) -> tuple[
@@ -338,6 +355,15 @@ class GenerateResponseRequest(BaseModel):
     root_directory_path: str | None = None
 
 
+class TestMessageRequest(BaseModel):
+    model_id: str
+    message: str
+    previous_response_id: Optional[str] = None
+    stream_format: Literal["sse", "ndjson"] = (
+        "sse"  # optional: choose stream wire format
+    )
+
+
 class CopyContextRequest(BaseModel):
     include_tree: bool = True
     root_directory_path: str | None = None
@@ -447,6 +473,13 @@ def serve_favorite_prompts_ui() -> FileResponse:
 def serve_file_manager_test_ui() -> FileResponse:
     """Serve the file and directory manager test interface."""
     html_file_path = Path(__file__).parent / "file_manager_test.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@ui_router.get("/chat-ui")
+def serve_chat_ui() -> FileResponse:
+    """Serve the chat UI for testing websocket communication."""
+    html_file_path = Path(__file__).parent / "chat_ui.html"
     return FileResponse(html_file_path, media_type="text/html")
 
 
@@ -1300,6 +1333,103 @@ def generate_llm_response(
     event = result.ok()
     assert event is not None
     return {"response": event.response}
+
+
+@llm_router.post("/test-message", summary="Test message generation with a model")
+def test_message_generation(
+    request: TestMessageRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> StreamingResponse:
+    api_key_repo, model_repo, _, _, _ = get_user_repositories(current_user)
+
+    model_id_result = ModelId.try_create(request.model_id)
+    if model_id_result.is_err():
+        raise HTTPException(status_code=400, detail=model_id_result.err())
+    model_id_obj = model_id_result.ok()
+    assert model_id_obj is not None
+
+    details_result = GetModelApiKeyUseCase().execute(
+        model_id_obj, model_repo, api_key_repo
+    )
+    if details_result.is_err():
+        raise HTTPException(status_code=400, detail=details_result.err())
+    details = details_result.ok()
+    if details is None:
+        raise HTTPException(status_code=404, detail="Model or API key not found")
+
+    model_name, api_key = details
+
+    # Pass through an optional previous_response_id from the request if you support it
+    # (add it to your TestMessageRequest pydantic model)
+    try:
+        response_stream: Result[Stream, str] = _llm_adapter.generate_response(
+            request.message,
+            model_name,
+            api_key,
+            previous_response_id=getattr(request, "previous_response_id", None),
+        )
+
+        def gen():
+            # Optional: send a comment line to open the stream promptly
+            yield b": stream-start\n\n"
+
+            stream = response_stream.ok()
+            if stream is not None:
+                for event in stream:
+                    match event:
+                        case ResponseTextDeltaEvent(delta=delta):
+                            # Send text deltas as SSE data events
+                            delta_payload = {
+                                "type": "response.output_text.delta",
+                                "delta": delta,
+                            }
+                            yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n".encode(
+                                "utf-8"
+                            )
+
+                        case ResponseCompletedEvent(response=resp):
+                            # Final event: includes response.id you'll reuse later
+                            usage = getattr(resp, "usage", None)
+                            usage_dict = None
+                            if usage is not None:
+                                # Convert ResponseUsage object to dictionary for JSON serialization
+                                usage_dict = {
+                                    "completion_tokens": getattr(
+                                        usage, "completion_tokens", None
+                                    ),
+                                    "prompt_tokens": getattr(
+                                        usage, "prompt_tokens", None
+                                    ),
+                                    "total_tokens": getattr(
+                                        usage, "total_tokens", None
+                                    ),
+                                }
+
+                            payload: dict[str, Any] = {
+                                "type": "response.completed",
+                                "response": {
+                                    "id": resp.id,
+                                    "status": getattr(resp, "status", "completed"),
+                                    "usage": usage_dict,
+                                    # include anything else you need
+                                },
+                            }
+                            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode(
+                                "utf-8"
+                            )
+                            # Optionally a terminator comment
+                            yield b": stream-end\n\n"
+
+                        case _:
+                            # ignore other event types or forward them similarly
+                            pass
+
+        return StreamingResponse(gen(), media_type="text/event-stream")
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error generating response: {str(e)}"
+        )
 
 
 # ============================================================================

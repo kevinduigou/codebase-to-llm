@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
+from openai import Stream
 from codebase_to_llm.domain.api_key import ApiKeys, ApiKey, ApiKeyId
 from codebase_to_llm.domain.user import (
     EmailAddress,
@@ -180,8 +181,12 @@ class LLMAdapterPort(Protocol):
     """Pure port for LLM adapters."""
 
     def generate_response(
-        self, prompt: str, model: str, api_key: ApiKey
-    ) -> Result[str, str]: ...  # pragma: no cover
+        self,
+        prompt: str,
+        model: str,
+        api_key: ApiKey,
+        previous_response_id: str | None = None,
+    ) -> Result[Stream[Any], str]: ...  # pragma: no cover
 
 
 class FileStoragePort(Protocol):
@@ -225,4 +230,12 @@ class DirectoryStructureRepositoryPort(Protocol):
 
     def remove(
         self, directory_id: DirectoryId
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+
+class MetricsPort(Protocol):
+    """Port for recording observability metrics."""
+
+    def record_tokens(
+        self, user: UserName, tokens: int
     ) -> Result[None, str]: ...  # pragma: no cover

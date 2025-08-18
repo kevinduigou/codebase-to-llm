@@ -5,7 +5,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any, final
-import asyncio
 
 import jwt
 from dotenv import load_dotenv
@@ -14,16 +13,15 @@ from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
-    WebSocket,
-    WebSocketDisconnect,
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
+from openai import Stream
 from pydantic import BaseModel
-import websockets
+from openai.types.responses import ResponseTextDeltaEvent
 
 from codebase_to_llm.application.uc_add_api_key import AddApiKeyUseCase
 from codebase_to_llm.application.uc_add_model import AddModelUseCase
@@ -108,6 +106,7 @@ from codebase_to_llm.application.uc_delete_directory import DeleteDirectoryUseCa
 from codebase_to_llm.application.uc_register_user import RegisterUserUseCase
 from codebase_to_llm.application.uc_authenticate_user import AuthenticateUserUseCase
 from codebase_to_llm.application.uc_validate_user import ValidateUserUseCase
+from codebase_to_llm.domain.result import Result
 from codebase_to_llm.domain.user import User, UserName
 
 from codebase_to_llm.infrastructure.sqlalchemy_api_key_repository import (
@@ -355,6 +354,11 @@ class GenerateResponseRequest(BaseModel):
     root_directory_path: str | None = None
 
 
+class TestMessageRequest(BaseModel):
+    model_id: str
+    message: str
+
+
 class CopyContextRequest(BaseModel):
     include_tree: bool = True
     root_directory_path: str | None = None
@@ -464,6 +468,13 @@ def serve_favorite_prompts_ui() -> FileResponse:
 def serve_file_manager_test_ui() -> FileResponse:
     """Serve the file and directory manager test interface."""
     html_file_path = Path(__file__).parent / "file_manager_test.html"
+    return FileResponse(html_file_path, media_type="text/html")
+
+
+@ui_router.get("/chat-ui")
+def serve_chat_ui() -> FileResponse:
+    """Serve the chat UI for testing websocket communication."""
+    html_file_path = Path(__file__).parent / "chat_ui.html"
     return FileResponse(html_file_path, media_type="text/html")
 
 
@@ -1319,81 +1330,54 @@ def generate_llm_response(
     return {"response": event.response}
 
 
-@app.websocket("/ws/model/{model_id}")
-async def websocket_llm(websocket: WebSocket, model_id: str, token: str) -> None:
-    await websocket.accept()
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        name_result = UserName.try_create(str(username))
-        if name_result.is_err():
-            await websocket.close(code=1008)
-            return
-        name = name_result.ok()
-        assert name is not None
-        user_result = _user_repo.find_by_name(name)
-        if user_result.is_err():
-            await websocket.close(code=1008)
-            return
-        user = user_result.ok()
-        if user is None:
-            await websocket.close(code=1008)
-            return
-    except InvalidTokenError:
-        await websocket.close(code=1008)
-        return
+@llm_router.post("/test-message", summary="Test message generation with a model")
+def test_message_generation(
+    request: TestMessageRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    """Test message generation with a specific model and message (not via websocket)."""
+    api_key_repo, model_repo, _, _, _ = get_user_repositories(current_user)
 
-    model_id_result = ModelId.try_create(model_id)
+    # Validate model ID
+    model_id_result = ModelId.try_create(request.model_id)
     if model_id_result.is_err():
-        await websocket.close(code=1003)
-        return
+        raise HTTPException(status_code=400, detail=model_id_result.err())
     model_id_obj = model_id_result.ok()
     assert model_id_obj is not None
 
-    api_key_repo, model_repo, _, _, _ = get_user_repositories(user)
+    # Get model and API key details
     use_case = GetModelApiKeyUseCase()
     details_result = use_case.execute(model_id_obj, model_repo, api_key_repo)
     if details_result.is_err():
-        await websocket.close(code=1011)
-        return
+        raise HTTPException(status_code=400, detail=details_result.err())
     details = details_result.ok()
     if details is None:
-        await websocket.close(code=1011)
-        return
+        raise HTTPException(status_code=404, detail="Model or API key not found")
+
     model_name, api_key = details
-    provider_url = (
-        api_key.url_provider().value().replace("https://", "wss://").rstrip("/")
-    )
-    ws_url = f"{provider_url}/realtime?model={model_name}"
 
-    async with websockets.connect(
-        ws_url,
-        extra_headers={"Authorization": f"Bearer {api_key.api_key_value().value()}"},
-    ) as provider_ws:
-        tokens = 0
+    # Use the LLM adapter to generate a simple response
+    try:
+        response_stream: Result[Stream, str] = _llm_adapter.generate_response(
+            request.message,
+            model_name,
+            api_key,
+        )
 
-        async def _forward_user_to_provider() -> None:
-            async for message in websocket.iter_text():
-                await provider_ws.send(message)
+        def response_generation():
+            for event in response_stream.ok():
+                match event:
+                    case ResponseTextDeltaEvent(delta=delta):
+                        yield delta
+                    case _:
+                        # ignore other event types
+                        pass
 
-        async def _forward_provider_to_user() -> None:
-            nonlocal tokens
-            async for message in provider_ws:
-                # Ensure message is a string for FastAPI WebSocket
-                text_message = (
-                    message if isinstance(message, str) else message.decode("utf-8")
-                )
-                tokens += len(text_message.split())
-                await websocket.send_text(text_message)
-
-        try:
-            await asyncio.gather(
-                _forward_user_to_provider(), _forward_provider_to_user()
-            )
-        except WebSocketDisconnect:
-            pass
-
-    _ = _metrics.record_tokens(user.name(), tokens)
+        return StreamingResponse(response_generation())
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error generating response: {str(e)}"
+        )
 
 
 # ============================================================================

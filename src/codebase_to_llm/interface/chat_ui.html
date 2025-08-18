@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Bot - Test Message Generation</title>
+    <link rel="stylesheet" href="web_ui.css">
+    <style>
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .model-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .model-selector select {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background: white;
+            min-width: 200px;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: white;
+            min-height: 400px;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        
+        .message.user {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .message.assistant {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .message-input {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .message-input textarea {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            resize: vertical;
+            min-height: 50px;
+            font-family: inherit;
+        }
+        
+        .message-input button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            align-self: flex-end;
+        }
+        
+        .message-input button:hover {
+            background: #0056b3;
+        }
+        
+        .message-input button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .status {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .back-link {
+            margin-bottom: 20px;
+        }
+        
+        .back-link a {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="back-link">
+            <a href="/">&larr; Back to Main Interface</a>
+        </div>
+        
+        <div class="chat-header">
+            <h2>Chat Bot - Test Message Generation</h2>
+            <div class="model-selector">
+                <label for="modelSelect">Select Model:</label>
+                <select id="modelSelect">
+                    <option value="">Loading models...</option>
+                </select>
+                <button id="refreshModels" type="button">Refresh</button>
+            </div>
+            <div id="statusMessage"></div>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message assistant">
+                <strong>Assistant:</strong> Hello! I'm ready to help you test message generation. Please select a model above and start chatting.
+            </div>
+        </div>
+        
+        <div class="message-input">
+            <textarea id="messageInput" placeholder="Type your message here..." rows="2"></textarea>
+            <button id="sendButton" type="button">Send</button>
+        </div>
+    </div>
+
+    <script>
+        class ChatApiClient {
+            constructor() {
+                this.baseUrl = window.location.origin;
+                this.token = localStorage.getItem('access_token');
+            }
+
+            async request(endpoint, options = {}) {
+                const url = `${this.baseUrl}${endpoint}`;
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                };
+
+                if (this.token) {
+                    headers['Authorization'] = `Bearer ${this.token}`;
+                }
+
+                const response = await fetch(url, {
+                    ...options,
+                    headers
+                });
+
+                if (response.status === 401) {
+                    this.redirectToLogin();
+                    throw new Error('Authentication required');
+                }
+
+                return response;
+            }
+
+            redirectToLogin() {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('username');
+                window.location.href = '/login';
+            }
+
+            async getModels() {
+                const response = await this.request('/models');
+                return response.json();
+            }
+
+            async testMessage(modelId, message) {
+                const response = await this.request('/llm/test-message', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        model_id: modelId,
+                        message: message
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Request failed');
+                }
+
+                return response;
+            }
+        }
+
+        const api = new ChatApiClient();
+        let isGenerating = false;
+
+        // DOM elements
+        const modelSelect = document.getElementById('modelSelect');
+        const refreshModelsBtn = document.getElementById('refreshModels');
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const statusMessage = document.getElementById('statusMessage');
+
+        // Utility functions
+        function showStatus(message, type = 'success') {
+            statusMessage.innerHTML = `<div class="status ${type}">${message}</div>`;
+            setTimeout(() => {
+                statusMessage.innerHTML = '';
+            }, 5000);
+        }
+
+        function addMessage(content, type = 'assistant') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            if (type === 'user') {
+                messageDiv.innerHTML = `<strong>You:</strong> ${content}`;
+            } else if (type === 'assistant') {
+                messageDiv.innerHTML = `<strong>Assistant:</strong> <span class="content">${content}</span>`;
+            } else if (type === 'error') {
+                messageDiv.innerHTML = `<strong>Error:</strong> ${content}`;
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageDiv;
+        }
+
+        function setGenerating(generating) {
+            isGenerating = generating;
+            sendButton.disabled = generating;
+            sendButton.innerHTML = generating ? '<div class="loading"></div>' : 'Send';
+        }
+
+        // Load models
+        async function loadModels() {
+            try {
+                showStatus('Loading models...', 'success');
+                const models = await api.getModels();
+                
+                modelSelect.innerHTML = '<option value="">Select a model...</option>';
+                
+                if (models && models.length > 0) {
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = `${model.name} (${model.id})`;
+                        modelSelect.appendChild(option);
+                    });
+                    showStatus(`Loaded ${models.length} models`, 'success');
+                } else {
+                    showStatus('No models found. Please add models first.', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to load models:', error);
+                showStatus(`Failed to load models: ${error.message}`, 'error');
+                modelSelect.innerHTML = '<option value="">Failed to load models</option>';
+            }
+        }
+
+        // Send message
+        async function sendMessage() {
+            const modelId = modelSelect.value;
+            const message = messageInput.value.trim();
+
+            if (!modelId) {
+                showStatus('Please select a model first', 'error');
+                return;
+            }
+
+            if (!message) {
+                showStatus('Please enter a message', 'error');
+                return;
+            }
+
+            if (isGenerating) {
+                return;
+            }
+
+            // Add user message
+            addMessage(message, 'user');
+            messageInput.value = '';
+
+            // Start generating
+            setGenerating(true);
+            
+            // Add assistant message placeholder
+            const assistantMessage = addMessage('<div class="loading"></div>', 'assistant');
+            const contentSpan = assistantMessage.querySelector('.content');
+
+            try {
+                const response = await api.testMessage(modelId, message);
+                
+                if (!response.body) {
+                    throw new Error('No response body received');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullContent = '';
+
+                // Clear loading indicator
+                contentSpan.innerHTML = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) {
+                        break;
+                    }
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullContent += chunk;
+                    contentSpan.textContent = fullContent;
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+
+                if (!fullContent.trim()) {
+                    contentSpan.innerHTML = '<em>No response received</em>';
+                }
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                contentSpan.innerHTML = `<span style="color: #dc3545;">Error: ${error.message}</span>`;
+                showStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                setGenerating(false);
+            }
+        }
+
+        // Event listeners
+        refreshModelsBtn.addEventListener('click', loadModels);
+
+        sendButton.addEventListener('click', sendMessage);
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Initialize
+        if (!api.token) {
+            api.redirectToLogin();
+        } else {
+            loadModels();
+        }
+    </script>
+</body>
+</html>

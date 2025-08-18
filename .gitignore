@@ -14,3 +14,4 @@ docker/env-vars.yaml
 docker/env-vars-dev.yaml
 docker/env-vars-prod.yaml
 scripts/test_ws.py
+output.mp4

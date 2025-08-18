@@ -245,7 +245,7 @@ class DownloadTaskPort(Protocol):
     """Port for long-running download tasks."""
 
     def enqueue_youtube_download(
-        self, url: str, start: str, end: str
+        self, url: str, start: str, end: str, name: str, owner_id: str
     ) -> Result[str, str]: ...  # pragma: no cover
 
     def get_task_status(

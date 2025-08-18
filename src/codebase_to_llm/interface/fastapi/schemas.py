@@ -161,6 +161,7 @@ class YouTubeDownloadRequest(BaseModel):
     url: str
     start: str
     end: str
+    name: str
 
 
 class TaskStatusResponse(BaseModel):

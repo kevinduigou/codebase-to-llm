@@ -7,7 +7,8 @@ from codebase_to_llm.application.uc_download_youtube_section import (
     get_download_status,
 )
 from codebase_to_llm.application.ports import DownloadTaskPort
-from .dependencies import get_download_task_port
+from codebase_to_llm.domain.user import User
+from .dependencies import get_download_task_port, get_current_user
 from .schemas import TaskStatusResponse, YouTubeDownloadRequest
 
 router = APIRouter(prefix="/downloads", tags=["downloads"])
@@ -16,10 +17,12 @@ router = APIRouter(prefix="/downloads", tags=["downloads"])
 @router.post("/youtube")
 def request_youtube_download(
     request: YouTubeDownloadRequest,
+    current_user: User = Depends(get_current_user),
     task_port: DownloadTaskPort = Depends(get_download_task_port),
 ) -> dict[str, str]:
+    user_id = current_user.id().value()
     result = enqueue_download_youtube_section(
-        request.url, request.start, request.end, task_port
+        request.url, request.start, request.end, request.name, user_id, task_port
     )
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
@@ -35,6 +38,7 @@ def check_youtube_download(
     result = get_download_status(task_id, task_port)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
-    status, file_id = result.ok()
-    assert status is not None
+    result_data = result.ok()
+    assert result_data is not None
+    status, file_id = result_data
     return TaskStatusResponse(status=status, file_id=file_id)

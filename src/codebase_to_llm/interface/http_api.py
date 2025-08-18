@@ -1379,11 +1379,11 @@ def test_message_generation(
                     match event:
                         case ResponseTextDeltaEvent(delta=delta):
                             # Send text deltas as SSE data events
-                            payload = {
+                            delta_payload = {
                                 "type": "response.output_text.delta",
                                 "delta": delta,
                             }
-                            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode(
+                            yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n".encode(
                                 "utf-8"
                             )
 
@@ -1405,7 +1405,7 @@ def test_message_generation(
                                     ),
                                 }
 
-                            payload = {
+                            payload: dict[str, Any] = {
                                 "type": "response.completed",
                                 "response": {
                                     "id": resp.id,

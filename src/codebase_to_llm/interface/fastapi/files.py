@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import mimetypes
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from codebase_to_llm.application.uc_add_file import AddFileUseCase
 from codebase_to_llm.application.uc_get_file import GetFileUseCase
@@ -39,6 +40,27 @@ def upload_file(
     return {"id": file.id().value(), "name": file.name()}
 
 
+@router.get("/{file_id}/download")
+def download_file(
+    file_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    use_case = GetFileUseCase(_file_repo, _file_storage)
+    result = use_case.execute(current_user.id().value(), file_id)
+    if result.is_err():
+        raise HTTPException(status_code=404, detail=result.err())
+
+    result_data = result.ok()
+    if result_data is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    file, content = result_data  # file: your domain object, content: bytes
+    mt, _ = mimetypes.guess_type(file.name())
+    headers = {"Content-Disposition": f'attachment; filename="{file.name()}"'}
+    return Response(
+        content, media_type=mt or "application/octet-stream", headers=headers
+    )
+
+
 @router.get("/{file_id}", summary="Get file by ID")
 def get_file(
     file_id: str,
@@ -49,14 +71,15 @@ def get_file(
     result = use_case.execute(current_user.id().value(), file_id)
     if result.is_err():
         raise HTTPException(status_code=404, detail=result.err())
-    file, content = result.ok() or (None, b"")
-    assert file is not None
+    result_data = result.ok()
+    if result_data is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    file, content = result_data
     dir_id = file.directory_id()
     return {
         "id": file.id().value(),
         "name": file.name(),
         "directory_id": dir_id.value() if dir_id is not None else None,
-        "content": content.decode("utf-8"),
     }
 
 

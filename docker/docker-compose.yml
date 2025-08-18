@@ -9,6 +9,7 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=sqlite:///./data/users.db
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - app_data:/app/data
     restart: unless-stopped
@@ -18,6 +19,26 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  downloader-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.downloader
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - HTTP_PROXY_SMARTPROXY=${HTTP_PROXY_SMARTPROXY}
+      - HTTPS_PROXY_SMARTPROXY=${HTTPS_PROXY_SMARTPROXY}
+    depends_on:
+      - redis
+    volumes:
+      - app_data:/app/data
+    restart: unless-stopped
 
   # Optional PostgreSQL database service (uncomment if you want to use PostgreSQL instead of SQLite)
   # postgres:

@@ -52,6 +52,9 @@ from codebase_to_llm.infrastructure.gcp_file_storage import GCPFileStorage
 from codebase_to_llm.infrastructure.logging_metrics_service import (
     LoggingMetricsService,
 )
+from codebase_to_llm.infrastructure.celery_download_queue import (
+    CeleryDownloadTaskQueue,
+)
 
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
@@ -89,6 +92,7 @@ _file_repo = SqlAlchemyFileRepository()
 _directory_structure_repo = SqlAlchemyDirectoryRepository()
 _file_storage = GCPFileStorage()
 _metrics = LoggingMetricsService()
+_download_task_queue = CeleryDownloadTaskQueue()
 
 
 def get_user_repositories(user: User) -> tuple[
@@ -144,3 +148,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> User:
     if user is None:
         raise credentials_exception
     return user
+
+
+def get_download_task_port() -> CeleryDownloadTaskQueue:
+    return _download_task_queue

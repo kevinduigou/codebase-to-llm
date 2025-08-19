@@ -62,12 +62,15 @@ def test_list_files_use_case_filters_by_owner() -> None:
     f1_res = StoredFile.try_create("f1", owner, "file1.txt")
     f2_res = StoredFile.try_create("f2", other, "file2.txt")
     assert f1_res.is_ok() and f2_res.is_ok()
-    repo = StubFileRepo([f1_res.ok(), f2_res.ok()])
+    f1 = f1_res.ok()
+    f2 = f2_res.ok()
+    assert f1 is not None and f2 is not None
+    repo = StubFileRepo([f1, f2])
     use_case = ListFilesUseCase(repo)
     result = use_case.execute(owner.value())
     assert result.is_ok()
     files = result.ok()
-    assert files == [f1_res.ok()]
+    assert files == [f1]
 
 
 def test_list_directories_use_case_filters_by_owner() -> None:
@@ -82,9 +85,12 @@ def test_list_directories_use_case_filters_by_owner() -> None:
     d1_res = Directory.try_create("d1", owner, "dir1")
     d2_res = Directory.try_create("d2", other, "dir2")
     assert d1_res.is_ok() and d2_res.is_ok()
-    repo = StubDirectoryRepo([d1_res.ok(), d2_res.ok()])
+    d1 = d1_res.ok()
+    d2 = d2_res.ok()
+    assert d1 is not None and d2 is not None
+    repo = StubDirectoryRepo([d1, d2])
     use_case = ListDirectoriesUseCase(repo)
     result = use_case.execute(owner.value())
     assert result.is_ok()
     dirs = result.ok()
-    assert dirs == [d1_res.ok()]
+    assert dirs == [d1]

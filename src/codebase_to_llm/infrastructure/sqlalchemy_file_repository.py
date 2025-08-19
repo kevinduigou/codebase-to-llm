@@ -113,3 +113,31 @@ class SqlAlchemyFileRepository(FileRepositoryPort):
             session.rollback()
             logging.warning(str(exc))
             return Err(str(exc))
+
+    def list_for_user(self, owner_id: UserId) -> Result[list[StoredFile], str]:
+        session = self._session()
+        try:
+            rows = session.execute(
+                _files_table.select().where(_files_table.c.user_id == owner_id.value())
+            ).fetchall()
+            files: list[StoredFile] = []
+            for row in rows:
+                directory_id = None
+                if row.directory_id is not None:
+                    dir_res = DirectoryId.try_create(row.directory_id)
+                    if dir_res.is_err():
+                        return Err("Invalid directory id in database")
+                    directory_id = dir_res.ok()
+                    assert directory_id is not None
+                file_res = StoredFile.try_create(
+                    row.id, owner_id, row.name, directory_id
+                )
+                if file_res.is_err():
+                    return Err(file_res.err() or "Invalid file data")
+                file = file_res.ok()
+                assert file is not None
+                files.append(file)
+            return Ok(files)
+        except SQLAlchemyError as exc:  # noqa: BLE001
+            logging.warning(str(exc))
+            return Err(str(exc))

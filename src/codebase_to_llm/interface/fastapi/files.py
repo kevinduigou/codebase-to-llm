@@ -10,6 +10,7 @@ from codebase_to_llm.application.uc_add_file import AddFileUseCase
 from codebase_to_llm.application.uc_get_file import GetFileUseCase
 from codebase_to_llm.application.uc_update_file import UpdateFileUseCase
 from codebase_to_llm.application.uc_delete_file import DeleteFileUseCase
+from codebase_to_llm.application.uc_list_files import ListFilesUseCase
 from codebase_to_llm.domain.user import User
 
 from .dependencies import _file_repo, _file_storage, get_current_user
@@ -38,6 +39,28 @@ def upload_file(
     file = result.ok()
     assert file is not None
     return {"id": file.id().value(), "name": file.name()}
+
+
+@router.get("/", summary="List all files")
+def list_files(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, str | None]]:
+    use_case = ListFilesUseCase(_file_repo)
+    result = use_case.execute(current_user.id().value())
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    files = result.ok()
+    assert files is not None
+    return [
+        {
+            "id": f.id().value(),
+            "name": f.name(),
+            "directory_id": (
+                dir_id.value() if (dir_id := f.directory_id()) is not None else None
+            ),
+        }
+        for f in files
+    ]
 
 
 @router.get("/{file_id}/download")

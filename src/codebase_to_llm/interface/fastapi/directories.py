@@ -9,6 +9,7 @@ from codebase_to_llm.application.uc_add_directory import AddDirectoryUseCase
 from codebase_to_llm.application.uc_get_directory import GetDirectoryUseCase
 from codebase_to_llm.application.uc_update_directory import UpdateDirectoryUseCase
 from codebase_to_llm.application.uc_delete_directory import DeleteDirectoryUseCase
+from codebase_to_llm.application.uc_list_directories import ListDirectoriesUseCase
 from codebase_to_llm.domain.user import User
 
 from .dependencies import _directory_structure_repo, get_current_user
@@ -41,6 +42,28 @@ def create_directory(
         "name": directory.name(),
         "parent_id": parent.value() if parent is not None else None,
     }
+
+
+@router.get("/", summary="List all directories")
+def list_directories(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, str | None]]:
+    use_case = ListDirectoriesUseCase(_directory_structure_repo)
+    result = use_case.execute(current_user.id().value())
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    directories = result.ok()
+    assert directories is not None
+    return [
+        {
+            "id": d.id().value(),
+            "name": d.name(),
+            "parent_id": (
+                parent_id.value() if (parent_id := d.parent_id()) is not None else None
+            ),
+        }
+        for d in directories
+    ]
 
 
 @router.get("/{directory_id}", summary="Get directory by ID")

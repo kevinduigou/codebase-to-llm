@@ -116,3 +116,31 @@ class SqlAlchemyDirectoryRepository(DirectoryStructureRepositoryPort):
             session.rollback()
             logging.warning(str(exc))
             return Err(str(exc))
+
+    def list_for_user(self, owner_id: UserId) -> Result[list[Directory], str]:
+        session = self._session()
+        try:
+            rows = session.execute(
+                _directories_table.select().where(
+                    _directories_table.c.user_id == owner_id.value()
+                )
+            ).fetchall()
+            directories: list[Directory] = []
+            for row in rows:
+                parent_id = None
+                if row.parent_id is not None:
+                    parent_res = DirectoryId.try_create(row.parent_id)
+                    if parent_res.is_err():
+                        return Err("Invalid parent id in database")
+                    parent_id = parent_res.ok()
+                    assert parent_id is not None
+                dir_res = Directory.try_create(row.id, owner_id, row.name, parent_id)
+                if dir_res.is_err():
+                    return Err(dir_res.err() or "Invalid directory data")
+                directory = dir_res.ok()
+                assert directory is not None
+                directories.append(directory)
+            return Ok(directories)
+        except SQLAlchemyError as exc:  # noqa: BLE001
+            logging.warning(str(exc))
+            return Err(str(exc))

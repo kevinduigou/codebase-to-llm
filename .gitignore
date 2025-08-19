@@ -15,3 +15,5 @@ docker/env-vars-dev.yaml
 docker/env-vars-prod.yaml
 scripts/test_ws.py
 output.mp4
+docker/deploy-to-vm.sh
+docker/env-vars-dev.env

@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-<<<<<<< HEAD
 import logging
 import os
 import re
 import subprocess
 import tempfile
 import time
-=======
-import os
-import subprocess
->>>>>>> origin/main
 import uuid
 from typing_extensions import final
 from celery import Celery

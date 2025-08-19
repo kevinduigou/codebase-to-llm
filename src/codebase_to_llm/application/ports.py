@@ -260,3 +260,19 @@ class DownloadTaskPort(Protocol):
     def get_task_status(
         self, task_id: str
     ) -> Result[tuple[str, str | None], str]: ...  # pragma: no cover
+
+
+class TranslationTaskPort(Protocol):
+    """Port for long-running translation tasks."""
+
+    def enqueue_translation(
+        self,
+        file_id: str | None,
+        youtube_url: str | None,
+        target_language: str,
+        owner_id: str,
+    ) -> Result[str, str]: ...  # pragma: no cover
+
+    def get_task_status(
+        self, task_id: str
+    ) -> Result[tuple[str, str | None], str]: ...  # pragma: no cover

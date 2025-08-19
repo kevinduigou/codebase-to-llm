@@ -55,6 +55,9 @@ from codebase_to_llm.infrastructure.logging_metrics_service import (
 from codebase_to_llm.infrastructure.celery_download_queue import (
     CeleryDownloadTaskQueue,
 )
+from codebase_to_llm.infrastructure.celery_translation_queue import (
+    CeleryTranslationTaskQueue,
+)
 
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
@@ -93,6 +96,7 @@ _directory_structure_repo = SqlAlchemyDirectoryRepository()
 _file_storage = GCPFileStorage()
 _metrics = LoggingMetricsService()
 _download_task_queue = CeleryDownloadTaskQueue()
+_translation_task_queue = CeleryTranslationTaskQueue()
 
 
 def get_user_repositories(user: User) -> tuple[
@@ -152,3 +156,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> User:
 
 def get_download_task_port() -> CeleryDownloadTaskQueue:
     return _download_task_queue
+
+
+def get_translation_task_port() -> CeleryTranslationTaskQueue:
+    return _translation_task_queue

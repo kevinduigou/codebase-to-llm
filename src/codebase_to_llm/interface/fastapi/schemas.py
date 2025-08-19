@@ -164,6 +164,12 @@ class YouTubeDownloadRequest(BaseModel):
     name: str
 
 
+class VideoTranslationRequest(BaseModel):
+    file_id: str
+    target_language: str = "en"
+    output_filename: str = "translated.mp4"
+
+
 class TaskStatusResponse(BaseModel):
     status: str
     file_id: str | None = None

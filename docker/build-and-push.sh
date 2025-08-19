@@ -3,7 +3,8 @@ set -e
 
 # Configuration
 PROJECT_ID="codetomarket"
-IMAGE_NAME="codebase-to-llm-api"
+API_IMAGE_NAME="codebase-to-llm-api"
+DOWNLOADER_IMAGE_NAME="codebase-to-llm-downloader"
 REGION="europe-west1"
 REPOSITORY="docker-repo"
 
@@ -35,21 +36,37 @@ gcloud config set project ${PROJECT_ID}
 echo -e "${YELLOW}Configuring Docker authentication${NC}"
 gcloud auth configure-docker ${REGION}-docker.pkg.dev
 
-# Build the Docker image
-echo -e "${YELLOW}Building Docker image${NC}"
-docker build -f docker/Dockerfile -t ${IMAGE_NAME}:latest .
+# Build the API Docker image
+echo -e "${YELLOW}Building API Docker image${NC}"
+docker build -f docker/Dockerfile -t ${API_IMAGE_NAME}:latest .
 
-# Tag the image for Artifact Registry
-FULL_IMAGE_NAME="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${IMAGE_NAME}:latest"
-echo -e "${YELLOW}Tagging image as ${FULL_IMAGE_NAME}${NC}"
-docker tag ${IMAGE_NAME}:latest ${FULL_IMAGE_NAME}
+# Tag the API image for Artifact Registry
+API_FULL_IMAGE_NAME="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${API_IMAGE_NAME}:latest"
+echo -e "${YELLOW}Tagging API image as ${API_FULL_IMAGE_NAME}${NC}"
+docker tag ${API_IMAGE_NAME}:latest ${API_FULL_IMAGE_NAME}
 
-# Push the image to Artifact Registry
-echo -e "${YELLOW}Pushing image to Artifact Registry${NC}"
-docker push ${FULL_IMAGE_NAME}
+# Push the API image to Artifact Registry
+echo -e "${YELLOW}Pushing API image to Artifact Registry${NC}"
+docker push ${API_FULL_IMAGE_NAME}
 
-echo -e "${GREEN}Successfully built and pushed Docker image!${NC}"
-echo -e "${GREEN}Image: ${FULL_IMAGE_NAME}${NC}"
+echo -e "${GREEN}Successfully built and pushed API Docker image!${NC}"
+echo -e "${GREEN}API Image: ${API_FULL_IMAGE_NAME}${NC}"
+
+# Build the Downloader Docker image
+echo -e "${YELLOW}Building Downloader Docker image${NC}"
+docker build -f docker/Dockerfile.downloader -t ${DOWNLOADER_IMAGE_NAME}:latest .
+
+# Tag the Downloader image for Artifact Registry
+DOWNLOADER_FULL_IMAGE_NAME="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${DOWNLOADER_IMAGE_NAME}:latest"
+echo -e "${YELLOW}Tagging Downloader image as ${DOWNLOADER_FULL_IMAGE_NAME}${NC}"
+docker tag ${DOWNLOADER_IMAGE_NAME}:latest ${DOWNLOADER_FULL_IMAGE_NAME}
+
+# Push the Downloader image to Artifact Registry
+echo -e "${YELLOW}Pushing Downloader image to Artifact Registry${NC}"
+docker push ${DOWNLOADER_FULL_IMAGE_NAME}
+
+echo -e "${GREEN}Successfully built and pushed Downloader Docker image!${NC}"
+echo -e "${GREEN}Downloader Image: ${DOWNLOADER_FULL_IMAGE_NAME}${NC}"
 
 
 echo -e "${GREEN}Build and push completed successfully!${NC}"

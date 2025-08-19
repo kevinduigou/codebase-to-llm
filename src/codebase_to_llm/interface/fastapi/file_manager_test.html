@@ -486,6 +486,12 @@
                 });
             }
 
+            async listFiles() {
+                return this.request('/files', {
+                    method: 'GET'
+                });
+            }
+
             async getFile(fileId) {
                 return this.request(`/files/${fileId}`, {
                     method: 'GET'
@@ -520,6 +526,12 @@
                 });
             }
 
+            async listDirectories() {
+                return this.request('/directories', {
+                    method: 'GET'
+                });
+            }
+
             async getDirectory(directoryId) {
                 return this.request(`/directories/${directoryId}`, {
                     method: 'GET'
@@ -544,8 +556,6 @@
         }
 
         const api = new ApiClient();
-        let createdFiles = [];
-        let createdDirectories = [];
 
         // UI Helper Functions
         function showResponse(elementId, data, isError = false) {
@@ -609,43 +619,46 @@
         }
 
         async function loadAllFiles() {
-            // Since there's no list endpoint, we'll show the files we've created
             const filesList = document.getElementById('filesList');
-            if (createdFiles.length === 0) {
-                filesList.innerHTML = '<p>No files created yet. Create some files to see them here.</p>';
-                return;
-            }
-
-            let html = '';
-            for (const file of createdFiles) {
-                html += `
+            try {
+                const files = await api.listFiles();
+                if (files.length === 0) {
+                    filesList.innerHTML = '<p>No files found.</p>';
+                    return;
+                }
+                let html = '';
+                for (const file of files) {
+                    html += `
                     <div class="file-item">
                         <div class="item-info">
                             <div class="item-name">📄 ${file.name}</div>
                             <div class="item-id">ID: ${file.id}</div>
+                            ${file.directory_id ? `<div class="item-id">Directory: ${file.directory_id}</div>` : ''}
                         </div>
                         <div class="item-actions">
                             <button class="btn-xs btn-primary" onclick="quickGetFile('${file.id}')">View</button>
                             <button class="btn-xs btn-warning" onclick="quickFillFileUpdate('${file.id}', '${file.name}')">Edit</button>
                             <button class="btn-xs btn-danger" onclick="quickDeleteFile('${file.id}')">Delete</button>
                         </div>
-                    </div>
-                `;
+                    </div>`;
+                }
+                filesList.innerHTML = html;
+            } catch (err) {
+                filesList.innerHTML = `<p>Error loading files: ${err.message}</p>`;
             }
-            filesList.innerHTML = html;
         }
 
         async function loadAllDirectories() {
-            // Since there's no list endpoint, we'll show the directories we've created
             const directoriesList = document.getElementById('directoriesList');
-            if (createdDirectories.length === 0) {
-                directoriesList.innerHTML = '<p>No directories created yet. Create some directories to see them here.</p>';
-                return;
-            }
-
-            let html = '';
-            for (const directory of createdDirectories) {
-                html += `
+            try {
+                const directories = await api.listDirectories();
+                if (directories.length === 0) {
+                    directoriesList.innerHTML = '<p>No directories found.</p>';
+                    return;
+                }
+                let html = '';
+                for (const directory of directories) {
+                    html += `
                     <div class="directory-item">
                         <div class="item-info">
                             <div class="item-name">📁 ${directory.name}</div>
@@ -657,10 +670,12 @@
                             <button class="btn-xs btn-warning" onclick="quickFillDirectoryUpdate('${directory.id}', '${directory.name}')">Edit</button>
                             <button class="btn-xs btn-danger" onclick="quickDeleteDirectory('${directory.id}')">Delete</button>
                         </div>
-                    </div>
-                `;
+                    </div>`;
+                }
+                directoriesList.innerHTML = html;
+            } catch (err) {
+                directoriesList.innerHTML = `<p>Error loading directories: ${err.message}</p>`;
             }
-            directoriesList.innerHTML = html;
         }
 
         // Quick action functions
@@ -714,7 +729,6 @@
             try {
                 const result = await api.uploadFile(idValue, name, content, directoryId);
                 showResponse('uploadFileResponse', result);
-                createdFiles.push(result);
                 loadAllFiles();
                 e.target.reset();
             } catch (error) {
@@ -745,12 +759,7 @@
             try {
                 const result = await api.updateFile(fileId, newName, newDirectoryId);
                 showResponse('updateFileResponse', result);
-                // Update local file list
-                const fileIndex = createdFiles.findIndex(f => f.id === fileId);
-                if (fileIndex !== -1 && newName) {
-                    createdFiles[fileIndex].name = newName;
-                    loadAllFiles();
-                }
+                loadAllFiles();
                 e.target.reset();
             } catch (error) {
                 showResponse('updateFileResponse', { error: error.message }, true);
@@ -765,8 +774,6 @@
             try {
                 const result = await api.deleteFile(fileId);
                 showResponse('deleteFileResponse', result);
-                // Remove from local file list
-                createdFiles = createdFiles.filter(f => f.id !== fileId);
                 loadAllFiles();
                 e.target.reset();
             } catch (error) {
@@ -784,7 +791,6 @@
             try {
                 const result = await api.createDirectory(idValue, name, parentId);
                 showResponse('createDirectoryResponse', result);
-                createdDirectories.push(result);
                 loadAllDirectories();
                 e.target.reset();
             } catch (error) {
@@ -815,12 +821,7 @@
             try {
                 const result = await api.updateDirectory(directoryId, newName, newParentId);
                 showResponse('updateDirectoryResponse', result);
-                // Update local directory list
-                const dirIndex = createdDirectories.findIndex(d => d.id === directoryId);
-                if (dirIndex !== -1 && newName) {
-                    createdDirectories[dirIndex].name = newName;
-                    loadAllDirectories();
-                }
+                loadAllDirectories();
                 e.target.reset();
             } catch (error) {
                 showResponse('updateDirectoryResponse', { error: error.message }, true);
@@ -835,8 +836,6 @@
             try {
                 const result = await api.deleteDirectory(directoryId);
                 showResponse('deleteDirectoryResponse', result);
-                // Remove from local directory list
-                createdDirectories = createdDirectories.filter(d => d.id !== directoryId);
                 loadAllDirectories();
                 e.target.reset();
             } catch (error) {

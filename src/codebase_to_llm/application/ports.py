@@ -8,6 +8,7 @@ from codebase_to_llm.domain.user import (
     EmailAddress,
     User,
     UserName,
+    UserId,
     ValidationToken,
 )
 from codebase_to_llm.domain.context_buffer import (
@@ -216,6 +217,10 @@ class FileRepositoryPort(Protocol):
         self, file_id: StoredFileId
     ) -> Result[None, str]: ...  # pragma: no cover
 
+    def list_for_user(
+        self, owner_id: UserId
+    ) -> Result[list[StoredFile], str]: ...  # pragma: no cover
+
 
 class DirectoryStructureRepositoryPort(Protocol):
     """Port for CRUD operations on user directories."""
@@ -231,6 +236,10 @@ class DirectoryStructureRepositoryPort(Protocol):
     def remove(
         self, directory_id: DirectoryId
     ) -> Result[None, str]: ...  # pragma: no cover
+
+    def list_for_user(
+        self, owner_id: UserId
+    ) -> Result[list[Directory], str]: ...  # pragma: no cover
 
 
 class MetricsPort(Protocol):

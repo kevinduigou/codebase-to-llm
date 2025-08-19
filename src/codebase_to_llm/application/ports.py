@@ -267,10 +267,10 @@ class TranslationTaskPort(Protocol):
 
     def enqueue_translation(
         self,
-        file_id: str | None,
-        youtube_url: str | None,
+        file_id: str,
         target_language: str,
         owner_id: str,
+        output_filename: str,
     ) -> Result[str, str]: ...  # pragma: no cover
 
     def get_task_status(

@@ -20,16 +20,12 @@ def request_video_translation(
     current_user: User = Depends(get_current_user),
     task_port: TranslationTaskPort = Depends(get_translation_task_port),
 ) -> dict[str, str]:
-    if request.file_id is None and request.youtube_url is None:
-        raise HTTPException(
-            status_code=400, detail="Either file_id or youtube_url must be provided"
-        )
     user_id = current_user.id().value()
     result = enqueue_video_translation(
         request.file_id,
-        request.youtube_url,
         request.target_language,
         user_id,
+        request.output_filename,
         task_port,
     )
     if result.is_err():

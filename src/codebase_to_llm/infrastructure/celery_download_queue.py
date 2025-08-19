@@ -8,7 +8,6 @@ import tempfile
 import time
 import uuid
 from typing_extensions import final
-from celery import Celery
 
 from codebase_to_llm.application.ports import DownloadTaskPort
 from codebase_to_llm.application.uc_add_file import AddFileUseCase
@@ -17,15 +16,9 @@ from codebase_to_llm.infrastructure.gcp_file_storage import GCPFileStorage
 from codebase_to_llm.infrastructure.sqlalchemy_file_repository import (
     SqlAlchemyFileRepository,
 )
-from codebase_to_llm.config import CONFIG
+from codebase_to_llm.infrastructure.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
-
-celery_app = Celery(
-    "downloader",
-    broker=CONFIG.redis_url,
-    backend=CONFIG.redis_url,
-)
 
 
 def sanitize_filename(name: str, replacement: str = "_", max_length: int = 255) -> str:

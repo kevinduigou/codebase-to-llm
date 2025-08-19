@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 import uuid
 from typing_extensions import final
-from celery import Celery
 from openai import OpenAI
 
 from codebase_to_llm.application.ports import TranslationTaskPort
@@ -18,15 +17,9 @@ from codebase_to_llm.infrastructure.gcp_file_storage import GCPFileStorage
 from codebase_to_llm.infrastructure.sqlalchemy_file_repository import (
     SqlAlchemyFileRepository,
 )
-from codebase_to_llm.config import CONFIG
+from codebase_to_llm.infrastructure.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
-
-celery_app = Celery(
-    "translator",
-    broker=CONFIG.redis_url,
-    backend=CONFIG.redis_url,
-)
 
 
 def parse_srt(srt_content: str) -> list[dict[str, str | int]]:
@@ -192,30 +185,19 @@ def _process_video(content: bytes, target_language: str) -> bytes:
 
 @celery_app.task(name="translate_video")
 def translate_video_task(
-    file_id: str | None,
-    youtube_url: str | None,
+    file_id: str,
     target_language: str,
     owner_id: str,
+    output_filename: str,
 ) -> str:  # pragma: no cover - worker
-    with tempfile.TemporaryDirectory() as tmpdir:
-        if youtube_url is not None:
-            video_path = os.path.join(
-                tmpdir, sanitize_filename(str(uuid.uuid4())) + ".mp4"
-            )
-            _download_video(youtube_url, video_path)
-            with open(video_path, "rb") as fh:
-                content = fh.read()
-        else:
-            if file_id is None:
-                raise Exception("Either file_id or youtube_url must be provided")
-            load_res = _load_video_from_file(file_id)
-            if load_res.is_err():
-                raise Exception(load_res.err())
-            content_opt = load_res.ok()
-            if content_opt is None:
-                raise Exception("Unable to load file")
-            content = content_opt
-        output_bytes = _process_video(content, target_language)
+    load_res = _load_video_from_file(file_id)
+    if load_res.is_err():
+        raise Exception(load_res.err())
+    content_opt = load_res.ok()
+    if content_opt is None:
+        raise Exception("Unable to load file")
+    content = content_opt
+    output_bytes = _process_video(content, target_language)
     new_file_id = str(uuid.uuid4())
     file_repo = SqlAlchemyFileRepository()
     storage = GCPFileStorage()
@@ -223,7 +205,7 @@ def translate_video_task(
     result = add_file_use_case.execute(
         id_value=new_file_id,
         owner_id_value=owner_id,
-        name="translated.mp4",
+        name=output_filename,
         content=output_bytes,
         directory_id_value=None,
     )
@@ -238,14 +220,14 @@ class CeleryTranslationTaskQueue(TranslationTaskPort):
 
     def enqueue_translation(
         self,
-        file_id: str | None,
-        youtube_url: str | None,
+        file_id: str,
         target_language: str,
         owner_id: str,
+        output_filename: str,
     ) -> Result[str, str]:
         try:
             task = translate_video_task.delay(
-                file_id, youtube_url, target_language, owner_id
+                file_id, target_language, owner_id, output_filename
             )
             return Ok(task.id)
         except Exception as exc:  # noqa: BLE001

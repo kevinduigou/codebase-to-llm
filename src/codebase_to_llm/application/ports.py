@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Protocol
 from openai import Stream
+from pydantic import BaseModel
 from codebase_to_llm.domain.api_key import ApiKeys, ApiKey, ApiKeyId
 from codebase_to_llm.domain.user import (
     EmailAddress,
@@ -189,6 +190,14 @@ class LLMAdapterPort(Protocol):
         previous_response_id: str | None = None,
     ) -> Result[Stream[Any], str]: ...  # pragma: no cover
 
+    def structured_output(
+        self,
+        prompt: str,
+        model: str,
+        api_key: ApiKey,
+        response_format: type[BaseModel],
+    ) -> Result[BaseModel, str]: ...  # pragma: no cover
+
 
 class FileStoragePort(Protocol):
     """Port for persisting file contents."""
@@ -276,3 +285,15 @@ class TranslationTaskPort(Protocol):
     def get_task_status(
         self, task_id: str
     ) -> Result[tuple[str, str | None], str]: ...  # pragma: no cover
+
+
+class KeyInsightsTaskPort(Protocol):
+    """Port for long-running key insight extraction tasks."""
+
+    def enqueue_key_insights(
+        self, url: str, model_id: str, owner_id: str
+    ) -> Result[str, str]: ...  # pragma: no cover
+
+    def get_task_status(
+        self, task_id: str
+    ) -> Result[tuple[str, list[dict[str, str]] | None], str]: ...  # pragma: no cover

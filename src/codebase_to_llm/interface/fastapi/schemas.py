@@ -131,6 +131,23 @@ class TestMessageRequest(BaseModel):
     stream_format: Literal["sse", "ndjson"] = "sse"
 
 
+class ExtractKeyInsightsRequest(BaseModel):
+    model_id: str
+    video_url: str
+
+
+class KeyInsightResponse(BaseModel):
+    content: str
+    video_url: str
+    begin_timestamp: str
+    end_timestamp: str
+
+
+class KeyInsightsTaskStatusResponse(BaseModel):
+    status: str
+    insights: list[KeyInsightResponse] | None = None
+
+
 class CopyContextRequest(BaseModel):
     include_tree: bool = True
     root_directory_path: str | None = None

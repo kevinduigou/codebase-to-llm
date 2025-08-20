@@ -46,11 +46,20 @@ class OpenAILLMAdapter(LLMAdapterPort):
         api_key_value = api_key.api_key_value().value()
         client = OpenAI(api_key=api_key_value)
         try:
-            parsed: BaseModel = client.responses.parse(
+            response = client.responses.parse(
                 model=model,
-                input=prompt,
-                response_format=response_format,
-            )  # type: ignore[call-arg]
+                input=[
+                    {
+                        "role": "system",
+                        "content": "Extract the requested information from the provided content.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                text_format=response_format,
+            )
+            parsed = response.output_parsed
+            if parsed is None:
+                return Err("Failed to parse structured output")
             return Ok(parsed)
         except Exception as e:
             return Err(f"Error generating structured output: {e}")

@@ -17,6 +17,7 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    result_expires=3600,  # Task results expire after 1 hour (3600 seconds)
 )
 
 # Import task modules to register tasks (must be after app creation)

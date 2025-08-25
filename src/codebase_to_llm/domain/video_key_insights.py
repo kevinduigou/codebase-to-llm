@@ -89,26 +89,38 @@ class VideoUrl(ValueObject):
 class Timestamp(ValueObject):
     """Timestamp for video segments."""
 
-    __slots__ = ("_value",)
-    _value: str
+    __slots__ = ("_hour", "_minute", "_second")
+    _hour: int
+    _minute: int
+    _second: int
 
     @staticmethod
-    def try_create(value: str) -> Result["Timestamp", str]:
-        trimmed_value = value.strip()
-        if not trimmed_value:
-            return Err("Timestamp cannot be empty.")
-        # Basic timestamp format validation (HH:MM:SS or MM:SS)
-        import re
+    def try_create(hour: int, minute: int, second: int) -> Result["Timestamp", str]:
+        if hour < 0 or hour > 23:
+            return Err("Hour must be between 0 and 23.")
+        if minute < 0 or minute > 59:
+            return Err("Minute must be between 0 and 59.")
+        if second < 0 or second > 59:
+            return Err("Second must be between 0 and 59.")
+        return Ok(Timestamp(hour, minute, second))
 
-        if not re.match(r"^(\d{1,2}:)?\d{1,2}:\d{2}$", trimmed_value):
-            return Err("Timestamp must be in format MM:SS or HH:MM:SS")
-        return Ok(Timestamp(trimmed_value))
+    def __init__(self, hour: int, minute: int, second: int) -> None:
+        self._hour = hour
+        self._minute = minute
+        self._second = second
 
-    def __init__(self, value: str) -> None:
-        self._value = value
+    def hour(self) -> int:
+        return self._hour
 
-    def value(self) -> str:
-        return self._value
+    def minute(self) -> int:
+        return self._minute
+
+    def second(self) -> int:
+        return self._second
+
+    def to_string(self) -> str:
+        """Convert timestamp to HH:MM:SS format."""
+        return f"{self._hour:02d}:{self._minute:02d}:{self._second:02d}"
 
 
 @final
@@ -130,8 +142,12 @@ class KeyInsight(ValueObject):
     def try_create(
         content: str,
         video_url: str,
-        begin_timestamp: str,
-        end_timestamp: str,
+        begin_hour: int,
+        begin_minute: int,
+        begin_second: int,
+        end_hour: int,
+        end_minute: int,
+        end_second: int,
     ) -> Result["KeyInsight", str]:
         content_result = KeyInsightContent.try_create(content)
         if content_result.is_err():
@@ -141,11 +157,11 @@ class KeyInsight(ValueObject):
         if url_result.is_err():
             return Err(f"Invalid video URL: {url_result.err()}")
 
-        begin_result = Timestamp.try_create(begin_timestamp)
+        begin_result = Timestamp.try_create(begin_hour, begin_minute, begin_second)
         if begin_result.is_err():
             return Err(f"Invalid begin timestamp: {begin_result.err()}")
 
-        end_result = Timestamp.try_create(end_timestamp)
+        end_result = Timestamp.try_create(end_hour, end_minute, end_second)
         if end_result.is_err():
             return Err(f"Invalid end timestamp: {end_result.err()}")
 

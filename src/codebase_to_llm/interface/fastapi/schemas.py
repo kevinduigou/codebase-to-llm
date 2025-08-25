@@ -139,8 +139,8 @@ class ExtractKeyInsightsRequest(BaseModel):
 class KeyInsightResponse(BaseModel):
     content: str
     video_url: str
-    begin_timestamp: str
-    end_timestamp: str
+    begin_timestamp: Timestamp
+    end_timestamp: Timestamp
 
 
 class KeyInsightsTaskStatusResponse(BaseModel):
@@ -192,11 +192,17 @@ class TaskStatusResponse(BaseModel):
     file_id: str | None = None
 
 
+class Timestamp(BaseModel):
+    hour: int
+    minute: int
+    second: int
+
+
 class KeyInsightRequest(BaseModel):
     content: str
     video_url: str
-    begin_timestamp: str
-    end_timestamp: str
+    begin_timestamp: Timestamp
+    end_timestamp: Timestamp
 
 
 class CreateVideoKeyInsightsRequest(BaseModel):

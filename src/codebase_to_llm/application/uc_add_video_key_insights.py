@@ -17,7 +17,7 @@ class AddVideoKeyInsightsUseCase:
         id_value: str,
         owner_id_value: str,
         title: str,
-        key_insights_data: list[dict[str, str]] | None = None,
+        key_insights_data: list[dict[str, object]] | None = None,
     ) -> Result[VideoKeyInsights, str]:
         owner_result = UserId.try_create(owner_id_value)
         if owner_result.is_err():
@@ -29,11 +29,33 @@ class AddVideoKeyInsightsUseCase:
         key_insights: list[KeyInsight] = []
         if key_insights_data:
             for insight_data in key_insights_data:
+                begin_ts = insight_data.get("begin_timestamp", {})
+                end_ts = insight_data.get("end_timestamp", {})
+
+                # Extract timestamp components
+                begin_hour = (
+                    begin_ts.get("hour", 0) if isinstance(begin_ts, dict) else 0
+                )
+                begin_minute = (
+                    begin_ts.get("minute", 0) if isinstance(begin_ts, dict) else 0
+                )
+                begin_second = (
+                    begin_ts.get("second", 0) if isinstance(begin_ts, dict) else 0
+                )
+
+                end_hour = end_ts.get("hour", 0) if isinstance(end_ts, dict) else 0
+                end_minute = end_ts.get("minute", 0) if isinstance(end_ts, dict) else 0
+                end_second = end_ts.get("second", 0) if isinstance(end_ts, dict) else 0
+
                 insight_result = KeyInsight.try_create(
-                    content=insight_data.get("content", ""),
-                    video_url=insight_data.get("video_url", ""),
-                    begin_timestamp=insight_data.get("begin_timestamp", ""),
-                    end_timestamp=insight_data.get("end_timestamp", ""),
+                    content=str(insight_data.get("content", "")),
+                    video_url=str(insight_data.get("video_url", "")),
+                    begin_hour=begin_hour,
+                    begin_minute=begin_minute,
+                    begin_second=begin_second,
+                    end_hour=end_hour,
+                    end_minute=end_minute,
+                    end_second=end_second,
                 )
                 if insight_result.is_err():
                     return Err(f"Invalid key insight: {insight_result.err()}")

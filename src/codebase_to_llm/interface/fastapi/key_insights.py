@@ -52,12 +52,22 @@ def _video_key_insights_to_response(
     video_key_insights: VideoKeyInsights,
 ) -> VideoKeyInsightsResponse:
     """Convert VideoKeyInsights domain object to response schema."""
+    from .schemas import Timestamp
+
     key_insights_responses = [
         KeyInsightResponse(
             content=insight.content().value(),
             video_url=insight.video_url().value(),
-            begin_timestamp=insight.begin_timestamp().value(),
-            end_timestamp=insight.end_timestamp().value(),
+            begin_timestamp=Timestamp(
+                hour=insight.begin_timestamp().hour(),
+                minute=insight.begin_timestamp().minute(),
+                second=insight.begin_timestamp().second(),
+            ),
+            end_timestamp=Timestamp(
+                hour=insight.end_timestamp().hour(),
+                minute=insight.end_timestamp().minute(),
+                second=insight.end_timestamp().second(),
+            ),
         )
         for insight in video_key_insights.key_insights()
     ]
@@ -106,14 +116,22 @@ def create_video_key_insights(
     owner_id_value = current_user.id().value()
 
     # Convert request key insights to dict format
-    key_insights_data = None
+    key_insights_data: list[dict[str, object]] | None = None
     if request.key_insights:
         key_insights_data = [
             {
                 "content": insight.content,
                 "video_url": insight.video_url,
-                "begin_timestamp": insight.begin_timestamp,
-                "end_timestamp": insight.end_timestamp,
+                "begin_timestamp": {
+                    "hour": insight.begin_timestamp.hour,
+                    "minute": insight.begin_timestamp.minute,
+                    "second": insight.begin_timestamp.second,
+                },
+                "end_timestamp": {
+                    "hour": insight.end_timestamp.hour,
+                    "minute": insight.end_timestamp.minute,
+                    "second": insight.end_timestamp.second,
+                },
             }
             for insight in request.key_insights
         ]
@@ -153,13 +171,80 @@ def list_video_key_insights(
 def check_key_insights_task(
     task_id: str, task_port: KeyInsightsTaskPort = Depends(get_key_insights_task_port)
 ) -> KeyInsightsTaskStatusResponse:
+    from .schemas import Timestamp
+
     result = get_key_insights_status(task_id, task_port)
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
     data = result.ok()
     assert data is not None
     status, insights = data
-    parsed = [KeyInsightResponse(**i) for i in insights] if insights else None
+
+    parsed = None
+    if insights:
+        parsed = []
+        for i in insights:
+            # Handle both old string format and new dict format for backward compatibility
+            begin_ts = i.get("begin_timestamp", "00:00:00")
+            end_ts = i.get("end_timestamp", "00:00:00")
+
+            if isinstance(begin_ts, str):
+                # Parse old format "HH:MM:SS" or "MM:SS"
+                begin_parts = begin_ts.split(":")
+                if len(begin_parts) == 2:
+                    begin_hour, begin_minute, begin_second = (
+                        0,
+                        int(begin_parts[0]),
+                        int(begin_parts[1]),
+                    )
+                elif len(begin_parts) == 3:
+                    begin_hour, begin_minute, begin_second = (
+                        int(begin_parts[0]),
+                        int(begin_parts[1]),
+                        int(begin_parts[2]),
+                    )
+                else:
+                    begin_hour, begin_minute, begin_second = 0, 0, 0
+            else:
+                begin_hour = begin_ts.get("hour", 0)
+                begin_minute = begin_ts.get("minute", 0)
+                begin_second = begin_ts.get("second", 0)
+
+            if isinstance(end_ts, str):
+                # Parse old format "HH:MM:SS" or "MM:SS"
+                end_parts = end_ts.split(":")
+                if len(end_parts) == 2:
+                    end_hour, end_minute, end_second = (
+                        0,
+                        int(end_parts[0]),
+                        int(end_parts[1]),
+                    )
+                elif len(end_parts) == 3:
+                    end_hour, end_minute, end_second = (
+                        int(end_parts[0]),
+                        int(end_parts[1]),
+                        int(end_parts[2]),
+                    )
+                else:
+                    end_hour, end_minute, end_second = 0, 0, 0
+            else:
+                end_hour = end_ts.get("hour", 0)
+                end_minute = end_ts.get("minute", 0)
+                end_second = end_ts.get("second", 0)
+
+            parsed.append(
+                KeyInsightResponse(
+                    content=i.get("content", ""),
+                    video_url=i.get("video_url", ""),
+                    begin_timestamp=Timestamp(
+                        hour=begin_hour, minute=begin_minute, second=begin_second
+                    ),
+                    end_timestamp=Timestamp(
+                        hour=end_hour, minute=end_minute, second=end_second
+                    ),
+                )
+            )
+
     return KeyInsightsTaskStatusResponse(status=status, insights=parsed)
 
 
@@ -214,14 +299,22 @@ def update_video_key_insights(
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Convert request key insights to dict format
-    key_insights_data = None
+    key_insights_data: list[dict[str, object]] | None = None
     if request.key_insights:
         key_insights_data = [
             {
                 "content": insight.content,
                 "video_url": insight.video_url,
-                "begin_timestamp": insight.begin_timestamp,
-                "end_timestamp": insight.end_timestamp,
+                "begin_timestamp": {
+                    "hour": insight.begin_timestamp.hour,
+                    "minute": insight.begin_timestamp.minute,
+                    "second": insight.begin_timestamp.second,
+                },
+                "end_timestamp": {
+                    "hour": insight.end_timestamp.hour,
+                    "minute": insight.end_timestamp.minute,
+                    "second": insight.end_timestamp.second,
+                },
             }
             for insight in request.key_insights
         ]

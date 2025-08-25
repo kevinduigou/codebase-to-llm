@@ -64,6 +64,12 @@ from codebase_to_llm.infrastructure.celery_key_insights_queue import (
 from codebase_to_llm.infrastructure.sqlalchemy_video_key_insights_repository import (
     SqlAlchemyVideoKeyInsightsRepository,
 )
+from codebase_to_llm.infrastructure.celery_video_summary_queue import (
+    CeleryVideoSummaryTaskQueue,
+)
+from codebase_to_llm.infrastructure.sqlalchemy_video_summary_repository import (
+    SqlAlchemyVideoSummaryRepository,
+)
 
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
@@ -104,6 +110,7 @@ _metrics = LoggingMetricsService()
 _download_task_queue = CeleryDownloadTaskQueue()
 _translation_task_queue = CeleryTranslationTaskQueue()
 _key_insights_task_queue = CeleryKeyInsightsTaskQueue()
+_summary_task_queue = CeleryVideoSummaryTaskQueue()
 
 
 def get_user_repositories(user: User) -> tuple[
@@ -173,5 +180,13 @@ def get_key_insights_task_port() -> CeleryKeyInsightsTaskQueue:
     return _key_insights_task_queue
 
 
+def get_summary_task_port() -> CeleryVideoSummaryTaskQueue:
+    return _summary_task_queue
+
+
 def get_video_key_insights_repository() -> SqlAlchemyVideoKeyInsightsRepository:
     return SqlAlchemyVideoKeyInsightsRepository()
+
+
+def get_video_summary_repository() -> SqlAlchemyVideoSummaryRepository:
+    return SqlAlchemyVideoSummaryRepository()

@@ -32,6 +32,7 @@ from .recent import router as recent_router
 from .downloads import router as downloads_router
 from .translations import router as translations_router
 from .key_insights import router as key_insights_router
+from .video_summary import router as video_summary_router
 
 load_dotenv(".env-development")
 
@@ -67,6 +68,7 @@ app.include_router(recent_router)
 app.include_router(downloads_router)
 app.include_router(translations_router)
 app.include_router(key_insights_router)
+app.include_router(video_summary_router)
 
 
 @app.on_event("startup")

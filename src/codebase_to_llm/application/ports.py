@@ -311,7 +311,7 @@ class SummaryTaskPort(Protocol):
     """Port for long-running video summary generation tasks."""
 
     def enqueue_summary(
-        self, url: str, model_id: str, owner_id: str
+        self, url: str, model_id: str, owner_id: str, target_language: str = "English"
     ) -> Result[str, str]: ...  # pragma: no cover
 
     def get_task_status(

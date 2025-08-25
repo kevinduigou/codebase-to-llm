@@ -63,14 +63,14 @@ def step_have_video_key_insights_data(context, title):
             {
                 "content": "This is a key insight about the video content",
                 "video_url": "https://example.com/video.mp4",
-                "begin_timestamp": "00:01:30",
-                "end_timestamp": "00:02:45",
+                "begin_timestamp": {"hour": 0, "minute": 1, "second": 30},
+                "end_timestamp": {"hour": 0, "minute": 2, "second": 45},
             },
             {
                 "content": "Another important insight from the video",
                 "video_url": "https://example.com/video.mp4",
-                "begin_timestamp": "00:05:10",
-                "end_timestamp": "00:06:20",
+                "begin_timestamp": {"hour": 0, "minute": 5, "second": 10},
+                "end_timestamp": {"hour": 0, "minute": 6, "second": 20},
             },
         ],
     }

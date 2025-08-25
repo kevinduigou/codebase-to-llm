@@ -36,11 +36,17 @@
             "args": ["features/video_key_insights.feature", "--verbose"],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
-            "env": {
-                "TEST_USER_NAME": "kduigou",
-                "TEST_USER_PASSWORD": "nivek88*",
-                "TEST_BASE_URL": "http://localhost:8000",
-            }
+            "envFile": "${workspaceFolder}/.env-development"
+        },
+        {
+            "name": "Run Behave Tests - Video Summary YouTube Test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "behave",
+            "args": ["features/video_summary.feature", "--name", "Create video summary from YouTube URL, wait for completion, verify segments, and delete", "--verbose"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env-development"
         },
        
     ]

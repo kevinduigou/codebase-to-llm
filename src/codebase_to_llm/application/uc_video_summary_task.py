@@ -8,9 +8,10 @@ def enqueue_video_summary_generation(
     url: str,
     model_id: str,
     owner_id: str,
+    target_language: str,
     task_port: SummaryTaskPort,
 ) -> Result[str, str]:
-    return task_port.enqueue_summary(url, model_id, owner_id)
+    return task_port.enqueue_summary(url, model_id, owner_id, target_language)
 
 
 def get_video_summary_status(

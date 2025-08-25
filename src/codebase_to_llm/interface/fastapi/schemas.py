@@ -226,6 +226,7 @@ class VideoKeyInsightsResponse(BaseModel):
 class ExtractSummaryRequest(BaseModel):
     model_id: str
     video_url: str
+    target_language: str = "English"
 
 
 class SummarySegmentResponse(BaseModel):

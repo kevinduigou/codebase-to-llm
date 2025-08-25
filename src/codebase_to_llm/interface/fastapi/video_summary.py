@@ -85,13 +85,31 @@ def request_video_summary(
     assert model_id_obj is not None
     user_id = current_user.id().value()
     result = enqueue_video_summary_generation(
-        request.video_url, model_id_obj.value(), user_id, task_port
+        request.video_url,
+        model_id_obj.value(),
+        user_id,
+        request.target_language,
+        task_port,
     )
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())
     task_id = result.ok()
     assert task_id is not None
     return {"task_id": task_id}
+
+
+@router.get("/all-video-summaries", response_model=list[VideoSummaryResponse])
+def list_video_summaries(
+    current_user: User = Depends(get_current_user),
+    repo: VideoSummaryRepositoryPort = Depends(get_video_summary_repository),
+) -> list[VideoSummaryResponse]:
+    use_case = ListVideoSummariesUseCase(repo)
+    result = use_case.execute(current_user.id().value())
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    video_summaries = result.ok()
+    assert video_summaries is not None
+    return [_video_summary_to_response(vs) for vs in video_summaries]
 
 
 @router.get("/{task_id}", response_model=SummaryTaskStatusResponse)
@@ -193,20 +211,6 @@ def get_video_summary(
     if video_summary.owner_id().value() != current_user.id().value():
         raise HTTPException(status_code=403, detail="Access denied")
     return _video_summary_to_response(video_summary)
-
-
-@router.get("/all-video-summaries", response_model=list[VideoSummaryResponse])
-def list_video_summaries(
-    current_user: User = Depends(get_current_user),
-    repo: VideoSummaryRepositoryPort = Depends(get_video_summary_repository),
-) -> list[VideoSummaryResponse]:
-    use_case = ListVideoSummariesUseCase(repo)
-    result = use_case.execute(current_user.id().value())
-    if result.is_err():
-        raise HTTPException(status_code=400, detail=result.err())
-    video_summaries = result.ok()
-    assert video_summaries is not None
-    return [_video_summary_to_response(vs) for vs in video_summaries]
 
 
 @router.put("/video-summaries/{video_summary_id}", response_model=VideoSummaryResponse)

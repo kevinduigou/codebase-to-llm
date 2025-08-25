@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 @celery_app.task(name="extract_video_summary")
 def extract_video_summary_task(
-    url: str, model_id: str, owner_id: str
+    url: str, model_id: str, owner_id: str, target_language: str = "English"
 ) -> list[dict[str, str]]:  # pragma: no cover - worker
     external_repo = UrlExternalSourceRepository()
     llm_adapter = OpenAILLMAdapter()
@@ -40,7 +40,13 @@ def extract_video_summary_task(
     assert model_id_obj is not None
     use_case = ExtractVideoSummaryUseCase()
     result = use_case.execute(
-        url, model_id_obj, external_repo, llm_adapter, model_repo, api_key_repo
+        url,
+        model_id_obj,
+        target_language,
+        external_repo,
+        llm_adapter,
+        model_repo,
+        api_key_repo,
     )
     if result.is_err():
         error_msg = result.err() or "Unknown error occurred during summary generation"
@@ -56,10 +62,12 @@ class CeleryVideoSummaryTaskQueue(SummaryTaskPort):
     __slots__ = ()
 
     def enqueue_summary(
-        self, url: str, model_id: str, owner_id: str
+        self, url: str, model_id: str, owner_id: str, target_language: str = "English"
     ) -> Result[str, str]:
         try:
-            task = extract_video_summary_task.delay(url, model_id, owner_id)
+            task = extract_video_summary_task.delay(
+                url, model_id, owner_id, target_language
+            )
             return Ok(task.id)
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))

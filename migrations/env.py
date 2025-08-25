@@ -25,6 +25,18 @@ from src.codebase_to_llm.infrastructure import (
     sqlalchemy_recent_repository,  # noqa: F401
 )
 from src.codebase_to_llm.infrastructure import sqlalchemy_rules_repository  # noqa: F401
+from src.codebase_to_llm.infrastructure import (
+    sqlalchemy_directory_repository,  # noqa: F401
+)
+from src.codebase_to_llm.infrastructure import (
+    sqlalchemy_file_repository,  # noqa: F401
+)
+from src.codebase_to_llm.infrastructure import (
+    sqlalchemy_model_repository,  # noqa: F401
+)
+from src.codebase_to_llm.infrastructure import (
+    sqlalchemy_video_key_insights_repository,  # noqa: F401
+)
 
 # Load environment variables from .env-development file
 load_dotenv(".env-development")

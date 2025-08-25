@@ -124,7 +124,12 @@ def _download_video(url: str, path: str) -> None:
     )
 
 
-def _process_video(content: bytes, target_language: str) -> bytes:
+def _process_video(
+    content: bytes,
+    target_language: str,
+    subtitle_color: str = "yellow",
+    subtitle_background_color: str = "black",
+) -> bytes:
     api_key = os.getenv("OPENAI_API_KEY")
     client = OpenAI(api_key=api_key)
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -164,13 +169,31 @@ def _process_video(content: bytes, target_language: str) -> bytes:
         with open(srt_path, "w", encoding="utf-8") as f:
             f.write(transcript)
         output_path = os.path.join(tmpdir, "output.mp4")
+        # Convert color names to hex values for ffmpeg
+        color_map = {
+            "yellow": "FFFF00",
+            "black": "000000",
+            "white": "FFFFFF",
+            "red": "FF0000",
+            "green": "00FF00",
+            "blue": "0000FF",
+        }
+        text_color = color_map.get(
+            subtitle_color.lower(), subtitle_color.replace("#", "")
+        )
+        bg_color = color_map.get(
+            subtitle_background_color.lower(),
+            subtitle_background_color.replace("#", ""),
+        )
+
+        subtitle_style = f"FontName=Arial,FontSize=24,PrimaryColour=&H00{text_color},BackColour=&H80{bg_color}"
         subprocess.run(
             [
                 "ffmpeg",
                 "-i",
                 video_path,
                 "-vf",
-                f"subtitles={srt_path}",
+                f"subtitles={srt_path}:force_style='{subtitle_style}'",
                 "-c:a",
                 "copy",
                 output_path,
@@ -189,15 +212,20 @@ def translate_video_task(
     target_language: str,
     owner_id: str,
     output_filename: str,
+    subtitle_color: str = "yellow",
+    subtitle_background_color: str = "black",
 ) -> str:  # pragma: no cover - worker
     load_res = _load_video_from_file(file_id)
     if load_res.is_err():
-        raise Exception(load_res.err())
+        error_msg = load_res.err() or "Unknown error occurred while loading video file"
+        raise Exception(error_msg)
     content_opt = load_res.ok()
     if content_opt is None:
         raise Exception("Unable to load file")
     content = content_opt
-    output_bytes = _process_video(content, target_language)
+    output_bytes = _process_video(
+        content, target_language, subtitle_color, subtitle_background_color
+    )
     new_file_id = str(uuid.uuid4())
     file_repo = SqlAlchemyFileRepository()
     storage = GCPFileStorage()
@@ -210,7 +238,8 @@ def translate_video_task(
         directory_id_value=None,
     )
     if result.is_err():  # pragma: no cover - validation/network
-        raise Exception(result.err())
+        error_msg = result.err() or "Unknown error occurred during file persistence"
+        raise Exception(error_msg)
     return new_file_id
 
 
@@ -224,10 +253,17 @@ class CeleryTranslationTaskQueue(TranslationTaskPort):
         target_language: str,
         owner_id: str,
         output_filename: str,
+        subtitle_color: str = "yellow",
+        subtitle_background_color: str = "black",
     ) -> Result[str, str]:
         try:
             task = translate_video_task.delay(
-                file_id, target_language, owner_id, output_filename
+                file_id,
+                target_language,
+                owner_id,
+                output_filename,
+                subtitle_color,
+                subtitle_background_color,
             )
             return Ok(task.id)
         except Exception as exc:  # noqa: BLE001

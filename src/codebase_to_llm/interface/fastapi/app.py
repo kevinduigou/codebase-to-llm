@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 import os
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from dotenv import load_dotenv
+
+from ...config import CONFIG
+from ...infrastructure.url_obfuscator import UrlObfuscator
 
 from .schemas import RegisterRequest, Token
 from .auth import (
@@ -27,6 +31,7 @@ from .llm import router as llm_router
 from .recent import router as recent_router
 from .downloads import router as downloads_router
 from .translations import router as translations_router
+from .key_insights import router as key_insights_router
 
 load_dotenv(".env-development")
 
@@ -61,6 +66,21 @@ app.include_router(llm_router)
 app.include_router(recent_router)
 app.include_router(downloads_router)
 app.include_router(translations_router)
+app.include_router(key_insights_router)
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    """Log startup information with obfuscated sensitive data."""
+    logger = logging.getLogger("uvicorn.error")
+
+    # Log database URL with obfuscated password
+    obfuscated_db_url = UrlObfuscator.obfuscate_url(CONFIG.database_url)
+    logger.info(f"DATABASE_URL: {obfuscated_db_url}")
+
+    # Log Redis URL with obfuscated password
+    obfuscated_redis_url = UrlObfuscator.obfuscate_url(CONFIG.redis_url)
+    logger.info(f"REDIS_URL: {obfuscated_redis_url}")
 
 
 @app.post("/register")

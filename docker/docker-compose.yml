@@ -21,7 +21,7 @@ services:
       start_period: 40s
 
   redis:
-    image: redis:7-alpine
+    image: redis:17.4-alpine
     ports:
       - "6379:6379"
     restart: unless-stopped

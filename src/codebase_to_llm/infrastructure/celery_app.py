@@ -17,6 +17,7 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    result_expires=3600,  # Task results expire after 1 hour (3600 seconds)
 )
 
 # Import task modules to register tasks (must be after app creation)
@@ -24,6 +25,7 @@ celery_app.conf.update(
 try:
     import codebase_to_llm.infrastructure.celery_download_queue  # noqa: F401
     import codebase_to_llm.infrastructure.celery_translation_queue  # noqa: F401
+    import codebase_to_llm.infrastructure.celery_key_insights_queue  # noqa: F401
 except ImportError as e:
     # Log the error but don't fail - some tasks might not be available in all environments
     import logging

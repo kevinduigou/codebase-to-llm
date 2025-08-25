@@ -131,6 +131,23 @@ class TestMessageRequest(BaseModel):
     stream_format: Literal["sse", "ndjson"] = "sse"
 
 
+class ExtractKeyInsightsRequest(BaseModel):
+    model_id: str
+    video_url: str
+
+
+class KeyInsightResponse(BaseModel):
+    content: str
+    video_url: str
+    begin_timestamp: Timestamp
+    end_timestamp: Timestamp
+
+
+class KeyInsightsTaskStatusResponse(BaseModel):
+    status: str
+    insights: list[KeyInsightResponse] | None = None
+
+
 class CopyContextRequest(BaseModel):
     include_tree: bool = True
     root_directory_path: str | None = None
@@ -173,3 +190,34 @@ class VideoTranslationRequest(BaseModel):
 class TaskStatusResponse(BaseModel):
     status: str
     file_id: str | None = None
+
+
+class Timestamp(BaseModel):
+    hour: int
+    minute: int
+    second: int
+
+
+class KeyInsightRequest(BaseModel):
+    content: str
+    video_url: str
+    begin_timestamp: Timestamp
+    end_timestamp: Timestamp
+
+
+class CreateVideoKeyInsightsRequest(BaseModel):
+    title: str
+    key_insights: list[KeyInsightRequest] | None = None
+
+
+class UpdateVideoKeyInsightsRequest(BaseModel):
+    title: str | None = None
+    key_insights: list[KeyInsightRequest] | None = None
+
+
+class VideoKeyInsightsResponse(BaseModel):
+    id: str
+    title: str
+    key_insights: list[KeyInsightResponse]
+    created_at: str
+    updated_at: str

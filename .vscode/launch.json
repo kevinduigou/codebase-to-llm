@@ -13,8 +13,12 @@
             "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
-            "args": ["codebase_to_llm.interface.fastapi.app:app"],
-            "console": "integratedTerminal"
+            "args": ["codebase_to_llm.interface.fastapi.app:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
         },
         {
             "name": "Run Celery Worker",
@@ -23,6 +27,21 @@
             "module": "celery",
             "args": ["-A", "codebase_to_llm.infrastructure.celery_download_queue", "worker", "--loglevel=info"],
             "console": "integratedTerminal"
-        }
+        },
+        {
+            "name": "Run Behave Tests - Video Key Insights",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "behave",
+            "args": ["features/video_key_insights.feature", "--verbose"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "TEST_USER_NAME": "kduigou",
+                "TEST_USER_PASSWORD": "nivek88*",
+                "TEST_BASE_URL": "http://localhost:8000",
+            }
+        },
+       
     ]
 }

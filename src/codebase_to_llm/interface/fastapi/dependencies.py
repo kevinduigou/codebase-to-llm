@@ -58,6 +58,12 @@ from codebase_to_llm.infrastructure.celery_download_queue import (
 from codebase_to_llm.infrastructure.celery_translation_queue import (
     CeleryTranslationTaskQueue,
 )
+from codebase_to_llm.infrastructure.celery_key_insights_queue import (
+    CeleryKeyInsightsTaskQueue,
+)
+from codebase_to_llm.infrastructure.sqlalchemy_video_key_insights_repository import (
+    SqlAlchemyVideoKeyInsightsRepository,
+)
 
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
@@ -97,6 +103,7 @@ _file_storage = GCPFileStorage()
 _metrics = LoggingMetricsService()
 _download_task_queue = CeleryDownloadTaskQueue()
 _translation_task_queue = CeleryTranslationTaskQueue()
+_key_insights_task_queue = CeleryKeyInsightsTaskQueue()
 
 
 def get_user_repositories(user: User) -> tuple[
@@ -160,3 +167,11 @@ def get_download_task_port() -> CeleryDownloadTaskQueue:
 
 def get_translation_task_port() -> CeleryTranslationTaskQueue:
     return _translation_task_queue
+
+
+def get_key_insights_task_port() -> CeleryKeyInsightsTaskQueue:
+    return _key_insights_task_queue
+
+
+def get_video_key_insights_repository() -> SqlAlchemyVideoKeyInsightsRepository:
+    return SqlAlchemyVideoKeyInsightsRepository()

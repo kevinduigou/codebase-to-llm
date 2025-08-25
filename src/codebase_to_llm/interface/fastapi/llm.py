@@ -24,7 +24,10 @@ from .dependencies import (
     get_current_user,
     get_user_repositories,
 )
-from .schemas import GenerateResponseRequest, TestMessageRequest
+from .schemas import (
+    GenerateResponseRequest,
+    TestMessageRequest,
+)
 
 router = APIRouter(prefix="/llm", tags=["LLM Operations"])
 

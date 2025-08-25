@@ -1,10 +1,8 @@
 """Step definitions for video key insights feature tests."""
 
-import json
 import os
 import requests
 from behave import given, when, then
-from typing import Dict, Any
 from dotenv import load_dotenv
 
 # Load environment variables from .env-development

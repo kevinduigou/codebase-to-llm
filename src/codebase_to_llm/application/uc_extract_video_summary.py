@@ -23,7 +23,7 @@ PROMPT_TEMPLATE = (
     "   - minute: integer (0-59)\n"
     "   - second: integer (0-59)\n\n"
     "IMPORTANT: \n"
-    'In most transcript hour is absent, if timestamp as only 2 element mm:ss, it means hour shall be set to 0'
+    "In most transcript hour is absent, if timestamp as only 2 element mm:ss, it means hour shall be set to 0"
     'The output language shall be "{target_language}"\n\n'
     "Example format:\n"
     'begin_timestamp: {{"hour": 0, "minute": 1, "second": 30}}\n'

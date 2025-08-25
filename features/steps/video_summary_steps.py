@@ -161,12 +161,25 @@ def step_have_model_id_for_video_processing(context, model_name):
     # Create a test API key and model for video processing
     import os
 
-    # First, create an API key
-    api_key_data = {
-        "id_value": "test-openai-api-key",
-        "url_provider": "https://api.openai.com/v1/",
-        "api_key_value": os.getenv("OPENAI_API_KEY", "test-key"),
-    }
+    # Determine if this is an Anthropic model
+    is_anthropic = model_name.startswith("claude-") or "claude" in model_name.lower()
+
+    if is_anthropic:
+        # Create Anthropic API key
+        api_key_data = {
+            "id_value": "test-anthropic-api-key",
+            "url_provider": "https://api.anthropic.com/v1/",
+            "api_key_value": os.getenv("ANTHROPIC_API_KEY", "test-key"),
+        }
+        api_key_id = "test-anthropic-api-key"
+    else:
+        # Create OpenAI API key
+        api_key_data = {
+            "id_value": "test-openai-api-key",
+            "url_provider": "https://api.openai.com/v1/",
+            "api_key_value": os.getenv("OPENAI_API_KEY", "test-key"),
+        }
+        api_key_id = "test-openai-api-key"
 
     api_key_response = requests.post(
         f"{context.base_url}/api-keys/",
@@ -185,7 +198,7 @@ def step_have_model_id_for_video_processing(context, model_name):
     model_data = {
         "id_value": model_id,
         "name": model_name,
-        "api_key_id": "test-openai-api-key",
+        "api_key_id": api_key_id,
     }
 
     model_response = requests.post(
@@ -201,7 +214,7 @@ def step_have_model_id_for_video_processing(context, model_name):
         )
 
     context.video_processing_model_id = model_id
-    context.test_api_key_id = "test-openai-api-key"
+    context.test_api_key_id = api_key_id
     context.test_model_id = model_id
 
 

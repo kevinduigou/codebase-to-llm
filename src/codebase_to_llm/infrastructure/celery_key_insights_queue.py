@@ -34,7 +34,8 @@ def extract_key_insights_task(
     api_key_repo = SqlAlchemyApiKeyRepository(owner_id)
     model_id_result = ModelId.try_create(model_id)
     if model_id_result.is_err():
-        raise Exception(model_id_result.err())
+        error_msg = model_id_result.err() or "Invalid model ID"
+        raise Exception(error_msg)
     model_id_obj = model_id_result.ok()
     assert model_id_obj is not None
     use_case = ExtractKeyInsightsUseCase()
@@ -42,7 +43,10 @@ def extract_key_insights_task(
         url, model_id_obj, external_repo, llm_adapter, model_repo, api_key_repo
     )
     if result.is_err():
-        raise Exception(result.err())
+        error_msg = (
+            result.err() or "Unknown error occurred during key insights extraction"
+        )
+        raise Exception(error_msg)
     insights = result.ok()
     if insights is None:
         raise Exception("No insights extracted")

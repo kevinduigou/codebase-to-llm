@@ -8,7 +8,7 @@ from typing import Dict, Any
 from dotenv import load_dotenv
 
 # Load environment variables from .env-development
-load_dotenv('.env-development')
+load_dotenv(".env-development")
 
 
 @given("the FastAPI server is running")

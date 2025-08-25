@@ -294,7 +294,8 @@ def download_youtube_section_task(
         directory_id_value=None,
     )
     if result.is_err():  # pragma: no cover - validation/network
-        raise Exception(result.err())
+        error_msg = result.err() or "Unknown error occurred during file persistence"
+        raise Exception(error_msg)
 
     logger.info(f"Successfully persisted file with ID: {file_id}")
     return file_id

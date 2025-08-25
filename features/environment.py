@@ -7,7 +7,7 @@ from typing import Any
 from dotenv import load_dotenv
 
 # Load environment variables from .env-development
-load_dotenv('.env-development')
+load_dotenv(".env-development")
 
 
 def before_all(context: Any) -> None:

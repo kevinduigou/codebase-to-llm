@@ -30,6 +30,10 @@ from codebase_to_llm.domain.video_key_insights import (
     VideoKeyInsights,
     VideoKeyInsightId,
 )
+from codebase_to_llm.domain.video_summary import (
+    VideoSummary,
+    VideoSummaryId,
+)
 
 
 class ClipboardPort(Protocol):
@@ -303,6 +307,20 @@ class KeyInsightsTaskPort(Protocol):
     ) -> Result[tuple[str, list[dict[str, str]] | None], str]: ...  # pragma: no cover
 
 
+class SummaryTaskPort(Protocol):
+    """Port for long-running video summary generation tasks."""
+
+    def enqueue_summary(
+        self, url: str, model_id: str, owner_id: str
+    ) -> Result[str, str]: ...  # pragma: no cover
+
+    def get_task_status(
+        self, task_id: str
+    ) -> Result[
+        tuple[str, list[dict[str, object]] | None], str
+    ]: ...  # pragma: no cover
+
+
 class VideoKeyInsightsRepositoryPort(Protocol):
     """Port for CRUD operations on VideoKeyInsights."""
 
@@ -325,3 +343,27 @@ class VideoKeyInsightsRepositoryPort(Protocol):
     def list_for_user(
         self, owner_id: UserId
     ) -> Result[list[VideoKeyInsights], str]: ...  # pragma: no cover
+
+
+class VideoSummaryRepositoryPort(Protocol):
+    """Port for CRUD operations on VideoSummary."""
+
+    def add(
+        self, video_summary: VideoSummary
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def get(
+        self, video_summary_id: VideoSummaryId
+    ) -> Result[VideoSummary, str]: ...  # pragma: no cover
+
+    def update(
+        self, video_summary: VideoSummary
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def remove(
+        self, video_summary_id: VideoSummaryId
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def list_for_user(
+        self, owner_id: UserId
+    ) -> Result[list[VideoSummary], str]: ...  # pragma: no cover

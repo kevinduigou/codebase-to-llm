@@ -21,6 +21,12 @@ from codebase_to_llm.infrastructure.celery_app import celery_app
 logger = logging.getLogger(__name__)
 
 
+# Progressive MP4 format selection - prefer itag 18/22 and fall back sanely
+FORMAT_SELECTION = (
+    "bestvideo[ext=mp4]+bestaudio[ext=m4a]/" "best[ext=mp4]/" "18/22/best"
+)
+
+
 def sanitize_filename(name: str, replacement: str = "_", max_length: int = 255) -> str:
     # Normalize type and strip surrounding whitespace
     name = str(name).strip()
@@ -46,40 +52,37 @@ def sanitize_filename(name: str, replacement: str = "_", max_length: int = 255) 
     return name
 
 
-def _try_download_with_config(
-    url: str,
-    output_file: str,
-    section: str,
-    proxy: str | None = None,
-    use_proxy: bool = True,
-) -> subprocess.CompletedProcess[bytes]:
-    """Try to download with specific configuration."""
+def _yt_dlp_base_cmd(
+    output_file: str, use_proxy: bool, proxy: str | None
+) -> tuple[list[str], dict]:
+    """Build base yt-dlp command with improved reliability settings."""
     env = os.environ.copy()
-
     cmd = [
         "yt-dlp",
         "-f",
-        "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[vcodec^=avc1][acodec^=mp4a]",
+        FORMAT_SELECTION,
         "-o",
-        output_file,
+        output_file,  # include .mp4 in output_file
+        "--no-playlist",
         "--merge-output-format",
         "mp4",
-        "--download-sections",
-        section,
         "--force-ipv4",
         "--retries",
         "5",
         "--retry-sleep",
         "3",
-        "--user-agent",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "--socket-timeout",
         "30",
         "--fragment-retries",
         "10",
+        # These two often help with YT reliability:
+        "--extractor-args",
+        "youtube:player_client=android,player_skip=webpage",
+        "--concurrent-fragments",
+        "4",
+        "--no-warnings",
+        "--quiet",
     ]
-
-    # Configure proxy if requested and available
     if use_proxy and proxy:
         cmd += ["--proxy", proxy]
         env.update(
@@ -91,22 +94,109 @@ def _try_download_with_config(
             }
         )
     else:
-        # Clear proxy environment variables for direct connection
-        for proxy_var in ["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"]:
-            env.pop(proxy_var, None)
+        for k in ["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"]:
+            env.pop(k, None)
+    return cmd, env
 
-    logger.info(
-        f"Attempting download with proxy={'enabled' if use_proxy and proxy else 'disabled'}"
-    )
 
-    return subprocess.run(
+def _is_transient_youtube_error(stderr: str) -> bool:
+    """Check if the error is transient and worth retrying."""
+    s = stderr.lower()
+    patterns = [
+        "fragment 1 not found",
+        "http error 403",
+        "forbidden",
+        "connection reset",
+        "network is unreachable",
+        "timeout",
+        "sign in to confirm you're not a bot",
+        "this video is drm protected",  # you may choose to return non-retryable instead
+    ]
+    return any(p in s for p in patterns)
+
+
+def _download_full_video(
+    url: str, output_file: str, proxy: str | None, use_proxy: bool
+) -> None:
+    """Download the full video without sections."""
+    cmd, env = _yt_dlp_base_cmd(output_file, use_proxy, proxy)
+    # Note: we REMOVED --download-sections. We grab the full video reliably.
+    subprocess.run(
         cmd + [url],
         check=True,
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        timeout=30,  # 30 second timeout
+        timeout=600,  # 10 minutes per attempt
     )
+    # Occasionally yt-dlp exits 0 but writes nothing (rare, but guard anyway)
+    if not os.path.exists(output_file) or os.path.getsize(output_file) == 0:
+        raise Exception("yt-dlp reported success but no file was created")
+
+
+def _ffmpeg_cut(input_file: str, output_file: str, start: str, end: str) -> None:
+    """Cut video section using ffmpeg with stream copy fallback to re-encode."""
+    # First try stream copy (fast, no re-encode). This requires keyframes near cuts.
+    copy_cmd = [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-ss",
+        start,
+        "-to",
+        end,
+        "-i",
+        input_file,
+        "-c",
+        "copy",
+        "-movflags",
+        "+faststart",
+        "-y",
+        output_file,
+    ]
+    r = subprocess.run(copy_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if (
+        r.returncode == 0
+        and os.path.exists(output_file)
+        and os.path.getsize(output_file) > 0
+    ):
+        return
+
+    # Fallback to precise re-encode
+    reencode_cmd = [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-ss",
+        start,
+        "-to",
+        end,
+        "-i",
+        input_file,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "160k",
+        "-movflags",
+        "+faststart",
+        "-y",
+        output_file,
+    ]
+    r2 = subprocess.run(reencode_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if (
+        r2.returncode != 0
+        or not os.path.exists(output_file)
+        or os.path.getsize(output_file) == 0
+    ):
+        raise Exception(
+            f"ffmpeg cutting failed.\ncopy_err:\n{r.stderr.decode(errors='ignore')[:500]}\nreencode_err:\n{r2.stderr.decode(errors='ignore')[:500]}"
+        )
 
 
 @celery_app.task(name="download_youtube_section")
@@ -117,102 +207,76 @@ def download_youtube_section_task(
         os.getenv("HTTPS_PROXY_SMARTPROXY") or os.getenv("HTTP_PROXY_SMARTPROXY") or ""
     )
     name = sanitize_filename(name)
-    section = f"*{start}-{end}"
-
-    # Safer temp file so concurrent tasks don't collide
     with tempfile.TemporaryDirectory() as tmpdir:
-        output_file = os.path.join(tmpdir, f"{name}.mp4")
+        raw_file = os.path.join(tmpdir, f"{name}.full.mp4")
+        cut_file = os.path.join(tmpdir, f"{name}.mp4")
 
-        # Try multiple download strategies with exponential backoff
         strategies = [
             ("without_proxy", False),
             ("with_proxy", True),
             ("with_proxy_retry", True),
         ]
-
         last_error = None
 
         for attempt, (strategy_name, use_proxy) in enumerate(strategies, 1):
             try:
+                if attempt > 1:
+                    delay = min(2 ** (attempt - 1), 30)
+                    logger.info(f"Waiting {delay}s before retry…")
+                    time.sleep(delay)
                 logger.info(
                     f"Download attempt {attempt}/{len(strategies)} using strategy: {strategy_name}"
                 )
 
-                # Add delay between attempts (exponential backoff)
-                if attempt > 1:
-                    delay = min(2 ** (attempt - 1), 30)  # Cap at 30 seconds
-                    logger.info(f"Waiting {delay} seconds before retry...")
-                    time.sleep(delay)
+                try:
+                    _download_full_video(url, raw_file, proxy, use_proxy)
+                except subprocess.CalledProcessError as e:
+                    stderr = (
+                        e.stderr.decode("utf-8", errors="ignore") if e.stderr else ""
+                    )
+                    stdout = (
+                        e.stdout.decode("utf-8", errors="ignore") if e.stdout else ""
+                    )
+                    if _is_transient_youtube_error(stderr):
+                        logger.warning(
+                            f"yt-dlp transient error on {strategy_name}: {stderr[:300]}"
+                        )
+                        last_error = Exception(
+                            f"transient: {stderr[:300]}\n{stdout[:300]}"
+                        )
+                        continue
+                    else:
+                        logger.error(
+                            f"yt-dlp non-network error on {strategy_name}: {stderr[:500]}"
+                        )
+                        raise
 
-                _try_download_with_config(url, output_file, section, proxy, use_proxy)
-                logger.info(f"Download successful with strategy: {strategy_name}")
+                # Cut after we have a stable file
+                _ffmpeg_cut(raw_file, cut_file, start, end)
+                logger.info(f"Successfully cut section to {cut_file}")
+                output_file = cut_file  # for below
                 break
 
             except subprocess.TimeoutExpired:
-                error_msg = (
-                    f"Download timeout after 10 minutes with strategy {strategy_name}"
-                )
-                logger.warning(error_msg)
-                last_error = Exception(error_msg)
+                msg = f"Download timeout after 10 minutes with strategy {strategy_name}"
+                logger.warning(msg)
+                last_error = Exception(msg)
                 continue
 
-            except subprocess.CalledProcessError as e:
-                stderr = e.stderr.decode("utf-8", errors="ignore") if e.stderr else ""
-                stdout = e.stdout.decode("utf-8", errors="ignore") if e.stdout else ""
-
-                # Check if it's a network/proxy related error
-                is_network_error = any(
-                    error_pattern in stderr.lower()
-                    for error_pattern in [
-                        "input/output error",
-                        "stream ends prematurely",
-                        "error in the pull function",
-                        "connection reset",
-                        "network is unreachable",
-                        "timeout",
-                    ]
-                )
-
-                error_msg = (
-                    f"yt-dlp failed with strategy {strategy_name} (code {e.returncode})"
-                )
-                if is_network_error:
-                    logger.warning(
-                        f"{error_msg} - Network error detected, will try next strategy"
-                    )
-                else:
-                    logger.error(f"{error_msg} - Non-network error: {stderr[:500]}")
-
-                last_error = Exception(
-                    f"{error_msg}. STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
-                )
-
-                # If it's not a network error, don't retry with other strategies
-                if not is_network_error:
-                    break
-
-                continue
-
+            except Exception as e:
+                # Non-transient or ffmpeg failure: record and break (no point retrying different proxy)
+                last_error = e
+                logger.error(f"Fatal error on strategy {strategy_name}: {e}")
+                break
         else:
-            # All strategies failed
             logger.error("All download strategies failed")
             if last_error:
                 raise last_error
             raise Exception("Download failed with all strategies")
 
-        # Verify file was created and has content
-        if not os.path.exists(output_file):
-            raise Exception(
-                "Download appeared successful but output file was not created"
-            )
+        if not os.path.exists(output_file) or os.path.getsize(output_file) == 0:
+            raise Exception("Processing succeeded but output file missing or empty")
 
-        file_size = os.path.getsize(output_file)
-        if file_size == 0:
-            raise Exception("Download created empty file")
-
-        logger.info(f"Successfully downloaded {file_size} bytes to {output_file}")
-
-        # Read result
         with open(output_file, "rb") as fh:
             content = fh.read()
 

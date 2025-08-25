@@ -26,6 +26,10 @@ from codebase_to_llm.domain.favorite_prompts import FavoritePrompts
 from codebase_to_llm.domain.model import Models, Model, ModelId
 from codebase_to_llm.domain.stored_file import StoredFile, StoredFileId
 from codebase_to_llm.domain.directory import Directory, DirectoryId
+from codebase_to_llm.domain.video_key_insights import (
+    VideoKeyInsights,
+    VideoKeyInsightId,
+)
 
 
 class ClipboardPort(Protocol):
@@ -297,3 +301,27 @@ class KeyInsightsTaskPort(Protocol):
     def get_task_status(
         self, task_id: str
     ) -> Result[tuple[str, list[dict[str, str]] | None], str]: ...  # pragma: no cover
+
+
+class VideoKeyInsightsRepositoryPort(Protocol):
+    """Port for CRUD operations on VideoKeyInsights."""
+
+    def add(
+        self, video_key_insights: VideoKeyInsights
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def get(
+        self, video_key_insight_id: VideoKeyInsightId
+    ) -> Result[VideoKeyInsights, str]: ...  # pragma: no cover
+
+    def update(
+        self, video_key_insights: VideoKeyInsights
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def remove(
+        self, video_key_insight_id: VideoKeyInsightId
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def list_for_user(
+        self, owner_id: UserId
+    ) -> Result[list[VideoKeyInsights], str]: ...  # pragma: no cover

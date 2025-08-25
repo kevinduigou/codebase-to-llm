@@ -61,6 +61,9 @@ from codebase_to_llm.infrastructure.celery_translation_queue import (
 from codebase_to_llm.infrastructure.celery_key_insights_queue import (
     CeleryKeyInsightsTaskQueue,
 )
+from codebase_to_llm.infrastructure.sqlalchemy_video_key_insights_repository import (
+    SqlAlchemyVideoKeyInsightsRepository,
+)
 
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
@@ -168,3 +171,7 @@ def get_translation_task_port() -> CeleryTranslationTaskQueue:
 
 def get_key_insights_task_port() -> CeleryKeyInsightsTaskQueue:
     return _key_insights_task_queue
+
+
+def get_video_key_insights_repository() -> SqlAlchemyVideoKeyInsightsRepository:
+    return SqlAlchemyVideoKeyInsightsRepository()

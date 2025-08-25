@@ -404,6 +404,8 @@ dev = [
     { name = "build" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "python-dotenv" },
+    { name = "requests" },
     { name = "ruff" },
     { name = "twine" },
     { name = "types-passlib" },
@@ -445,6 +447,8 @@ dev = [
     { name = "build", specifier = ">=1.2.2.post1" },
     { name = "mypy", specifier = ">=1.16.0" },
     { name = "pytest", specifier = ">=8.4.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "requests", specifier = ">=2.31.0" },
     { name = "ruff", specifier = ">=0.12.0" },
     { name = "twine", specifier = ">=6.1.0" },
     { name = "types-passlib", specifier = ">=1.7.7.20250602" },
@@ -825,7 +829,7 @@ name = "importlib-metadata"
 version = "8.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp" },
+    { name = "zipp", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/76/66/650a33bd90f786193e4de4b3ad86ea60b53c89b669a5c7be931fac31cdb0/importlib_metadata-8.7.0.tar.gz", hash = "sha256:d13b81ad223b890aa16c5471f2ac3056cf76c5f10f82d6f9292f0b415f389000", size = 56641 }
 wheels = [

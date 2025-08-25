@@ -190,3 +190,28 @@ class VideoTranslationRequest(BaseModel):
 class TaskStatusResponse(BaseModel):
     status: str
     file_id: str | None = None
+
+
+class KeyInsightRequest(BaseModel):
+    content: str
+    video_url: str
+    begin_timestamp: str
+    end_timestamp: str
+
+
+class CreateVideoKeyInsightsRequest(BaseModel):
+    title: str
+    key_insights: list[KeyInsightRequest] | None = None
+
+
+class UpdateVideoKeyInsightsRequest(BaseModel):
+    title: str | None = None
+    key_insights: list[KeyInsightRequest] | None = None
+
+
+class VideoKeyInsightsResponse(BaseModel):
+    id: str
+    title: str
+    key_insights: list[KeyInsightResponse]
+    created_at: str
+    updated_at: str

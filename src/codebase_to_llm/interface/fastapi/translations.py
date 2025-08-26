@@ -11,11 +11,11 @@ from codebase_to_llm.domain.user import User
 from .dependencies import get_translation_task_port, get_current_user
 from .schemas import TaskStatusResponse, VideoTranslationRequest
 
-router = APIRouter(prefix="/translations", tags=["translations"])
+router = APIRouter(prefix="/add_subtitles", tags=["translations"])
 
 
 @router.post("/")
-def request_video_translation(
+def request_video_add_subtitles(
     request: VideoTranslationRequest,
     current_user: User = Depends(get_current_user),
     task_port: TranslationTaskPort = Depends(get_translation_task_port),
@@ -23,6 +23,7 @@ def request_video_translation(
     user_id = current_user.id().value()
     result = enqueue_video_translation(
         request.file_id,
+        request.origin_language,
         request.target_language,
         user_id,
         request.output_filename,

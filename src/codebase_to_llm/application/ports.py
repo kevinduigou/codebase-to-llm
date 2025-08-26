@@ -285,6 +285,7 @@ class TranslationTaskPort(Protocol):
     def enqueue_translation(
         self,
         file_id: str,
+        origin_language: str,
         target_language: str,
         owner_id: str,
         output_filename: str,

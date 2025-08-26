@@ -126,6 +126,7 @@ def _download_video(url: str, path: str) -> None:
 
 def _process_video(
     content: bytes,
+    origin_language: str,
     target_language: str,
     subtitle_color: str = "yellow",
     subtitle_background_color: str = "black",
@@ -158,7 +159,8 @@ def _process_video(
             transcript = client.audio.transcriptions.create(
                 model="whisper-1", file=audio_file, response_format="srt"
             )
-        if target_language != "en":
+        # Only translate if origin and target languages are different
+        if origin_language != target_language:
             subtitles = parse_srt(transcript)
             for subtitle in subtitles:
                 text = subtitle["text"]
@@ -209,6 +211,7 @@ def _process_video(
 @celery_app.task(name="translate_video")
 def translate_video_task(
     file_id: str,
+    origin_language: str,
     target_language: str,
     owner_id: str,
     output_filename: str,
@@ -224,7 +227,11 @@ def translate_video_task(
         raise Exception("Unable to load file")
     content = content_opt
     output_bytes = _process_video(
-        content, target_language, subtitle_color, subtitle_background_color
+        content,
+        origin_language,
+        target_language,
+        subtitle_color,
+        subtitle_background_color,
     )
     new_file_id = str(uuid.uuid4())
     file_repo = SqlAlchemyFileRepository()
@@ -250,6 +257,7 @@ class CeleryTranslationTaskQueue(TranslationTaskPort):
     def enqueue_translation(
         self,
         file_id: str,
+        origin_language: str,
         target_language: str,
         owner_id: str,
         output_filename: str,
@@ -259,6 +267,7 @@ class CeleryTranslationTaskQueue(TranslationTaskPort):
         try:
             task = translate_video_task.delay(
                 file_id,
+                origin_language,
                 target_language,
                 owner_id,
                 output_filename,

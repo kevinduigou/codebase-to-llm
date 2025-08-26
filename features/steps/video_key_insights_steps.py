@@ -370,20 +370,33 @@ def step_key_insights_should_contain_items(context, expected_count):
 
 @when("I create video key insights from the task result")
 def step_create_video_key_insights_from_task_result(context):
-    def _parse_timestamp(ts: str) -> dict[str, int]:
-        parts = ts.split(":")
-        if len(parts) == 3:
-            hour, minute, second = parts
-        elif len(parts) == 2:
-            hour = "0"
-            minute, second = parts
+    def _parse_timestamp(ts) -> dict[str, int]:
+        # Handle both string and dictionary formats
+        if isinstance(ts, dict):
+            # If it's already a dictionary, return it as is (assuming it has the right structure)
+            return {
+                "hour": int(ts.get("hour", 0)),
+                "minute": int(ts.get("minute", 0)),
+                "second": int(ts.get("second", 0)),
+            }
+        elif isinstance(ts, str):
+            # Parse string format like "0:1:30"
+            parts = ts.split(":")
+            if len(parts) == 3:
+                hour, minute, second = parts
+            elif len(parts) == 2:
+                hour = "0"
+                minute, second = parts
+            else:
+                hour = minute = second = "0"
+            return {
+                "hour": int(hour),
+                "minute": int(minute),
+                "second": int(second),
+            }
         else:
-            hour = minute = second = "0"
-        return {
-            "hour": int(hour),
-            "minute": int(minute),
-            "second": int(second),
-        }
+            # Default fallback
+            return {"hour": 0, "minute": 0, "second": 0}
 
     converted_insights = []
     for insight in context.task_insights:

@@ -28,7 +28,7 @@ Feature: Video Key Insights Management
     Then I should get a 404 error
 
   Scenario: Create video key insights from YouTube URL, wait for completion, verify insights, and delete
-    Given I have a YouTube video URL "https://youtu.be/2YlYPZt6WCA?si=BB6fzATgVS4KJk4R"
+    Given I have a YouTube video URL "https://youtu.be/D7_ipDqhtwk?si=TDDENdwdUIH3j4ux"
     And I have a model ID "gpt-4o" for key insights processing
     And I have a target language "French"
     And I want 3 key insights

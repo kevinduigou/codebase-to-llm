@@ -279,10 +279,10 @@ class DownloadTaskPort(Protocol):
     ) -> Result[tuple[str, str | None], str]: ...  # pragma: no cover
 
 
-class TranslationTaskPort(Protocol):
-    """Port for long-running translation tasks."""
+class AddSubtitleTaskPort(Protocol):
+    """Port for long-running add subtitle tasks."""
 
-    def enqueue_translation(
+    def enqueue_add_subtitles(
         self,
         file_id: str,
         origin_language: str,

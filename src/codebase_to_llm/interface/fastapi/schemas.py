@@ -183,11 +183,11 @@ class YouTubeDownloadRequest(BaseModel):
     name: str
 
 
-class VideoTranslationRequest(BaseModel):
+class VideoAddSubtitleRequest(BaseModel):
     file_id: str
     origin_language: str = "en"
     target_language: str = "en"
-    output_filename: str = "translated.mp4"
+    output_filename: str = "subtitled.mp4"
 
 
 class TaskStatusResponse(BaseModel):

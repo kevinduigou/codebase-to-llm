@@ -9,7 +9,7 @@ import uuid
 from typing_extensions import final
 from openai import OpenAI
 
-from codebase_to_llm.application.ports import TranslationTaskPort
+from codebase_to_llm.application.ports import AddSubtitleTaskPort
 from codebase_to_llm.application.uc_add_file import AddFileUseCase
 from codebase_to_llm.domain.result import Err, Ok, Result
 from codebase_to_llm.domain.stored_file import StoredFileId
@@ -124,7 +124,7 @@ def _download_video(url: str, path: str) -> None:
     )
 
 
-def _process_video(
+def add_subtitle_to_video(
     content: bytes,
     origin_language: str,
     target_language: str,
@@ -208,8 +208,8 @@ def _process_video(
             return out_file.read()
 
 
-@celery_app.task(name="translate_video")
-def translate_video_task(
+@celery_app.task(name="add_subtitle_to_video")
+def add_subtitle_to_video_task(
     file_id: str,
     origin_language: str,
     target_language: str,
@@ -226,7 +226,7 @@ def translate_video_task(
     if content_opt is None:
         raise Exception("Unable to load file")
     content = content_opt
-    output_bytes = _process_video(
+    output_bytes = add_subtitle_to_video(
         content,
         origin_language,
         target_language,
@@ -251,10 +251,10 @@ def translate_video_task(
 
 
 @final
-class CeleryTranslationTaskQueue(TranslationTaskPort):
+class CeleryAddSubtitleTaskQueue(AddSubtitleTaskPort):
     __slots__ = ()
 
-    def enqueue_translation(
+    def enqueue_add_subtitles(
         self,
         file_id: str,
         origin_language: str,
@@ -265,7 +265,7 @@ class CeleryTranslationTaskQueue(TranslationTaskPort):
         subtitle_background_color: str = "black",
     ) -> Result[str, str]:
         try:
-            task = translate_video_task.delay(
+            task = add_subtitle_to_video_task.delay(
                 file_id,
                 origin_language,
                 target_language,

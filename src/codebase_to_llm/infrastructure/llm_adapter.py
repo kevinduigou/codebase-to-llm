@@ -112,7 +112,6 @@ class OpenAILLMAdapter(LLMAdapterPort):
         schema = response_format.model_json_schema()
 
         # Create a tool definition for structured output
-        from typing import cast
         from anthropic.types import ToolParam, ToolChoiceToolParam, MessageParam
 
         tool_definition: ToolParam = {
@@ -134,7 +133,7 @@ class OpenAILLMAdapter(LLMAdapterPort):
         try:
             response = client.messages.create(
                 model=model,
-                max_tokens=4096,
+                max_tokens=8192,
                 tools=[tool_definition],
                 tool_choice=tool_choice,
                 messages=[message],

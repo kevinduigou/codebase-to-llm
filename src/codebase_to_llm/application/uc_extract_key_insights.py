@@ -13,9 +13,10 @@ from codebase_to_llm.application.uc_get_model_api_key import GetModelApiKeyUseCa
 from codebase_to_llm.domain.model import ModelId
 from codebase_to_llm.domain.result import Err, Ok, Result
 
-PROMPT = (
-    "First Extract 4-5 Key Insights from this the transcript\n\n"
-    "Then Extract the begin and end of timestamp (total duration 30s to 60s max) where this Key Insights is expressed"
+PROMPT_TEMPLATE = (
+    "Extract {number_of_key_insights} Key Insights from the transcript\n\n"
+    "Then Extract the begin and end of timestamp where this Key Insights is expressed\n"
+    'The output language shall be "{target_language}"\n\n'
 )
 
 
@@ -42,6 +43,8 @@ class ExtractKeyInsightsUseCase:
         self,
         url: str,
         model_id: ModelId,
+        target_language: str,
+        number_of_key_insights: int,
         external_repo: ExternalSourceRepositoryPort,
         llm_adapter: LLMAdapterPort,
         model_repo: ModelRepositoryPort,
@@ -66,7 +69,13 @@ class ExtractKeyInsightsUseCase:
             return Err("Model or API key not found")
         model_name, api_key = details
 
-        prompt = f"{PROMPT}\n\nVideo URL: {url}\n\nTranscript:\n{transcript}"
+        prompt_with_language = PROMPT_TEMPLATE.format(
+            target_language=target_language,
+            number_of_key_insights=number_of_key_insights,
+        )
+        prompt = (
+            f"{prompt_with_language}\n\nVideo URL: {url}\n\nTranscript:\n{transcript}"
+        )
 
         response_result = llm_adapter.structured_output(
             prompt, model_name, api_key, KeyInsights

@@ -30,6 +30,16 @@ def before_scenario(context: Any, scenario: Any) -> None:
     context.video_key_insights_id = None
     context.retrieved_video_key_insights = None
     context.all_video_key_insights = None
+    context.youtube_video_url = None
+    context.key_insights_model_id = None
+    context.target_language = None
+    context.trigger_response = None
+    context.task_data = None
+    context.key_insights_task_id = None
+    context.task_status_response = None
+    context.completed_task_data = None
+    context.task_insights = None
+    context.number_of_key_insights = None
 
     # Response objects
     context.create_response = None

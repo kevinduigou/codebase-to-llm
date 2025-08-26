@@ -94,7 +94,12 @@ def request_key_insights(
     assert model_id_obj is not None
     user_id = current_user.id().value()
     result = enqueue_key_insights_extraction(
-        request.video_url, model_id_obj.value(), user_id, task_port
+        request.video_url,
+        model_id_obj.value(),
+        user_id,
+        request.target_language,
+        request.number_of_key_insights,
+        task_port,
     )
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())

@@ -8,9 +8,13 @@ def enqueue_key_insights_extraction(
     url: str,
     model_id: str,
     owner_id: str,
+    target_language: str,
+    number_of_key_insights: int,
     task_port: KeyInsightsTaskPort,
 ) -> Result[str, str]:
-    return task_port.enqueue_key_insights(url, model_id, owner_id)
+    return task_port.enqueue_key_insights(
+        url, model_id, owner_id, target_language, number_of_key_insights
+    )
 
 
 def get_key_insights_status(

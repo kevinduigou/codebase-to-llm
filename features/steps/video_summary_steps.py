@@ -143,19 +143,6 @@ def step_try_retrieve_deleted_summary(context):
     context.get_deleted_response = response
 
 
-# New steps for YouTube video summary processing
-
-
-@given('I have a YouTube video URL "{video_url}"')
-def step_have_youtube_video_url(context, video_url):
-    context.youtube_video_url = video_url
-
-
-@given('I have a target language "{target_language}"')
-def step_have_target_language(context, target_language):
-    context.target_language = target_language
-
-
 @given('I have a model ID "{model_name}" for video processing')
 def step_have_model_id_for_video_processing(context, model_name):
     # Create a test API key and model for video processing

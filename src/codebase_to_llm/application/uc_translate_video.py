@@ -6,13 +6,14 @@ from codebase_to_llm.domain.result import Result
 
 def enqueue_video_translation(
     file_id: str,
+    origin_language: str,
     target_language: str,
     owner_id: str,
     output_filename: str,
     task_port: TranslationTaskPort,
 ) -> Result[str, str]:
     return task_port.enqueue_translation(
-        file_id, target_language, owner_id, output_filename
+        file_id, origin_language, target_language, owner_id, output_filename
     )
 
 

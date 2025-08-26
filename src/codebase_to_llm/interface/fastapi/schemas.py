@@ -221,3 +221,46 @@ class VideoKeyInsightsResponse(BaseModel):
     key_insights: list[KeyInsightResponse]
     created_at: str
     updated_at: str
+
+
+class ExtractSummaryRequest(BaseModel):
+    model_id: str
+    video_url: str
+    target_language: str = "English"
+
+
+class SummarySegmentResponse(BaseModel):
+    content: str
+    video_url: str
+    begin_timestamp: Timestamp
+    end_timestamp: Timestamp
+
+
+class SummaryTaskStatusResponse(BaseModel):
+    status: str
+    segments: list[SummarySegmentResponse] | None = None
+
+
+class SummarySegmentRequest(BaseModel):
+    content: str
+    video_url: str
+    begin_timestamp: Timestamp
+    end_timestamp: Timestamp
+
+
+class CreateVideoSummaryRequest(BaseModel):
+    title: str
+    segments: list[SummarySegmentRequest] | None = None
+
+
+class UpdateVideoSummaryRequest(BaseModel):
+    title: str | None = None
+    segments: list[SummarySegmentRequest] | None = None
+
+
+class VideoSummaryResponse(BaseModel):
+    id: str
+    title: str
+    segments: list[SummarySegmentResponse]
+    created_at: str
+    updated_at: str

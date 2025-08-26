@@ -299,7 +299,12 @@ class KeyInsightsTaskPort(Protocol):
     """Port for long-running key insight extraction tasks."""
 
     def enqueue_key_insights(
-        self, url: str, model_id: str, owner_id: str
+        self,
+        url: str,
+        model_id: str,
+        owner_id: str,
+        target_language: str = "English",
+        number_of_key_insights: int = 5,
     ) -> Result[str, str]: ...  # pragma: no cover
 
     def get_task_status(

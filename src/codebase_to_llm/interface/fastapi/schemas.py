@@ -134,6 +134,8 @@ class TestMessageRequest(BaseModel):
 class ExtractKeyInsightsRequest(BaseModel):
     model_id: str
     video_url: str
+    target_language: str = "English"
+    number_of_key_insights: int = 5
 
 
 class KeyInsightResponse(BaseModel):

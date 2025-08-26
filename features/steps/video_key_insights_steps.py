@@ -1,6 +1,7 @@
 """Step definitions for video key insights feature tests."""
 
 import os
+import time
 import requests
 from behave import given, when, then
 from dotenv import load_dotenv
@@ -231,3 +232,184 @@ def step_get_404_error(context):
     assert (
         context.get_deleted_response.status_code == 404
     ), f"Expected 404, got {context.get_deleted_response.status_code}: {context.get_deleted_response.text}"
+
+
+@given('I have a YouTube video URL "{video_url}"')
+def step_have_youtube_video_url(context, video_url):
+    context.youtube_video_url = video_url
+
+
+@given('I have a target language "{target_language}"')
+def step_have_target_language(context, target_language):
+    context.target_language = target_language
+
+
+@given("I want {count:d} key insights")
+def step_want_key_insights(context, count):
+    context.number_of_key_insights = count
+
+
+@given('I have a model ID "{model_name}" for key insights processing')
+def step_have_model_id_for_key_insights_processing(context, model_name):
+    import os
+
+    is_anthropic = model_name.startswith("claude-") or "claude" in model_name.lower()
+
+    if is_anthropic:
+        api_key_data = {
+            "id_value": "test-anthropic-api-key",
+            "url_provider": "https://api.anthropic.com/v1/",
+            "api_key_value": os.getenv("ANTHROPIC_API_KEY", "test-key"),
+        }
+        api_key_id = "test-anthropic-api-key"
+    else:
+        api_key_data = {
+            "id_value": "test-openai-api-key",
+            "url_provider": "https://api.openai.com/v1/",
+            "api_key_value": os.getenv("OPENAI_API_KEY", "test-key"),
+        }
+        api_key_id = "test-openai-api-key"
+
+    api_key_response = requests.post(
+        f"{context.base_url}/api-keys/",
+        json=api_key_data,
+        headers=context.auth_headers,
+    )
+    if api_key_response.status_code not in [200, 400]:
+        raise AssertionError(
+            f"Failed to create API key: {api_key_response.status_code} - {api_key_response.text}"
+        )
+
+    model_id = f"test-{model_name}"
+    model_data = {"id_value": model_id, "name": model_name, "api_key_id": api_key_id}
+    model_response = requests.post(
+        f"{context.base_url}/models/",
+        json=model_data,
+        headers=context.auth_headers,
+    )
+    if model_response.status_code not in [200, 400]:
+        raise AssertionError(
+            f"Failed to create model: {model_response.status_code} - {model_response.text}"
+        )
+    context.key_insights_model_id = model_id
+    context.test_api_key_id = api_key_id
+    context.test_model_id = model_id
+
+
+@when("I trigger key insights extraction for the YouTube URL")
+def step_trigger_key_insights_extraction(context):
+    request_data = {
+        "model_id": context.key_insights_model_id,
+        "video_url": context.youtube_video_url,
+        "target_language": getattr(context, "target_language", "English"),
+        "number_of_key_insights": getattr(context, "number_of_key_insights", 5),
+    }
+    response = requests.post(
+        f"{context.base_url}/key-insights/",
+        json=request_data,
+        headers=context.auth_headers,
+    )
+    context.trigger_response = response
+    if response.status_code == 200:
+        context.task_data = response.json()
+
+
+@then("I should receive a task ID for the key insights")
+def step_receive_task_id_for_key_insights(context):
+    assert (
+        context.trigger_response.status_code == 200
+    ), f"Expected 200, got {context.trigger_response.status_code}: {context.trigger_response.text}"
+    assert "task_id" in context.task_data
+    assert context.task_data["task_id"]
+    context.key_insights_task_id = context.task_data["task_id"]
+
+
+@when("I wait for the key insights task to complete")
+def step_wait_for_key_insights_task_to_complete(context):
+    max_wait_time = 300
+    check_interval = 15
+    start_time = time.time()
+
+    while time.time() - start_time < max_wait_time:
+        response = requests.get(
+            f"{context.base_url}/key-insights/{context.key_insights_task_id}",
+            headers=context.auth_headers,
+        )
+        if response.status_code == 200:
+            task_status = response.json()
+            context.task_status_response = task_status
+            if task_status["status"] == "SUCCESS":
+                context.completed_task_data = task_status
+                return
+            if task_status["status"] == "FAILURE":
+                raise AssertionError(f"Key insights task failed: {task_status}")
+        time.sleep(check_interval)
+
+    raise AssertionError(
+        f"Key insights task did not complete within {max_wait_time} seconds"
+    )
+
+
+@then("the key insights task should be completed successfully")
+def step_key_insights_task_completed_successfully(context):
+    assert (
+        context.completed_task_data["status"] == "SUCCESS"
+    ), f"Expected task status SUCCESS, got {context.completed_task_data['status']}"
+
+
+@then("the extracted key insights should contain {expected_count:d} items")
+def step_key_insights_should_contain_items(context, expected_count):
+    assert "insights" in context.completed_task_data
+    insights = context.completed_task_data["insights"]
+    assert insights is not None, "Insights should not be None"
+    assert (
+        len(insights) == expected_count
+    ), f"Expected {expected_count} insights, got {len(insights)}"
+    context.task_insights = insights
+
+
+@when("I create video key insights from the task result")
+def step_create_video_key_insights_from_task_result(context):
+    def _parse_timestamp(ts: str) -> dict[str, int]:
+        parts = ts.split(":")
+        if len(parts) == 3:
+            hour, minute, second = parts
+        elif len(parts) == 2:
+            hour = "0"
+            minute, second = parts
+        else:
+            hour = minute = second = "0"
+        return {
+            "hour": int(hour),
+            "minute": int(minute),
+            "second": int(second),
+        }
+
+    converted_insights = []
+    for insight in context.task_insights:
+        converted_insights.append(
+            {
+                "content": insight.get("content", ""),
+                "video_url": insight.get("video_url", ""),
+                "begin_timestamp": _parse_timestamp(
+                    insight.get("begin_timestamp", "0:0:0")
+                ),
+                "end_timestamp": _parse_timestamp(
+                    insight.get("end_timestamp", "0:0:0")
+                ),
+            }
+        )
+
+    video_key_insights_data = {
+        "title": f"YouTube Video Key Insights - {context.youtube_video_url}",
+        "key_insights": converted_insights,
+    }
+    context.test_video_key_insights = video_key_insights_data
+    response = requests.post(
+        f"{context.base_url}/key-insights/video-key-insights",
+        json=video_key_insights_data,
+        headers=context.auth_headers,
+    )
+    context.create_response = response
+    if response.status_code == 200:
+        context.created_video_key_insights = response.json()

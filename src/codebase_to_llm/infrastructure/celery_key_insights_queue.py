@@ -26,7 +26,11 @@ logger = logging.getLogger(__name__)
 
 @celery_app.task(name="extract_key_insights")
 def extract_key_insights_task(
-    url: str, model_id: str, owner_id: str
+    url: str,
+    model_id: str,
+    owner_id: str,
+    target_language: str = "English",
+    number_of_key_insights: int = 5,
 ) -> list[dict[str, str]]:  # pragma: no cover - worker
     external_repo = UrlExternalSourceRepository()
     llm_adapter = OpenAILLMAdapter()
@@ -40,7 +44,14 @@ def extract_key_insights_task(
     assert model_id_obj is not None
     use_case = ExtractKeyInsightsUseCase()
     result = use_case.execute(
-        url, model_id_obj, external_repo, llm_adapter, model_repo, api_key_repo
+        url,
+        model_id_obj,
+        target_language,
+        number_of_key_insights,
+        external_repo,
+        llm_adapter,
+        model_repo,
+        api_key_repo,
     )
     if result.is_err():
         error_msg = (
@@ -58,10 +69,17 @@ class CeleryKeyInsightsTaskQueue(KeyInsightsTaskPort):
     __slots__ = ()
 
     def enqueue_key_insights(
-        self, url: str, model_id: str, owner_id: str
+        self,
+        url: str,
+        model_id: str,
+        owner_id: str,
+        target_language: str = "English",
+        number_of_key_insights: int = 5,
     ) -> Result[str, str]:
         try:
-            task = extract_key_insights_task.delay(url, model_id, owner_id)
+            task = extract_key_insights_task.delay(
+                url, model_id, owner_id, target_language, number_of_key_insights
+            )
             return Ok(task.id)
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))

@@ -206,3 +206,11 @@ def get_video_subtitle_repo() -> SqlAlchemyVideoSubtitleRepository:
 
 def get_burn_ass_port() -> FFMPEGBurnAssSubtitle:
     return _burn_ass_port
+
+
+def get_file_repo() -> SqlAlchemyFileRepository:
+    return _file_repo
+
+
+def get_file_storage() -> GCPFileStorage:
+    return _file_storage

@@ -251,6 +251,10 @@ class VideoSubtitleRepositoryPort(Protocol):
         self, association_id: VideoSubtitleId
     ) -> Result[VideoSubtitle, str]: ...  # pragma: no cover
 
+    def get_by_video_file_id(
+        self, video_file_id: StoredFileId
+    ) -> Result[VideoSubtitle, str]: ...  # pragma: no cover
+
     def update(
         self, association: VideoSubtitle
     ) -> Result[None, str]: ...  # pragma: no cover

@@ -39,11 +39,11 @@
             "envFile": "${workspaceFolder}/.env-development"
         },
         {
-            "name": "Run Behave Tests - Video Summary YouTube Test",
+            "name": "Add French subtitles to test.mkv",
             "type": "debugpy",
             "request": "launch",
             "module": "behave",
-            "args": ["features/video_key_insights.feature", "--name", "Create video key insights from YouTube URL, wait for completion, verify insights, and delete", "--verbose"],
+            "args": ["features/video_subtitles.feature", "--name", "Get ASS file by video ID", "--verbose"],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env-development"

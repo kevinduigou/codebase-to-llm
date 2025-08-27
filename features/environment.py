@@ -41,6 +41,29 @@ def before_scenario(context: Any, scenario: Any) -> None:
     context.task_insights = None
     context.number_of_key_insights = None
 
+    # Video subtitle test variables
+    context.test_video_filename = None
+    context.test_video_file_id = None
+    context.subtitle_request_response = None
+    context.subtitle_task_data = None
+    context.subtitle_task_id = None
+    context.subtitle_task_status_response = None
+    context.completed_subtitle_task_data = None
+    context.video_file_id = None
+    context.subtitle_file_id = None
+    context.association_create_response = None
+    context.created_association = None
+    context.association_id = None
+    context.get_association_response = None
+    context.retrieved_association = None
+    context.glowing_subtitle_file_id = None
+    context.update_association_response = None
+    context.burn_response = None
+    context.burned_video_data = None
+    context.final_video_content = None
+    context.delete_association_response = None
+    context.get_deleted_association_response = None
+
     # Response objects
     context.create_response = None
     context.get_response = None

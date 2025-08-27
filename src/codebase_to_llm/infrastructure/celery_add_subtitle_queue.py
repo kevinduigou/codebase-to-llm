@@ -824,7 +824,7 @@ def add_subtitle_to_video_task(
     sub_result = add_file_use_case.execute(
         id_value=subtitle_file_id,
         owner_id_value=owner_id,
-        name="subtitles.ass",
+        name="subtitles_{output_filename}.ass",
         content=subtitle_bytes,
         directory_id_value=None,
     )
@@ -833,6 +833,7 @@ def add_subtitle_to_video_task(
             sub_result.err() or "Unknown error occurred during subtitle persistence"
         )
         raise Exception(error_msg)
+    # Create association between new processed video file and subtitle file
     assoc_repo = SqlAlchemyVideoSubtitleRepository()
     assoc_result = uc_create_video_subtitle.execute(
         str(uuid.uuid4()), new_file_id, subtitle_file_id, assoc_repo
@@ -949,8 +950,22 @@ class CeleryAddSubtitleTaskQueue(AddSubtitleTaskPort):
             status = async_result.status
             if async_result.successful():
                 result = async_result.get()
+                # Handle different result formats that Celery might return
                 if isinstance(result, tuple) and len(result) == 2:
                     return Ok((status, result[0], result[1]))
+                elif isinstance(result, list) and len(result) == 2:
+                    return Ok((status, result[0], result[1]))
+                elif isinstance(result, str):
+                    # Try to parse string representation of list/tuple
+                    import ast
+
+                    try:
+                        parsed = ast.literal_eval(result)
+                        if isinstance(parsed, (list, tuple)) and len(parsed) == 2:
+                            return Ok((status, parsed[0], parsed[1]))
+                    except (ValueError, SyntaxError):
+                        pass
+                    return Ok((status, result, None))
                 return Ok((status, str(result), None))
             return Ok((status, None, None))
         except Exception as exc:  # noqa: BLE001

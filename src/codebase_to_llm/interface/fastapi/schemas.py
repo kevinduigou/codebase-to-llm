@@ -294,3 +294,8 @@ class VideoSummaryResponse(BaseModel):
     segments: list[SummarySegmentResponse]
     created_at: str
     updated_at: str
+
+
+class AssFileResponse(BaseModel):
+    subtitle_file_id: str
+    content: str

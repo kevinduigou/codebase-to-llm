@@ -125,7 +125,11 @@ def _soft_wrap(text: str, max_len: int = 42) -> str:
 
 
 def _mux_soft_subs(
-    input_video: str, srt_path: str, output_path: str, subtitle_format: str = "mov_text",target_language = "eng"
+    input_video: str,
+    srt_path: str,
+    output_path: str,
+    subtitle_format: str = "mov_text",
+    target_language="eng",
 ) -> None:
     """Add soft subtitles (muxed as subtitle track) instead of burning them in"""
     try:
@@ -683,7 +687,9 @@ def add_subtitle_to_video(
 
         if use_soft_subtitles:
             # 4a) Add soft subtitles (muxed as subtitle track)
-            _mux_soft_subs(video_path, srt_path, output_path, subtitle_format,target_language)
+            _mux_soft_subs(
+                video_path, srt_path, output_path, subtitle_format, target_language
+            )
         else:
             # 4b) Burn-in modern styled subtitles with dynamic sizing
             # Convert color names to hex values

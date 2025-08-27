@@ -28,6 +28,12 @@ def request_video_add_subtitles(
         user_id,
         request.output_filename,
         task_port,
+        request.subtitle_color,
+        request.subtitle_style,
+        request.use_soft_subtitles,
+        request.font_size_percentage,
+        request.margin_percentage,
+        request.subtitle_format,
     )
     if result.is_err():
         raise HTTPException(status_code=400, detail=result.err())

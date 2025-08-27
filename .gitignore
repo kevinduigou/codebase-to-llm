@@ -18,3 +18,4 @@ output.mp4
 docker/deploy-to-vm.sh
 docker/env-vars-dev.env
 .clinerules/cli_redis.md
+scripts/*

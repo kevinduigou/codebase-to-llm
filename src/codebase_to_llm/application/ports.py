@@ -289,6 +289,14 @@ class AddSubtitleTaskPort(Protocol):
         target_language: str,
         owner_id: str,
         output_filename: str,
+        subtitle_color: str = "white",
+        subtitle_background_color: str = "black",
+        subtitle_highlight_color: str = "cyan",
+        use_soft_subtitles: bool = False,
+        subtitle_style: str = "outline",
+        font_size_percentage: float = 4.0,
+        margin_percentage: float = 5.0,
+        subtitle_format: str = "mov_text",
     ) -> Result[str, str]: ...  # pragma: no cover
 
     def get_task_status(

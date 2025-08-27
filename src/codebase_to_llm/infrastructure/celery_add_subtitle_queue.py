@@ -8,8 +8,9 @@ import subprocess
 import tempfile
 import time
 import uuid
-from typing import Iterable
+from typing import Iterable, Tuple
 from typing_extensions import final
+from pydantic import BaseModel
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
@@ -24,6 +25,25 @@ from codebase_to_llm.infrastructure.sqlalchemy_file_repository import (
 from codebase_to_llm.infrastructure.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+
+class TranslationResponse(BaseModel):
+    """Pydantic model for single text translation response."""
+
+    translated_text: str
+
+
+class SubtitleTranslation(BaseModel):
+    """Pydantic model for a single subtitle translation."""
+
+    index: int
+    text: str
+
+
+class BatchTranslationResponse(BaseModel):
+    """Pydantic model for batch subtitle translation response."""
+
+    translations: list[SubtitleTranslation]
 
 
 def _ass_color_from_hex(rgb_hex: str, alpha_hex: str = "00") -> str:
@@ -104,36 +124,107 @@ def _soft_wrap(text: str, max_len: int = 42) -> str:
     return "\\N".join(lines[:2])
 
 
-def _mux_soft_subs(input_video: str, srt_path: str, output_path: str) -> None:
+def _mux_soft_subs(
+    input_video: str, srt_path: str, output_path: str, subtitle_format: str = "mov_text",target_language = "eng"
+) -> None:
     """Add soft subtitles (muxed as subtitle track) instead of burning them in"""
-    # mov_text = widely supported in MP4 players (iOS, browsers)
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-i",
-            input_video,
-            "-i",
-            srt_path,
-            "-c:v",
-            "copy",
-            "-c:a",
-            "copy",
-            "-c:s",
-            "mov_text",  # convert SRT to MP4 text subtitles
-            "-map",
-            "0:v:0",
-            "-map",
-            "0:a?",
-            "-map",
-            "1:0",
-            "-metadata:s:s:0",
-            "language=eng",  # set your target language code here
-            output_path,
-        ],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    try:
+        if subtitle_format == "ass":
+            # ASS format is not supported in MP4 containers, so we need to use MKV
+            # Change output extension to .mkv for ASS support
+            base_name = os.path.splitext(output_path)[0]
+            mkv_output = f"{base_name}.mkv"
+
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-i",
+                    input_video,
+                    "-i",
+                    srt_path,
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "copy",
+                    "-c:s",
+                    "ass",  # embed ASS subtitles
+                    "-map",
+                    "0:v:0",
+                    "-map",
+                    "0:a?",
+                    "-map",
+                    "1:0",
+                    "-metadata:s:s:0",
+                    f"language={target_language}",
+                    "-y",  # overwrite output file if it exists
+                    mkv_output,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            # Convert back to MP4 if needed (this will convert ASS to mov_text)
+            if output_path.endswith(".mp4"):
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-i",
+                        mkv_output,
+                        "-c:v",
+                        "copy",
+                        "-c:a",
+                        "copy",
+                        "-c:s",
+                        "mov_text",  # convert ASS to mov_text for MP4
+                        "-y",
+                        output_path,
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                # Clean up temporary MKV file
+                os.remove(mkv_output)
+            else:
+                # If output is not MP4, rename MKV to the desired output
+                os.rename(mkv_output, output_path)
+        else:
+            # Default: mov_text = widely supported in MP4 players (iOS, browsers)
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-i",
+                    input_video,
+                    "-i",
+                    srt_path,
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "copy",
+                    "-c:s",
+                    "mov_text",  # convert SRT to MP4 text subtitles
+                    "-map",
+                    "0:v:0",
+                    "-map",
+                    "0:a?",
+                    "-map",
+                    "1:0",
+                    "-metadata:s:s:0",
+                    "language=eng",  # set your target language code here
+                    "-y",  # overwrite output file if it exists
+                    output_path,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"FFmpeg command failed with return code {e.returncode}")
+        logger.error(f"Command: {' '.join(e.cmd)}")
+        logger.error(f"Stdout: {e.stdout}")
+        logger.error(f"Stderr: {e.stderr}")
+        raise
 
 
 def parse_srt(srt_content: str) -> list[dict[str, str | int]]:
@@ -177,23 +268,24 @@ def translate_text(client: OpenAI, text: str, target_language: str) -> str:
         "ar": "Arabic",
     }
     target_lang_name = language_names.get(target_language, target_language)
-    response = client.chat.completions.create(
+    response = client.beta.chat.completions.parse(
         model="gpt-4o",
         messages=[
             {
                 "role": "system",
                 "content": (
                     "You are a professional translator. Translate the following text to "
-                    f"{target_lang_name}. Maintain the original meaning and tone. Only return the translated text, nothing else."
+                    f"{target_lang_name}. Maintain the original meaning and tone."
                 ),
             },
             {"role": "user", "content": text},
         ],
+        response_format=TranslationResponse,
         temperature=0.3,
     )
-    content = response.choices[0].message.content
-    assert content is not None
-    return content.strip()
+    parsed_response = response.choices[0].message.parsed
+    assert parsed_response is not None
+    return parsed_response.translated_text.strip()
 
 
 def _batched(iterable: Iterable, n: int):
@@ -252,17 +344,25 @@ def translate_subtitles_in_batches(
             {
                 "role": "system",
                 "content": (
-                    "You are a professional subtitle translator. "
+                    "You are a professional subtitle translator specializing in conversational and educational content. "
                     f"Translate from {src_name} to {tgt_name}. "
-                    "Keep meaning and tone, keep punctuation, and preserve line breaks within each segment's text. "
-                    "Do not merge segments; do not add or remove segments."
+                    "Translate idiomatically and naturally for native speakers, prioritizing meaning and natural flow over literal accuracy. "
+                    "Use vocabulary and expressions that sound natural when spoken aloud. "
+                    "Preserve the tone, intent, and cultural context of each segment. "
+                    "Keep punctuation and preserve line breaks **within** each segment's text. "
+                    "Do not merge or split segments — each segment must be translated individually, "
+                    "but you must consider the **complete context** across all segments before translating to ensure coherence and natural flow. "
+                    "Use conversational register appropriate for spoken subtitles. "
+                    "When encountering technical or specialized terminology, use the standard terms in the target language. "
+                    "Do not add explanations or comments."
                 ),
             },
             {
                 "role": "user",
                 "content": (
-                    "Translate these segments. "
-                    "Return ONLY valid JSON of the exact form:\n"
+                    "Translate the following subtitle segments. "
+                    "First review the complete context to understand the topic and flow, then translate each segment naturally. "
+                    "Return ONLY a valid JSON object in this exact format:\n"
                     "{\n"
                     '  "translations": [\n'
                     '    {"index": <number>, "text": "<translated string>"}\n'
@@ -277,18 +377,46 @@ def translate_subtitles_in_batches(
         last_err: Exception | None = None
         for attempt in range(1, max_retries + 1):
             try:
-                resp = client.chat.completions.create(
+                # First translation pass using structured outputs
+                resp = client.beta.chat.completions.parse(
                     messages=messages,
                     model="gpt-4o",
                     temperature=0.2,
-                    response_format={"type": "json_object"},  # enforces JSON
+                    response_format=BatchTranslationResponse,
                 )
-                content = resp.choices[0].message.content
-                assert content, "Empty response content"
-                data = json.loads(content)
-                items = data.get("translations", [])
+                parsed_response = resp.choices[0].message.parsed
+                assert parsed_response is not None, "Empty parsed response"
+
+                # Second pass for natural language refinement
+                refinement_messages: list[ChatCompletionMessageParam] = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a professional subtitle translator specializing in conversational and educational content. "
+                            f"Check if text sounds like a native speaker in {tgt_name} would say it. "
+                            "If not, reformulate sentences but keep the global structure."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"First review the complete context to understand the topic and flow, then adjust translation in {tgt_name} to sound natural. "
+                            f"Segments to refine:\n{json.dumps([{'index': t.index, 'text': t.text} for t in parsed_response.translations], ensure_ascii=False)}"
+                        ),
+                    },
+                ]
+
+                refined_resp = client.beta.chat.completions.parse(
+                    messages=refinement_messages,
+                    model="gpt-4o",
+                    temperature=0.2,
+                    response_format=BatchTranslationResponse,
+                )
+                refined_parsed = refined_resp.choices[0].message.parsed
+                assert refined_parsed is not None, "Empty refined response"
+
                 # Build a lookup by index to reattach safely
-                by_index = {int(item["index"]): str(item["text"]) for item in items}
+                by_index = {t.index: t.text for t in refined_parsed.translations}
 
                 out_chunk: list[dict[str, str | int]] = []
                 for s in chunk:
@@ -332,7 +460,7 @@ def sanitize_filename(name: str, replacement: str = "_", max_length: int = 255) 
     return name[:max_length]
 
 
-def _load_video_from_file(file_id: str) -> Result[bytes, str]:
+def _load_video_from_file_id(file_id: str) -> Result[bytes, str]:
     file_repo = SqlAlchemyFileRepository()
     storage = GCPFileStorage()
     id_res = StoredFileId.try_create(file_id)
@@ -353,6 +481,95 @@ def _load_video_from_file(file_id: str) -> Result[bytes, str]:
     return Ok(data)
 
 
+def _load_video_from_file_path(file_path: str) -> Result[bytes, str]:
+    """Load video content directly from a file path on the filesystem."""
+    try:
+        if not os.path.exists(file_path):
+            return Err(f"File not found: {file_path}")
+
+        if not os.path.isfile(file_path):
+            return Err(f"Path is not a file: {file_path}")
+
+        with open(file_path, "rb") as f:
+            content = f.read()
+
+        return Ok(content)
+    except PermissionError:
+        return Err(f"Permission denied accessing file: {file_path}")
+    except OSError as e:
+        return Err(f"Error reading file {file_path}: {str(e)}")
+    except Exception as e:
+        return Err(f"Unexpected error loading file {file_path}: {str(e)}")
+
+
+def _get_video_dimensions(video_path: str) -> Tuple[int, int]:
+    """
+    Get video width and height using ffprobe.
+    Returns (width, height) tuple.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_streams",
+                "-select_streams",
+                "v:0",
+                video_path,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        data = json.loads(result.stdout)
+        video_stream = data["streams"][0]
+        width = int(video_stream["width"])
+        height = int(video_stream["height"])
+
+        return (width, height)
+    except (
+        subprocess.CalledProcessError,
+        json.JSONDecodeError,
+        KeyError,
+        IndexError,
+        ValueError,
+    ) as e:
+        logger.warning(f"Failed to get video dimensions: {e}. Using default 1920x1080")
+        return (1920, 1080)  # Default to 1080p if detection fails
+
+
+def _calculate_dynamic_subtitle_params(
+    video_width: int,
+    video_height: int,
+    font_size_percentage: float = 4.0,
+    margin_percentage: float = 5.0,
+) -> Tuple[int, Tuple[int, int, int]]:
+    """
+    Calculate dynamic font size and margins based on video dimensions.
+
+    Args:
+        video_width: Video width in pixels
+        video_height: Video height in pixels
+        font_size_percentage: Font size as percentage of video height (default: 4%)
+        margin_percentage: Margin as percentage of video width/height (default: 5%)
+
+    Returns:
+        Tuple of (font_size, (left_margin, right_margin, vertical_margin))
+    """
+    # Calculate font size as percentage of video height
+    font_size = max(12, int(video_height * (font_size_percentage / 100)))
+
+    # Calculate margins as percentage of video dimensions
+    horizontal_margin = max(20, int(video_width * (margin_percentage / 100)))
+    vertical_margin = max(15, int(video_height * (margin_percentage / 100)))
+
+    return font_size, (horizontal_margin, horizontal_margin, vertical_margin)
+
+
 def _download_video(url: str, path: str) -> None:
     subprocess.run(
         ["yt-dlp", "-f", "mp4", "-o", path, url],
@@ -371,6 +588,9 @@ def add_subtitle_to_video(
     subtitle_highlight_color: str = "cyan",
     use_soft_subtitles: bool = False,
     subtitle_style: str = "outline",
+    font_size_percentage: float = 4.0,
+    margin_percentage: float = 5.0,
+    subtitle_format: str = "mov_text",
 ) -> bytes:
     api_key = os.getenv("OPENAI_API_KEY")
     client = OpenAI(api_key=api_key)
@@ -378,6 +598,11 @@ def add_subtitle_to_video(
         video_path = os.path.join(tmpdir, "input.mp4")
         with open(video_path, "wb") as fh:
             fh.write(content)
+
+        # Get video dimensions for dynamic subtitle sizing
+        video_width, video_height = _get_video_dimensions(video_path)
+        logger.info(f"Video dimensions: {video_width}x{video_height}")
+
         audio_path = os.path.join(tmpdir, "audio.wav")
         subprocess.run(
             [
@@ -409,14 +634,9 @@ def add_subtitle_to_video(
         # 2) Convert to SRT format and handle translation
         subtitles: list[dict[str, str | int]] = []
         if transcript_json.segments:
+            # First, collect all segments without translation
             for i, seg in enumerate(transcript_json.segments, 1):
                 text = seg.text.strip()
-                if origin_language != target_language:
-                    # Translate the segment text
-                    text = translate_text(client, text, target_language)
-
-                # Apply soft wrapping for better readability
-                text = _soft_wrap(text, max_len=42)
 
                 # Convert timestamps to SRT format
                 start_time = f"{int(seg.start // 3600):02d}:{int((seg.start % 3600) // 60):02d}:{seg.start % 60:06.3f}".replace(
@@ -435,6 +655,25 @@ def add_subtitle_to_video(
                     }
                 )
 
+            # Batch translate all subtitles if needed
+            if origin_language != target_language:
+                logger.info(
+                    f"Batch translating {len(subtitles)} subtitle segments from {origin_language} to {target_language}"
+                )
+                subtitles = translate_subtitles_in_batches(
+                    client=client,
+                    subtitles=subtitles,
+                    origin_language=origin_language,
+                    target_language=target_language,
+                    batch_size=160,  # Process up to 160 segments per API call
+                    max_retries=5,
+                    retry_backoff_seconds=1.0,
+                )
+
+            # Apply soft wrapping for better readability to all subtitles
+            for subtitle in subtitles:
+                subtitle["text"] = _soft_wrap(str(subtitle["text"]), max_len=42)
+
         # 3) Write SRT file
         srt_path = os.path.join(tmpdir, "subtitles.srt")
         with open(srt_path, "w", encoding="utf-8") as f:
@@ -444,9 +683,9 @@ def add_subtitle_to_video(
 
         if use_soft_subtitles:
             # 4a) Add soft subtitles (muxed as subtitle track)
-            _mux_soft_subs(video_path, srt_path, output_path)
+            _mux_soft_subs(video_path, srt_path, output_path, subtitle_format,target_language)
         else:
-            # 4b) Burn-in modern styled subtitles
+            # 4b) Burn-in modern styled subtitles with dynamic sizing
             # Convert color names to hex values
             color_map = {
                 "yellow": "FFFF00",
@@ -461,14 +700,23 @@ def add_subtitle_to_video(
                 subtitle_color.lower(), subtitle_color.replace("#", "")
             )
 
-            # Build modern subtitle style
+            # Calculate dynamic subtitle parameters based on video dimensions
+            dynamic_font_size, dynamic_margins = _calculate_dynamic_subtitle_params(
+                video_width, video_height, font_size_percentage, margin_percentage
+            )
+
+            logger.info(
+                f"Dynamic subtitle sizing: font_size={dynamic_font_size}, margins={dynamic_margins}"
+            )
+
+            # Build modern subtitle style with dynamic sizing
             style = build_subtitle_style(
                 preset=subtitle_style,  # 'outline' or 'boxed'
                 font_name="Inter",  # or "Arial" if you prefer
-                font_size=36,
+                font_size=dynamic_font_size,
                 text_hex=text_color,
                 box_alpha_hex="60",  # only used by 'boxed'
-                margins=(60, 60, 50),
+                margins=dynamic_margins,
             )
 
             # Apply subtitles with modern styling
@@ -507,8 +755,11 @@ def add_subtitle_to_video_task(
     subtitle_highlight_color: str = "cyan",
     use_soft_subtitles: bool = False,
     subtitle_style: str = "outline",
+    font_size_percentage: float = 4.0,
+    margin_percentage: float = 5.0,
+    subtitle_format: str = "mov_text",
 ) -> str:  # pragma: no cover - worker
-    load_res = _load_video_from_file(file_id)
+    load_res = _load_video_from_file_id(file_id)
     if load_res.is_err():
         error_msg = load_res.err() or "Unknown error occurred while loading video file"
         raise Exception(error_msg)
@@ -525,6 +776,9 @@ def add_subtitle_to_video_task(
         subtitle_highlight_color,
         use_soft_subtitles,
         subtitle_style,
+        font_size_percentage,
+        margin_percentage,
+        subtitle_format,
     )
     new_file_id = str(uuid.uuid4())
     file_repo = SqlAlchemyFileRepository()
@@ -543,6 +797,63 @@ def add_subtitle_to_video_task(
     return new_file_id
 
 
+@celery_app.task(name="add_subtitle_to_video_from_path")
+def add_subtitle_to_video_from_path_task(
+    file_path: str,
+    origin_language: str,
+    target_language: str,
+    output_path: str,
+    subtitle_color: str = "white",
+    subtitle_background_color: str = "black",
+    subtitle_highlight_color: str = "cyan",
+    use_soft_subtitles: bool = False,
+    subtitle_style: str = "outline",
+    font_size_percentage: float = 4.0,
+    margin_percentage: float = 5.0,
+    subtitle_format: str = "mov_text",
+) -> str:  # pragma: no cover - worker
+    """
+    Add subtitles to a video file from a file path and save to output path.
+    Returns the output file path on success.
+    """
+    load_res = _load_video_from_file_path(file_path)
+    if load_res.is_err():
+        error_msg = load_res.err() or "Unknown error occurred while loading video file"
+        raise Exception(error_msg)
+    content_opt = load_res.ok()
+    if content_opt is None:
+        raise Exception("Unable to load file")
+    content = content_opt
+
+    output_bytes = add_subtitle_to_video(
+        content,
+        origin_language,
+        target_language,
+        subtitle_color,
+        subtitle_background_color,
+        subtitle_highlight_color,
+        use_soft_subtitles,
+        subtitle_style,
+        font_size_percentage,
+        margin_percentage,
+        subtitle_format,
+    )
+
+    # Write output to specified path
+    try:
+        # Create output directory if it doesn't exist
+        output_dir = os.path.dirname(output_path)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
+        with open(output_path, "wb") as f:
+            f.write(output_bytes)
+
+        return output_path
+    except Exception as e:
+        raise Exception(f"Failed to write output file {output_path}: {str(e)}")
+
+
 @final
 class CeleryAddSubtitleTaskQueue(AddSubtitleTaskPort):
     __slots__ = ()
@@ -559,6 +870,9 @@ class CeleryAddSubtitleTaskQueue(AddSubtitleTaskPort):
         subtitle_highlight_color: str = "cyan",
         use_soft_subtitles: bool = False,
         subtitle_style: str = "outline",
+        font_size_percentage: float = 4.0,
+        margin_percentage: float = 5.0,
+        subtitle_format: str = "mov_text",
     ) -> Result[str, str]:
         try:
             task = add_subtitle_to_video_task.delay(
@@ -572,6 +886,9 @@ class CeleryAddSubtitleTaskQueue(AddSubtitleTaskPort):
                 subtitle_highlight_color,
                 use_soft_subtitles,
                 subtitle_style,
+                font_size_percentage,
+                margin_percentage,
+                subtitle_format,
             )
             return Ok(task.id)
         except Exception as exc:  # noqa: BLE001

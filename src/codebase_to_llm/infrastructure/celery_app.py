@@ -24,7 +24,7 @@ celery_app.conf.update(
 # This will register the tasks with the celery_app instance
 try:
     import codebase_to_llm.infrastructure.celery_download_queue  # noqa: F401
-    import codebase_to_llm.infrastructure.celery_translation_queue  # noqa: F401
+    import codebase_to_llm.infrastructure.celery_add_subtitle_queue  # noqa: F401
     import codebase_to_llm.infrastructure.celery_key_insights_queue  # noqa: F401
     import codebase_to_llm.infrastructure.celery_video_summary_queue  # noqa: F401
 except ImportError as e:

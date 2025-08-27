@@ -55,8 +55,8 @@ from codebase_to_llm.infrastructure.logging_metrics_service import (
 from codebase_to_llm.infrastructure.celery_download_queue import (
     CeleryDownloadTaskQueue,
 )
-from codebase_to_llm.infrastructure.celery_translation_queue import (
-    CeleryTranslationTaskQueue,
+from codebase_to_llm.infrastructure.celery_add_subtitle_queue import (
+    CeleryAddSubtitleTaskQueue,
 )
 from codebase_to_llm.infrastructure.celery_key_insights_queue import (
     CeleryKeyInsightsTaskQueue,
@@ -108,7 +108,7 @@ _directory_structure_repo = SqlAlchemyDirectoryRepository()
 _file_storage = GCPFileStorage()
 _metrics = LoggingMetricsService()
 _download_task_queue = CeleryDownloadTaskQueue()
-_translation_task_queue = CeleryTranslationTaskQueue()
+_add_subtitles_task_queue = CeleryAddSubtitleTaskQueue()
 _key_insights_task_queue = CeleryKeyInsightsTaskQueue()
 _summary_task_queue = CeleryVideoSummaryTaskQueue()
 
@@ -172,8 +172,8 @@ def get_download_task_port() -> CeleryDownloadTaskQueue:
     return _download_task_queue
 
 
-def get_translation_task_port() -> CeleryTranslationTaskQueue:
-    return _translation_task_queue
+def get_add_subtitles_task_port() -> CeleryAddSubtitleTaskQueue:
+    return _add_subtitles_task_queue
 
 
 def get_key_insights_task_port() -> CeleryKeyInsightsTaskQueue:

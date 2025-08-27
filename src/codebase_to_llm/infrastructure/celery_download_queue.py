@@ -217,6 +217,7 @@ def download_youtube_section_task(
             ("with_proxy_retry", True),
         ]
         last_error = None
+        output_file = cut_file  # Initialize output_file to avoid UnboundLocalError
 
         for attempt, (strategy_name, use_proxy) in enumerate(strategies, 1):
             try:

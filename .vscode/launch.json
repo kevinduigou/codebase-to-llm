@@ -48,6 +48,16 @@
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env-development"
         },
-       
+        {
+            "name": "Run Test Subtitle Direct",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/test_subtitle_direct.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        }
     ]
 }

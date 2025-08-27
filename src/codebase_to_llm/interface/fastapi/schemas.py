@@ -183,11 +183,17 @@ class YouTubeDownloadRequest(BaseModel):
     name: str
 
 
-class VideoTranslationRequest(BaseModel):
+class VideoAddSubtitleRequest(BaseModel):
     file_id: str
     origin_language: str = "en"
     target_language: str = "en"
-    output_filename: str = "translated.mp4"
+    output_filename: str = "subtitled.mp4"
+    subtitle_color: str = "white"
+    subtitle_style: str = "outline"  # "outline" or "boxed"
+    use_soft_subtitles: bool = True
+    subtitle_format: str = "mov_text"  # "mov_text" or "ass" for soft subtitles
+    font_size_percentage: float = 4.0  # Font size as percentage of video height
+    margin_percentage: float = 5.0  # Margins as percentage of video dimensions
 
 
 class TaskStatusResponse(BaseModel):

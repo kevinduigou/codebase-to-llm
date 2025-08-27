@@ -279,16 +279,24 @@ class DownloadTaskPort(Protocol):
     ) -> Result[tuple[str, str | None], str]: ...  # pragma: no cover
 
 
-class TranslationTaskPort(Protocol):
-    """Port for long-running translation tasks."""
+class AddSubtitleTaskPort(Protocol):
+    """Port for long-running add subtitle tasks."""
 
-    def enqueue_translation(
+    def enqueue_add_subtitles(
         self,
         file_id: str,
         origin_language: str,
         target_language: str,
         owner_id: str,
         output_filename: str,
+        subtitle_color: str = "white",
+        subtitle_background_color: str = "black",
+        subtitle_highlight_color: str = "cyan",
+        use_soft_subtitles: bool = False,
+        subtitle_style: str = "outline",
+        font_size_percentage: float = 4.0,
+        margin_percentage: float = 5.0,
+        subtitle_format: str = "mov_text",
     ) -> Result[str, str]: ...  # pragma: no cover
 
     def get_task_status(

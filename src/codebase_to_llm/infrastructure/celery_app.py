@@ -27,6 +27,7 @@ try:
     import codebase_to_llm.infrastructure.celery_add_subtitle_queue  # noqa: F401
     import codebase_to_llm.infrastructure.celery_key_insights_queue  # noqa: F401
     import codebase_to_llm.infrastructure.celery_video_summary_queue  # noqa: F401
+    import codebase_to_llm.infrastructure.celery_burn_ass_queue  # noqa: F401
 except ImportError as e:
     # Log the error but don't fail - some tasks might not be available in all environments
     import logging

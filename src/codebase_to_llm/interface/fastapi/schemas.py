@@ -217,9 +217,8 @@ class VideoSubtitleResponse(BaseModel):
     subtitle_file_id: str
 
 
-class BurnAssSubtitleRequest(BaseModel):
-    video_content: str
-    subtitle_content: str
+class BurnAssRequest(BaseModel):
+    output_filename: str
 
 
 class Timestamp(BaseModel):

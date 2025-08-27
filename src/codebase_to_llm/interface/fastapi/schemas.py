@@ -299,3 +299,7 @@ class VideoSummaryResponse(BaseModel):
 class AssFileResponse(BaseModel):
     subtitle_file_id: str
     content: str
+
+
+class AssFileUpdateRequest(BaseModel):
+    content: str

@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from codebase_to_llm.application import (
     uc_get_ass_file_by_video_id,
+    uc_update_ass_file_by_video_id,
+    uc_delete_ass_file_by_video_id,
 )
 from codebase_to_llm.domain.user import User
 
@@ -15,6 +17,7 @@ from .dependencies import (
 )
 from .schemas import (
     AssFileResponse,
+    AssFileUpdateRequest,
 )
 
 router = APIRouter(prefix="/video_subtitles", tags=["Video Subtitles"])
@@ -38,3 +41,42 @@ def get_ass_file_by_video_id(
     assert result_data is not None
     subtitle_file_id, content = result_data
     return AssFileResponse(subtitle_file_id=subtitle_file_id, content=content)
+
+
+@router.put("/video/{video_file_id}/ass", summary="Update ASS file by video ID")
+def update_ass_file_by_video_id(
+    video_file_id: str,
+    request: AssFileUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    video_subtitle_repo=Depends(get_video_subtitle_repo),
+    file_repo=Depends(get_file_repo),
+    file_storage=Depends(get_file_storage),
+) -> AssFileResponse:
+    """Replace the ASS subtitle content for a given video file ID."""
+    result = uc_update_ass_file_by_video_id.execute(
+        video_file_id, request.content, video_subtitle_repo, file_repo, file_storage
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    subtitle_file_id = result.ok()
+    assert subtitle_file_id is not None
+    return AssFileResponse(subtitle_file_id=subtitle_file_id, content=request.content)
+
+
+@router.delete("/video/{video_file_id}/ass", summary="Delete ASS file by video ID")
+def delete_ass_file_by_video_id(
+    video_file_id: str,
+    current_user: User = Depends(get_current_user),
+    video_subtitle_repo=Depends(get_video_subtitle_repo),
+    file_repo=Depends(get_file_repo),
+    file_storage=Depends(get_file_storage),
+) -> dict[str, str]:
+    """Delete the ASS subtitle file and its association for a video."""
+    result = uc_delete_ass_file_by_video_id.execute(
+        video_file_id, video_subtitle_repo, file_repo, file_storage
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+    subtitle_file_id = result.ok()
+    assert subtitle_file_id is not None
+    return {"deleted_subtitle_file_id": subtitle_file_id}

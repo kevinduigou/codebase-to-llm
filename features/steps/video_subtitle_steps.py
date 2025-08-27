@@ -1,7 +1,6 @@
 import requests
 import time
 import base64
-import os
 from behave import given, when, then
 from dotenv import load_dotenv
 

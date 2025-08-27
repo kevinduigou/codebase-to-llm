@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from fastapi import APIRouter, Depends, HTTPException
 
 from codebase_to_llm.application import (
@@ -15,9 +14,6 @@ from .dependencies import (
     get_file_storage,
 )
 from .schemas import (
-    VideoSubtitleCreateRequest,
-    VideoSubtitleUpdateRequest,
-    VideoSubtitleResponse,
     AssFileResponse,
 )
 

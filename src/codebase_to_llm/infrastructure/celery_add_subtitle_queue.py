@@ -22,7 +22,11 @@ from codebase_to_llm.infrastructure.gcp_file_storage import GCPFileStorage
 from codebase_to_llm.infrastructure.sqlalchemy_file_repository import (
     SqlAlchemyFileRepository,
 )
+from codebase_to_llm.infrastructure.sqlalchemy_video_subtitle_repository import (
+    SqlAlchemyVideoSubtitleRepository,
+)
 from codebase_to_llm.infrastructure.celery_app import celery_app
+from codebase_to_llm.application import uc_create_video_subtitle
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +130,7 @@ def _soft_wrap(text: str, max_len: int = 42) -> str:
 
 def _mux_soft_subs(
     input_video: str,
-    srt_path: str,
+    subtitle_path: str,
     output_path: str,
     subtitle_format: str = "mov_text",
     target_language="eng",
@@ -145,7 +149,7 @@ def _mux_soft_subs(
                     "-i",
                     input_video,
                     "-i",
-                    srt_path,
+                    subtitle_path,
                     "-c:v",
                     "copy",
                     "-c:a",
@@ -201,7 +205,7 @@ def _mux_soft_subs(
                     "-i",
                     input_video,
                     "-i",
-                    srt_path,
+                    subtitle_path,
                     "-c:v",
                     "copy",
                     "-c:a",
@@ -590,16 +594,16 @@ def add_subtitle_to_video(
     subtitle_color: str = "yellow",
     subtitle_background_color: str = "black",
     subtitle_highlight_color: str = "cyan",
-    use_soft_subtitles: bool = False,
+    use_soft_subtitles: bool = True,
     subtitle_style: str = "outline",
     font_size_percentage: float = 4.0,
     margin_percentage: float = 5.0,
-    subtitle_format: str = "mov_text",
-) -> bytes:
+    subtitle_format: str = "ass",
+) -> tuple[bytes, bytes]:
     api_key = os.getenv("OPENAI_API_KEY")
     client = OpenAI(api_key=api_key)
     with tempfile.TemporaryDirectory() as tmpdir:
-        video_path = os.path.join(tmpdir, "input.mp4")
+        video_path = os.path.join(tmpdir, "input.mkv")
         with open(video_path, "wb") as fh:
             fh.write(content)
 
@@ -683,13 +687,26 @@ def add_subtitle_to_video(
         with open(srt_path, "w", encoding="utf-8") as f:
             f.write(format_srt(subtitles))
 
-        output_path = os.path.join(tmpdir, "output.mp4")
+        output_path = os.path.join(tmpdir, "output.mkv")
 
+        ass_path = srt_path
         if use_soft_subtitles:
             # 4a) Add soft subtitles (muxed as subtitle track)
-            _mux_soft_subs(
-                video_path, srt_path, output_path, subtitle_format, target_language
+            ass_path = os.path.join(tmpdir, "subtitles.ass")
+            subprocess.run(
+                ["ffmpeg", "-i", srt_path, ass_path],
+                check=True,
+                capture_output=True,
+                text=True,
             )
+            if subtitle_format == "ass":
+                _mux_soft_subs(
+                    video_path, ass_path, output_path, subtitle_format, target_language
+                )
+            else:
+                _mux_soft_subs(
+                    video_path, srt_path, output_path, subtitle_format, target_language
+                )
         else:
             # 4b) Burn-in modern styled subtitles with dynamic sizing
             # Convert color names to hex values
@@ -745,8 +762,11 @@ def add_subtitle_to_video(
                 stderr=subprocess.PIPE,
             )
 
-        with open(output_path, "rb") as out_file:
-            return out_file.read()
+        with (
+            open(output_path, "rb") as out_file,
+            open(ass_path if use_soft_subtitles else srt_path, "rb") as sub_file,
+        ):
+            return out_file.read(), sub_file.read()
 
 
 @celery_app.task(name="add_subtitle_to_video")
@@ -759,12 +779,12 @@ def add_subtitle_to_video_task(
     subtitle_color: str = "white",
     subtitle_background_color: str = "black",
     subtitle_highlight_color: str = "cyan",
-    use_soft_subtitles: bool = False,
+    use_soft_subtitles: bool = True,
     subtitle_style: str = "outline",
     font_size_percentage: float = 4.0,
     margin_percentage: float = 5.0,
-    subtitle_format: str = "mov_text",
-) -> str:  # pragma: no cover - worker
+    subtitle_format: str = "ass",
+) -> tuple[str, str]:  # pragma: no cover - worker
     load_res = _load_video_from_file_id(file_id)
     if load_res.is_err():
         error_msg = load_res.err() or "Unknown error occurred while loading video file"
@@ -773,7 +793,7 @@ def add_subtitle_to_video_task(
     if content_opt is None:
         raise Exception("Unable to load file")
     content = content_opt
-    output_bytes = add_subtitle_to_video(
+    output_bytes, subtitle_bytes = add_subtitle_to_video(
         content,
         origin_language,
         target_language,
@@ -787,6 +807,7 @@ def add_subtitle_to_video_task(
         subtitle_format,
     )
     new_file_id = str(uuid.uuid4())
+    subtitle_file_id = str(uuid.uuid4())
     file_repo = SqlAlchemyFileRepository()
     storage = GCPFileStorage()
     add_file_use_case = AddFileUseCase(file_repo, storage)
@@ -800,7 +821,26 @@ def add_subtitle_to_video_task(
     if result.is_err():  # pragma: no cover - validation/network
         error_msg = result.err() or "Unknown error occurred during file persistence"
         raise Exception(error_msg)
-    return new_file_id
+    sub_result = add_file_use_case.execute(
+        id_value=subtitle_file_id,
+        owner_id_value=owner_id,
+        name="subtitles_{output_filename}.ass",
+        content=subtitle_bytes,
+        directory_id_value=None,
+    )
+    if sub_result.is_err():
+        error_msg = (
+            sub_result.err() or "Unknown error occurred during subtitle persistence"
+        )
+        raise Exception(error_msg)
+    # Create association between new processed video file and subtitle file
+    assoc_repo = SqlAlchemyVideoSubtitleRepository()
+    assoc_result = uc_create_video_subtitle.execute(
+        str(uuid.uuid4()), new_file_id, subtitle_file_id, assoc_repo
+    )
+    if assoc_result.is_err():
+        raise Exception(assoc_result.err() or "Failed to associate subtitle")
+    return new_file_id, subtitle_file_id
 
 
 @celery_app.task(name="add_subtitle_to_video_from_path")
@@ -831,7 +871,7 @@ def add_subtitle_to_video_from_path_task(
         raise Exception("Unable to load file")
     content = content_opt
 
-    output_bytes = add_subtitle_to_video(
+    output_bytes, subtitle_bytes = add_subtitle_to_video(
         content,
         origin_language,
         target_language,
@@ -854,7 +894,9 @@ def add_subtitle_to_video_from_path_task(
 
         with open(output_path, "wb") as f:
             f.write(output_bytes)
-
+        sub_path = os.path.splitext(output_path)[0] + ".ass"
+        with open(sub_path, "wb") as f:
+            f.write(subtitle_bytes)
         return output_path
     except Exception as e:
         raise Exception(f"Failed to write output file {output_path}: {str(e)}")
@@ -874,11 +916,11 @@ class CeleryAddSubtitleTaskQueue(AddSubtitleTaskPort):
         subtitle_color: str = "white",
         subtitle_background_color: str = "black",
         subtitle_highlight_color: str = "cyan",
-        use_soft_subtitles: bool = False,
+        use_soft_subtitles: bool = True,
         subtitle_style: str = "outline",
         font_size_percentage: float = 4.0,
         margin_percentage: float = 5.0,
-        subtitle_format: str = "mov_text",
+        subtitle_format: str = "ass",
     ) -> Result[str, str]:
         try:
             task = add_subtitle_to_video_task.delay(
@@ -900,13 +942,31 @@ class CeleryAddSubtitleTaskQueue(AddSubtitleTaskPort):
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))
 
-    def get_task_status(self, task_id: str) -> Result[tuple[str, str | None], str]:
+    def get_task_status(
+        self, task_id: str
+    ) -> Result[tuple[str, str | None, str | None], str]:
         try:
             async_result = celery_app.AsyncResult(task_id)
             status = async_result.status
             if async_result.successful():
-                file_id = str(async_result.get())
-                return Ok((status, file_id))
-            return Ok((status, None))
+                result = async_result.get()
+                # Handle different result formats that Celery might return
+                if isinstance(result, tuple) and len(result) == 2:
+                    return Ok((status, result[0], result[1]))
+                elif isinstance(result, list) and len(result) == 2:
+                    return Ok((status, result[0], result[1]))
+                elif isinstance(result, str):
+                    # Try to parse string representation of list/tuple
+                    import ast
+
+                    try:
+                        parsed = ast.literal_eval(result)
+                        if isinstance(parsed, (list, tuple)) and len(parsed) == 2:
+                            return Ok((status, parsed[0], parsed[1]))
+                    except (ValueError, SyntaxError):
+                        pass
+                    return Ok((status, result, None))
+                return Ok((status, str(result), None))
+            return Ok((status, None, None))
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))

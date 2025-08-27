@@ -70,6 +70,12 @@ from codebase_to_llm.infrastructure.celery_video_summary_queue import (
 from codebase_to_llm.infrastructure.sqlalchemy_video_summary_repository import (
     SqlAlchemyVideoSummaryRepository,
 )
+from codebase_to_llm.infrastructure.sqlalchemy_video_subtitle_repository import (
+    SqlAlchemyVideoSubtitleRepository,
+)
+from codebase_to_llm.infrastructure.ffmpeg_burn_ass_subtitle import (
+    FFMPEGBurnAssSubtitle,
+)
 
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
@@ -111,6 +117,8 @@ _download_task_queue = CeleryDownloadTaskQueue()
 _add_subtitles_task_queue = CeleryAddSubtitleTaskQueue()
 _key_insights_task_queue = CeleryKeyInsightsTaskQueue()
 _summary_task_queue = CeleryVideoSummaryTaskQueue()
+_video_subtitle_repo = SqlAlchemyVideoSubtitleRepository()
+_burn_ass_port = FFMPEGBurnAssSubtitle()
 
 
 def get_user_repositories(user: User) -> tuple[
@@ -190,3 +198,19 @@ def get_video_key_insights_repository() -> SqlAlchemyVideoKeyInsightsRepository:
 
 def get_video_summary_repository() -> SqlAlchemyVideoSummaryRepository:
     return SqlAlchemyVideoSummaryRepository()
+
+
+def get_video_subtitle_repo() -> SqlAlchemyVideoSubtitleRepository:
+    return _video_subtitle_repo
+
+
+def get_burn_ass_port() -> FFMPEGBurnAssSubtitle:
+    return _burn_ass_port
+
+
+def get_file_repo() -> SqlAlchemyFileRepository:
+    return _file_repo
+
+
+def get_file_storage() -> GCPFileStorage:
+    return _file_storage

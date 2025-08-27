@@ -13,10 +13,10 @@ def enqueue_video_add_subtitles(
     task_port: AddSubtitleTaskPort,
     subtitle_color: str = "white",
     subtitle_style: str = "outline",
-    use_soft_subtitles: bool = False,
+    use_soft_subtitles: bool = True,
     font_size_percentage: float = 4.0,
     margin_percentage: float = 5.0,
-    subtitle_format: str = "mov_text",
+    subtitle_format: str = "ass",
 ) -> Result[str, str]:
     return task_port.enqueue_add_subtitles(
         file_id,
@@ -37,5 +37,5 @@ def enqueue_video_add_subtitles(
 
 def get_add_subtitles_status(
     task_id: str, task_port: AddSubtitleTaskPort
-) -> Result[tuple[str, str | None], str]:
+) -> Result[tuple[str, str | None, str | None], str]:
     return task_port.get_task_status(task_id)

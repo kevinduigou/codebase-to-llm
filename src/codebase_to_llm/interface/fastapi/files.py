@@ -4,7 +4,7 @@ import mimetypes
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File, Form
 
 from codebase_to_llm.application.uc_add_file import AddFileUseCase
 from codebase_to_llm.application.uc_get_file import GetFileUseCase
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/files", tags=["File Management"])
 def upload_file(
     request: UploadFileRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-) -> dict[str, str]:
+) -> dict[str, str | int]:
     """Upload a new file to the system."""
     file_id = str(uuid.uuid4())
     use_case = AddFileUseCase(_file_repo, _file_storage)
@@ -39,6 +39,89 @@ def upload_file(
     file = result.ok()
     assert file is not None
     return {"id": file.id().value(), "name": file.name()}
+
+
+@router.post("/upload-from-desktop", summary="Upload a file from desktop")
+async def upload_file_from_desktop(
+    file: UploadFile = File(...),
+    directory_id: str | None = Form(None),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str | int]:
+    """Upload a file from desktop to the system."""
+    # File size validation (10MB limit)
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+    # Read file content
+    content = await file.read()
+
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)}MB",
+        )
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="File must have a filename")
+
+    # Validate file type (basic security check)
+    allowed_extensions = {
+        ".txt",
+        ".md",
+        ".py",
+        ".js",
+        ".ts",
+        ".html",
+        ".css",
+        ".json",
+        ".xml",
+        ".yaml",
+        ".yml",
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".mp4",
+        ".avi",
+        ".mkv",
+        ".mp3",
+        ".wav",
+        ".zip",
+        ".tar",
+        ".gz",
+    }
+
+    file_extension = (
+        "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
+    )
+    if file_extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type not allowed. Allowed extensions: {', '.join(sorted(allowed_extensions))}",
+        )
+
+    file_id = str(uuid.uuid4())
+    use_case = AddFileUseCase(_file_repo, _file_storage)
+    result = use_case.execute(
+        file_id,
+        current_user.id().value(),
+        file.filename,
+        content,
+        directory_id,
+    )
+    if result.is_err():
+        raise HTTPException(status_code=400, detail=result.err())
+
+    uploaded_file = result.ok()
+    assert uploaded_file is not None
+    return {
+        "id": uploaded_file.id().value(),
+        "name": uploaded_file.name(),
+        "size": len(content),
+        "content_type": file.content_type or "application/octet-stream",
+    }
 
 
 @router.get("/", summary="List all files")

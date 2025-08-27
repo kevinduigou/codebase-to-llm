@@ -187,11 +187,11 @@ class VideoAddSubtitleRequest(BaseModel):
     file_id: str
     origin_language: str = "en"
     target_language: str = "en"
-    output_filename: str = "subtitled.mp4"
+    output_filename: str = "subtitled.mkv"
     subtitle_color: str = "white"
     subtitle_style: str = "outline"  # "outline" or "boxed"
     use_soft_subtitles: bool = True
-    subtitle_format: str = "mov_text"  # "mov_text" or "ass" for soft subtitles
+    subtitle_format: str = "ass"  # "mov_text" or "ass" for soft subtitles
     font_size_percentage: float = 4.0  # Font size as percentage of video height
     margin_percentage: float = 5.0  # Margins as percentage of video dimensions
 
@@ -199,6 +199,27 @@ class VideoAddSubtitleRequest(BaseModel):
 class TaskStatusResponse(BaseModel):
     status: str
     file_id: str | None = None
+    subtitle_file_id: str | None = None
+
+
+class VideoSubtitleCreateRequest(BaseModel):
+    video_file_id: str
+    subtitle_file_id: str
+
+
+class VideoSubtitleUpdateRequest(BaseModel):
+    subtitle_file_id: str
+
+
+class VideoSubtitleResponse(BaseModel):
+    id: str
+    video_file_id: str
+    subtitle_file_id: str
+
+
+class BurnAssSubtitleRequest(BaseModel):
+    video_content: str
+    subtitle_content: str
 
 
 class Timestamp(BaseModel):
@@ -273,3 +294,8 @@ class VideoSummaryResponse(BaseModel):
     segments: list[SummarySegmentResponse]
     created_at: str
     updated_at: str
+
+
+class AssFileResponse(BaseModel):
+    subtitle_file_id: str
+    content: str

@@ -31,6 +31,8 @@ from .llm import router as llm_router
 from .recent import router as recent_router
 from .downloads import router as downloads_router
 from .add_subtitles import router as add_subtitles_router
+from .video_subtitles import router as video_subtitles_router
+from .burn_ass import router as burn_ass_router
 from .key_insights import router as key_insights_router
 from .video_summary import router as video_summary_router
 from .stream import router as stream_router
@@ -68,6 +70,8 @@ app.include_router(llm_router)
 app.include_router(recent_router)
 app.include_router(downloads_router)
 app.include_router(add_subtitles_router)
+app.include_router(video_subtitles_router)
+app.include_router(burn_ass_router)
 app.include_router(key_insights_router)
 app.include_router(video_summary_router)
 app.include_router(stream_router)

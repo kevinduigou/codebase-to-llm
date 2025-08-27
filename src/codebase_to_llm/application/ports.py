@@ -25,6 +25,7 @@ from codebase_to_llm.domain.rules import Rules
 from codebase_to_llm.domain.favorite_prompts import FavoritePrompts
 from codebase_to_llm.domain.model import Models, Model, ModelId
 from codebase_to_llm.domain.stored_file import StoredFile, StoredFileId
+from codebase_to_llm.domain.video_subtitle import VideoSubtitle, VideoSubtitleId
 from codebase_to_llm.domain.directory import Directory, DirectoryId
 from codebase_to_llm.domain.video_key_insights import (
     VideoKeyInsights,
@@ -239,6 +240,26 @@ class FileRepositoryPort(Protocol):
     ) -> Result[list[StoredFile], str]: ...  # pragma: no cover
 
 
+class VideoSubtitleRepositoryPort(Protocol):
+    """Port for associating videos with ASS subtitle files."""
+
+    def add(
+        self, association: VideoSubtitle
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def get(
+        self, association_id: VideoSubtitleId
+    ) -> Result[VideoSubtitle, str]: ...  # pragma: no cover
+
+    def update(
+        self, association: VideoSubtitle
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+    def remove(
+        self, association_id: VideoSubtitleId
+    ) -> Result[None, str]: ...  # pragma: no cover
+
+
 class DirectoryStructureRepositoryPort(Protocol):
     """Port for CRUD operations on user directories."""
 
@@ -292,16 +313,24 @@ class AddSubtitleTaskPort(Protocol):
         subtitle_color: str = "white",
         subtitle_background_color: str = "black",
         subtitle_highlight_color: str = "cyan",
-        use_soft_subtitles: bool = False,
+        use_soft_subtitles: bool = True,
         subtitle_style: str = "outline",
         font_size_percentage: float = 4.0,
         margin_percentage: float = 5.0,
-        subtitle_format: str = "mov_text",
+        subtitle_format: str = "ass",
     ) -> Result[str, str]: ...  # pragma: no cover
 
     def get_task_status(
         self, task_id: str
-    ) -> Result[tuple[str, str | None], str]: ...  # pragma: no cover
+    ) -> Result[tuple[str, str | None, str | None], str]: ...  # pragma: no cover
+
+
+class BurnAssSubtitlePort(Protocol):
+    """Port for burning ASS subtitles into MKV videos."""
+
+    def burn_ass_subtitle(
+        self, video: bytes, subtitle: bytes
+    ) -> Result[bytes, str]: ...  # pragma: no cover
 
 
 class KeyInsightsTaskPort(Protocol):

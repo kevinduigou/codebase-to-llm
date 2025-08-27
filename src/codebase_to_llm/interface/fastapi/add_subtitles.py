@@ -51,5 +51,7 @@ def check_add_subtitles_task(
         raise HTTPException(status_code=400, detail=result.err())
     data = result.ok()
     assert data is not None
-    status, file_id = data
-    return TaskStatusResponse(status=status, file_id=file_id)
+    status, file_id, subtitle_file_id = data
+    return TaskStatusResponse(
+        status=status, file_id=file_id, subtitle_file_id=subtitle_file_id
+    )

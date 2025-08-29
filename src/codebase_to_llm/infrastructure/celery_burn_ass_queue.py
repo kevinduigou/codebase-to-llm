@@ -56,7 +56,7 @@ def burn_ass_subtitle_task(
     file_repo = SqlAlchemyFileRepository()
     storage = GCPFileStorage()
     subtitle_res = uc_get_ass_file_by_video_id.execute(
-        video_file_id, video_subtitle_repo, file_repo, storage
+        video_file_id, owner_id, video_subtitle_repo, file_repo, storage
     )
     if subtitle_res.is_err():  # pragma: no cover - worker
         raise Exception(subtitle_res.err() or "Subtitle retrieval failed")

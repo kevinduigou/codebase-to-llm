@@ -280,8 +280,11 @@ def step_video_summary_should_contain_multiple_segments(context):
 @when("I create a video summary from the task result")
 def step_create_video_summary_from_task_result(context):
     # Create a video summary using the segments from the completed task
+    title = context.completed_task_data.get(
+        "title", f"YouTube Video Summary - {context.youtube_video_url}"
+    )
     video_summary_data = {
-        "title": f"YouTube Video Summary - {context.youtube_video_url}",
+        "title": title,
         "segments": context.task_segments,
     }
 

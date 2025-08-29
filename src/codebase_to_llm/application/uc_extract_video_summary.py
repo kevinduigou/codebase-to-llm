@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import final, cast
 from pydantic import BaseModel, ConfigDict
 
@@ -24,10 +22,11 @@ PROMPT_TEMPLATE = (
     "   - second: integer (0-59)\n\n"
     "IMPORTANT: \n"
     "In most transcript hour is absent, if timestamp as only 2 element mm:ss, it means hour shall be set to 0"
+    "Finally provide a concise title summarizing the video in the field 'title'\n"
     'The output language shall be "{target_language}"\n\n'
     "Example format:\n"
-    'begin_timestamp: {{"hour": 0, "minute": 1, "second": 30}}\n'
-    'end_timestamp: {{"hour": 0, "minute": 3, "second": 45}}'
+    'begin_timestamp: {"hour": 0, "minute": 1, "second": 30}\n'
+    'end_timestamp: {"hour": 0, "minute": 3, "second": 45}'
 )
 
 
@@ -48,7 +47,8 @@ class SummarySegment(BaseModel):
 
 
 @final
-class SummarySegments(BaseModel):
+class SummaryResult(BaseModel):
+    title: str
     segments: list[SummarySegment]
 
     model_config = ConfigDict(frozen=True)
@@ -65,7 +65,7 @@ class ExtractVideoSummaryUseCase:
         llm_adapter: LLMAdapterPort,
         model_repo: ModelRepositoryPort,
         api_key_repo: ApiKeyRepositoryPort,
-    ) -> Result[list[SummarySegment], str]:
+    ) -> Result[SummaryResult, str]:
         transcript_result = external_repo.fetch_youtube_transcript(
             url, include_timestamps=True
         )
@@ -91,18 +91,17 @@ class ExtractVideoSummaryUseCase:
         )
 
         response_result = llm_adapter.structured_output(
-            prompt, model_name, api_key, SummarySegments
+            prompt, model_name, api_key, SummaryResult
         )
         if response_result.is_err():
             return Err(response_result.err() or "Error generating summary")
         parsed = response_result.ok()
         if parsed is None:
             return Err("Failed to parse summary")
-        segments_model = cast(SummarySegments, parsed)
+        summary_model = cast(SummaryResult, parsed)
 
-        # Validate and fix invalid timestamps
         validated_segments = []
-        for i, segment in enumerate(segments_model.segments):
+        for i, segment in enumerate(summary_model.segments):
             begin_seconds = (
                 segment.begin_timestamp.hour * 3600
                 + segment.begin_timestamp.minute * 60
@@ -113,16 +112,9 @@ class ExtractVideoSummaryUseCase:
                 + segment.end_timestamp.minute * 60
                 + segment.end_timestamp.second
             )
-
-            # If timestamps are invalid (both zero or begin >= end), create fallback timestamps
             if begin_seconds >= end_seconds:
-                # Create fallback timestamps based on segment index
-                fallback_begin_minutes = i * 2  # Each segment starts 2 minutes apart
-                fallback_end_minutes = (
-                    fallback_begin_minutes + 1
-                )  # Each segment is 1 minute long
-
-                # Create new segment with corrected timestamps
+                fallback_begin_minutes = i * 2
+                fallback_end_minutes = fallback_begin_minutes + 1
                 corrected_segment = SummarySegment(
                     content=segment.content,
                     video_url=segment.video_url,
@@ -141,4 +133,4 @@ class ExtractVideoSummaryUseCase:
             else:
                 validated_segments.append(segment)
 
-        return Ok(validated_segments)
+        return Ok(SummaryResult(title=summary_model.title, segments=validated_segments))

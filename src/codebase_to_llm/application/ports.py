@@ -351,7 +351,7 @@ class KeyInsightsTaskPort(Protocol):
 
     def get_task_status(
         self, task_id: str
-    ) -> Result[tuple[str, list[dict[str, str]] | None], str]: ...  # pragma: no cover
+    ) -> Result[tuple[str, dict[str, object] | None], str]: ...  # pragma: no cover
 
 
 class SummaryTaskPort(Protocol):
@@ -363,9 +363,7 @@ class SummaryTaskPort(Protocol):
 
     def get_task_status(
         self, task_id: str
-    ) -> Result[
-        tuple[str, list[dict[str, object]] | None], str
-    ]: ...  # pragma: no cover
+    ) -> Result[tuple[str, dict[str, object] | None], str]: ...  # pragma: no cover
 
 
 class VideoKeyInsightsRepositoryPort(Protocol):

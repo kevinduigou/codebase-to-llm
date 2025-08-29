@@ -19,5 +19,5 @@ def enqueue_key_insights_extraction(
 
 def get_key_insights_status(
     task_id: str, task_port: KeyInsightsTaskPort
-) -> Result[tuple[str, list[dict[str, str]] | None], str]:
+) -> Result[tuple[str, dict[str, object] | None], str]:
     return task_port.get_task_status(task_id)

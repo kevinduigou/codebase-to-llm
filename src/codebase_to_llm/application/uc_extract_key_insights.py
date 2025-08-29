@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import final, cast
 from pydantic import BaseModel, ConfigDict
 
@@ -16,6 +14,7 @@ from codebase_to_llm.domain.result import Err, Ok, Result
 PROMPT_TEMPLATE = (
     "Extract {number_of_key_insights} Key Insights from the transcript\n\n"
     "Then Extract the begin and end of timestamp where this Key Insights is expressed\n"
+    "Finally provide a concise title summarizing the video in the field 'title'\n"
     'The output language shall be "{target_language}"\n\n'
 )
 
@@ -31,7 +30,8 @@ class KeyInsight(BaseModel):
 
 
 @final
-class KeyInsights(BaseModel):
+class KeyInsightsResult(BaseModel):
+    title: str
     insights: list[KeyInsight]
 
     model_config = ConfigDict(frozen=True)
@@ -49,7 +49,7 @@ class ExtractKeyInsightsUseCase:
         llm_adapter: LLMAdapterPort,
         model_repo: ModelRepositoryPort,
         api_key_repo: ApiKeyRepositoryPort,
-    ) -> Result[list[KeyInsight], str]:
+    ) -> Result[KeyInsightsResult, str]:
         transcript_result = external_repo.fetch_youtube_transcript(
             url, include_timestamps=True
         )
@@ -78,12 +78,12 @@ class ExtractKeyInsightsUseCase:
         )
 
         response_result = llm_adapter.structured_output(
-            prompt, model_name, api_key, KeyInsights
+            prompt, model_name, api_key, KeyInsightsResult
         )
         if response_result.is_err():
             return Err(response_result.err() or "Error generating key insights")
         parsed = response_result.ok()
         if parsed is None:
             return Err("Failed to parse key insights")
-        insights_model = cast(KeyInsights, parsed)
-        return Ok(insights_model.insights)
+        insights_model = cast(KeyInsightsResult, parsed)
+        return Ok(insights_model)

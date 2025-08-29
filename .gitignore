@@ -20,3 +20,4 @@ docker/env-vars-dev.env
 .clinerules/cli_redis.md
 scripts/*
 docker/build-and-push-api-only.sh
+test_output_video.mp4

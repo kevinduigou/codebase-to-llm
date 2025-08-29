@@ -52,6 +52,36 @@ class OpenAILLMAdapter(LLMAdapterPort):
             print(f"Error generating response: {e}")
             return Err(f"Error generating response: {e}")
 
+    def generate_response_deprecated(
+        self,
+        prompt: str,
+        model: str,
+        api_key: ApiKey,
+        previous_response_id: str | None = None,
+    ) -> Result[Stream[Any], str]:
+        print(f"Generating response for {model} with API key {api_key}")
+        print(f"Prompt: {prompt}")
+        print(f"Model: {model}")
+
+        api_key_value = api_key.api_key_value().value()
+        print("--------------------------------")
+
+        if self._is_anthropic_model(model):
+            return Err("Streaming not implemented for Anthropic models")
+
+        client = OpenAI(api_key=api_key_value)
+        try:
+            response: Stream = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True,
+            )
+
+            return Ok(response)
+        except Exception as e:
+            print(f"Error generating response: {e}")
+            return Err(f"Error generating response: {e}")
+
     def structured_output(
         self,
         prompt: str,

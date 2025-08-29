@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -56,6 +56,16 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
+
+@app.middleware("http")
+async def add_csp_header(request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = (
+        "connect-src 'self' https: http://127.0.0.1:8000 ws://127.0.0.1:8000;"
+    )
+    return response
+
+
 app.include_router(ui_router)
 app.include_router(auth_router)
 app.include_router(api_keys_router)
@@ -103,6 +113,7 @@ def validate_user_legacy(token: str) -> FileResponse:
 
 @app.post("/token")
 def login_for_access_token_legacy(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ) -> Token:
-    return login_for_access_token(form_data)
+    return login_for_access_token(request, form_data)

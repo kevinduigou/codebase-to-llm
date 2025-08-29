@@ -62,10 +62,10 @@ def _yt_dlp_base_cmd(
         "-f",
         FORMAT_SELECTION,
         "-o",
-        output_file,  # include .mp4 in output_file
+        output_file,  # include .mkv in output_file
         "--no-playlist",
         "--merge-output-format",
-        "mp4",
+        "mkv",
         "--force-ipv4",
         "--retries",
         "5",
@@ -208,8 +208,8 @@ def download_youtube_section_task(
     )
     name = sanitize_filename(name)
     with tempfile.TemporaryDirectory() as tmpdir:
-        raw_file = os.path.join(tmpdir, f"{name}.full.mp4")
-        cut_file = os.path.join(tmpdir, f"{name}.mp4")
+        raw_file = os.path.join(tmpdir, f"{name}.full.mkv")
+        cut_file = os.path.join(tmpdir, f"{name}.mkv")
 
         strategies = [
             ("without_proxy", False),
@@ -290,7 +290,7 @@ def download_youtube_section_task(
     result = add_file_use_case.execute(
         id_value=file_id,
         owner_id_value=owner_id,
-        name=name + ".mp4" if not name.lower().endswith(".mp4") else name,
+        name=name + ".mkv" if not name.lower().endswith(".mkv") else name,
         content=content,
         directory_id_value=None,
     )

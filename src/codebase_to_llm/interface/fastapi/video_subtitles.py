@@ -30,7 +30,11 @@ def get_ass_file_by_video_id(
 ) -> AssFileResponse:
     """Get the ASS subtitle file ID and content for a given video file ID."""
     result = uc_get_ass_file_by_video_id.execute(
-        video_file_id, video_subtitle_repo, file_repo, file_storage
+        video_file_id,
+        current_user.id().value(),
+        video_subtitle_repo,
+        file_repo,
+        file_storage,
     )
     if result.is_err():
         raise HTTPException(status_code=404, detail=result.err())

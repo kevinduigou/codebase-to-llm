@@ -262,6 +262,74 @@ def format_srt(subtitles: list[dict[str, str | int]]) -> str:
     return srt_content
 
 
+def _srt_to_ass_time(srt_time: str) -> str:
+    """Convert SRT time format (HH:MM:SS,mmm) to ASS format (H:MM:SS.cc)"""
+    # SRT: 00:01:23,456 -> ASS: 0:01:23.45
+    time_part, ms_part = srt_time.split(",")
+    # Convert milliseconds to centiseconds (ASS uses centiseconds)
+    cs = int(ms_part) // 10
+    # Remove leading zero from hours if present
+    h, m, s = time_part.split(":")
+    h = str(int(h))  # Remove leading zero
+    return f"{h}:{m}:{s}.{cs:02d}"
+
+
+def format_ass(
+    subtitles: list[dict[str, str | int]],
+    style_name: str = "Default",
+    font_name: str = "Inter",
+    font_size: int = 36,
+    text_color: str = "FFFFFF",
+    margins: tuple[int, int, int] = (60, 60, 50),
+    preset: str = "outline",
+) -> str:
+    """Convert subtitles to ASS format with proper styling"""
+    ml, mr, mv = margins
+    text_color_ass = _ass_color_from_hex(text_color, "00")
+    outline_color = _ass_color_from_hex("202020", "00")
+    back_color = _ass_color_from_hex("000000", "60")
+
+    if preset == "boxed":
+        style_line = (
+            f"Style: {style_name},FontName={font_name},FontSize={font_size},"
+            f"PrimaryColour={text_color_ass},BackColour={back_color},"
+            f"BorderStyle=3,Outline=0,Shadow=0,"
+            f"Alignment=2,WrapStyle=2,ScaleBorderAndShadow=1,"
+            f"MarginL={ml},MarginR={mr},MarginV={mv}"
+        )
+    else:
+        # Default: modern outline + subtle shadow
+        style_line = (
+            f"Style: {style_name},FontName={font_name},FontSize={font_size},"
+            f"PrimaryColour={text_color_ass},OutlineColour={outline_color},"
+            f"BorderStyle=1,Outline=2,Shadow=1,"
+            f"Alignment=2,WrapStyle=2,ScaleBorderAndShadow=1,"
+            f"MarginL={ml},MarginR={mr},MarginV={mv}"
+        )
+
+    ass_content = f"""[Script Info]
+Title: Generated Subtitles
+ScriptType: v4.00+
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+{style_line}
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+
+    for sub in subtitles:
+        start_time = _srt_to_ass_time(str(sub["start"]))
+        end_time = _srt_to_ass_time(str(sub["end"]))
+        text = str(sub["text"]).replace("\n", "\\N")  # ASS uses \N for line breaks
+        ass_content += (
+            f"Dialogue: 0,{start_time},{end_time},{style_name},,0,0,0,,{text}\n"
+        )
+
+    return ass_content
+
+
 def translate_text(client: OpenAI, text: str, target_language: str) -> str:
     language_names = {
         "fr": "French",
@@ -578,15 +646,6 @@ def _calculate_dynamic_subtitle_params(
     return font_size, (horizontal_margin, horizontal_margin, vertical_margin)
 
 
-def _download_video(url: str, path: str) -> None:
-    subprocess.run(
-        ["yt-dlp", "-f", "mp4", "-o", path, url],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-
 def add_subtitle_to_video(
     content: bytes,
     origin_language: str,
@@ -682,28 +741,62 @@ def add_subtitle_to_video(
             for subtitle in subtitles:
                 subtitle["text"] = _soft_wrap(str(subtitle["text"]), max_len=42)
 
-        # 3) Write SRT file
+        # 3) Write subtitle files based on format
         srt_path = os.path.join(tmpdir, "subtitles.srt")
         with open(srt_path, "w", encoding="utf-8") as f:
             f.write(format_srt(subtitles))
 
         output_path = os.path.join(tmpdir, "output.mkv")
 
+        # Calculate dynamic subtitle parameters for ASS format
+        dynamic_font_size, dynamic_margins = _calculate_dynamic_subtitle_params(
+            video_width, video_height, font_size_percentage, margin_percentage
+        )
+
+        # Convert color names to hex values for ASS
+        color_map = {
+            "yellow": "FFFF00",
+            "black": "000000",
+            "white": "FFFFFF",
+            "red": "FF0000",
+            "green": "00FF00",
+            "blue": "0000FF",
+            "cyan": "00FFFF",
+        }
+        text_color = color_map.get(
+            subtitle_color.lower(), subtitle_color.replace("#", "")
+        )
+
         ass_path = srt_path
         if use_soft_subtitles:
             # 4a) Add soft subtitles (muxed as subtitle track)
-            ass_path = os.path.join(tmpdir, "subtitles.ass")
-            subprocess.run(
-                ["ffmpeg", "-i", srt_path, ass_path],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
             if subtitle_format == "ass":
+                # Generate ASS file directly with proper styling
+                ass_path = os.path.join(tmpdir, "subtitles.ass")
+                with open(ass_path, "w", encoding="utf-8") as f:
+                    f.write(
+                        format_ass(
+                            subtitles,
+                            style_name="Default",
+                            font_name="Inter",
+                            font_size=dynamic_font_size,
+                            text_color=text_color,
+                            margins=dynamic_margins,
+                            preset=subtitle_style,
+                        )
+                    )
                 _mux_soft_subs(
                     video_path, ass_path, output_path, subtitle_format, target_language
                 )
             else:
+                # Convert SRT to ASS using ffmpeg for other formats
+                ass_path = os.path.join(tmpdir, "subtitles.ass")
+                subprocess.run(
+                    ["ffmpeg", "-i", srt_path, ass_path],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
                 _mux_soft_subs(
                     video_path, srt_path, output_path, subtitle_format, target_language
                 )
@@ -824,7 +917,7 @@ def add_subtitle_to_video_task(
     sub_result = add_file_use_case.execute(
         id_value=subtitle_file_id,
         owner_id_value=owner_id,
-        name="subtitles_{output_filename}.ass",
+        name=f"subtitles_{output_filename}.ass",
         content=subtitle_bytes,
         directory_id_value=None,
     )

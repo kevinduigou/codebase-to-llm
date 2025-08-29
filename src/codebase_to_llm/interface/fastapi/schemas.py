@@ -331,3 +331,14 @@ class AssFileUpdateRequest(BaseModel):
         if "content" in data:
             data["content"] = self.validate_ass_content(data["content"])
         super().__init__(**data)
+
+
+class MagicAssRequest(BaseModel):
+    content: str
+    prompt: str
+    model_id: str
+
+    def __init__(self, **data):
+        if "content" in data:
+            data["content"] = AssFileUpdateRequest.validate_ass_content(data["content"])
+        super().__init__(**data)

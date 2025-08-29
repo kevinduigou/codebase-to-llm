@@ -199,6 +199,14 @@ class LLMAdapterPort(Protocol):
         previous_response_id: str | None = None,
     ) -> Result[Stream[Any], str]: ...  # pragma: no cover
 
+    def generate_response_deprecated(
+        self,
+        prompt: str,
+        model: str,
+        api_key: ApiKey,
+        previous_response_id: str | None = None,
+    ) -> Result[Stream[Any], str]: ...  # pragma: no cover
+
     def structured_output(
         self,
         prompt: str,

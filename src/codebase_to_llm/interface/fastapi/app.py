@@ -56,6 +56,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
+
 @app.middleware("http")
 async def add_csp_header(request, call_next):
     response = await call_next(request)
@@ -63,6 +64,7 @@ async def add_csp_header(request, call_next):
         "connect-src 'self' https: http://127.0.0.1:8000 ws://127.0.0.1:8000;"
     )
     return response
+
 
 app.include_router(ui_router)
 app.include_router(auth_router)

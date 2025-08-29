@@ -22,7 +22,10 @@ Feature: Complete Video Processing Black Box Workflow
     
     When I get the subtitle content via GET "/video_subtitles/video/{video_file_id}/ass"
     Then I should receive the subtitle file content
-    
+
+    When I transform the subtitle content via GET "/video_subtitles/video/{video_file_id}/magic_ass"
+    Then I should receive the transformed subtitle content
+
     When I modify the subtitle content by replacing "RAC" with "RAGGGGGGG"
     And I update the subtitle content via PUT "/video_subtitles/video/{video_file_id}/ass"
     Then the subtitle content should be updated successfully

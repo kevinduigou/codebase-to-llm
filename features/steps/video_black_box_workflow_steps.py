@@ -137,6 +137,30 @@ def step_receive_subtitle_file_content(context):
     print(f"Retrieved subtitle content (first 200 chars): {context.original_subtitle_content[:200]}...")
 
 
+@when('I transform the subtitle content via GET "/video_subtitles/video/{video_file_id}/magic_ass"')
+def step_transform_subtitle_content(context, video_file_id):
+    request = {
+        "content": context.original_subtitle_content,
+        "prompt": "Subtitle shall be purple Glow",
+    }
+    response = requests.get(
+        f"{context.base_url}/video_subtitles/video/{context.video_with_subtitles_file_id}/magic_ass",
+        json=request,
+        headers=context.auth_headers,
+    )
+    context.magic_ass_response = response
+    if response.status_code == 200:
+        context.magic_ass_content = response.text
+
+
+@then("I should receive the transformed subtitle content")
+def step_receive_transformed_subtitle_content(context):
+    assert (
+        context.magic_ass_response.status_code == 200
+    ), f"Expected 200, got {context.magic_ass_response.status_code}: {context.magic_ass_response.text}"
+    assert context.magic_ass_content, "Transformed content should not be empty"
+
+
 @when('I modify the subtitle content by replacing "RAC" with "RAGGGGGGG"')
 def step_modify_subtitle_content(context):
     """Modify the subtitle content by replacing RAC with RAGGGGGGG."""

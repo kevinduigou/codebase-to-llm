@@ -413,8 +413,11 @@ def step_create_video_key_insights_from_task_result(context):
             }
         )
 
+    title = context.completed_task_data.get(
+        "title", f"YouTube Video Key Insights - {context.youtube_video_url}"
+    )
     video_key_insights_data = {
-        "title": f"YouTube Video Key Insights - {context.youtube_video_url}",
+        "title": title,
         "key_insights": converted_insights,
     }
     context.test_video_key_insights = video_key_insights_data

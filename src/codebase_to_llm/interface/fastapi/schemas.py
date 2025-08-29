@@ -147,6 +147,7 @@ class KeyInsightResponse(BaseModel):
 
 class KeyInsightsTaskStatusResponse(BaseModel):
     status: str
+    title: str | None = None
     insights: list[KeyInsightResponse] | None = None
 
 
@@ -267,6 +268,7 @@ class SummarySegmentResponse(BaseModel):
 
 class SummaryTaskStatusResponse(BaseModel):
     status: str
+    title: str | None = None
     segments: list[SummarySegmentResponse] | None = None
 
 

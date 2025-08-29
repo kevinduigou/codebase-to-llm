@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from typing import cast
 
 from codebase_to_llm.application.ports import (
     KeyInsightsTaskPort,
@@ -183,18 +184,20 @@ def check_key_insights_task(
         raise HTTPException(status_code=400, detail=result.err())
     data = result.ok()
     assert data is not None
-    status, insights = data
+    status, insights_data = data
 
+    title = None
     parsed = None
-    if insights:
+    if insights_data:
+        title = cast(str | None, insights_data.get("title"))
+        insights_list = cast(list[dict[str, object]], insights_data.get("insights", []))
         parsed = []
-        for i in insights:
+        for i in insights_list:
             # Handle both old string format and new dict format for backward compatibility
             begin_ts = i.get("begin_timestamp", "00:00:00")
             end_ts = i.get("end_timestamp", "00:00:00")
 
             if isinstance(begin_ts, str):
-                # Parse old format "HH:MM:SS" or "MM:SS"
                 begin_parts = begin_ts.split(":")
                 if len(begin_parts) == 2:
                     begin_hour, begin_minute, begin_second = (
@@ -211,12 +214,12 @@ def check_key_insights_task(
                 else:
                     begin_hour, begin_minute, begin_second = 0, 0, 0
             else:
-                begin_hour = begin_ts.get("hour", 0)
-                begin_minute = begin_ts.get("minute", 0)
-                begin_second = begin_ts.get("second", 0)
+                begin_dict = cast(dict[str, object], begin_ts)
+                begin_hour = int(cast(int, begin_dict.get("hour", 0)))
+                begin_minute = int(cast(int, begin_dict.get("minute", 0)))
+                begin_second = int(cast(int, begin_dict.get("second", 0)))
 
             if isinstance(end_ts, str):
-                # Parse old format "HH:MM:SS" or "MM:SS"
                 end_parts = end_ts.split(":")
                 if len(end_parts) == 2:
                     end_hour, end_minute, end_second = (
@@ -233,14 +236,15 @@ def check_key_insights_task(
                 else:
                     end_hour, end_minute, end_second = 0, 0, 0
             else:
-                end_hour = end_ts.get("hour", 0)
-                end_minute = end_ts.get("minute", 0)
-                end_second = end_ts.get("second", 0)
+                end_dict = cast(dict[str, object], end_ts)
+                end_hour = int(cast(int, end_dict.get("hour", 0)))
+                end_minute = int(cast(int, end_dict.get("minute", 0)))
+                end_second = int(cast(int, end_dict.get("second", 0)))
 
             parsed.append(
                 KeyInsightResponse(
-                    content=i.get("content", ""),
-                    video_url=i.get("video_url", ""),
+                    content=str(i.get("content", "")),
+                    video_url=str(i.get("video_url", "")),
                     begin_timestamp=Timestamp(
                         hour=begin_hour, minute=begin_minute, second=begin_second
                     ),
@@ -250,7 +254,7 @@ def check_key_insights_task(
                 )
             )
 
-    return KeyInsightsTaskStatusResponse(status=status, insights=parsed)
+    return KeyInsightsTaskStatusResponse(status=status, title=title, insights=parsed)
 
 
 @router.get(

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 @celery_app.task(name="extract_video_summary")
 def extract_video_summary_task(
     url: str, model_id: str, owner_id: str, target_language: str = "English"
-) -> list[dict[str, str]]:  # pragma: no cover - worker
+) -> dict[str, object]:  # pragma: no cover - worker
     external_repo = UrlExternalSourceRepository()
     llm_adapter = OpenAILLMAdapter()
     model_repo = SqlAlchemyModelRepository(owner_id)
@@ -51,10 +51,13 @@ def extract_video_summary_task(
     if result.is_err():
         error_msg = result.err() or "Unknown error occurred during summary generation"
         raise Exception(error_msg)
-    segments = result.ok()
-    if segments is None:
+    data = result.ok()
+    if data is None:
         raise Exception("No summary extracted")
-    return [i.model_dump() for i in segments]
+    return {
+        "title": data.title,
+        "segments": [i.model_dump() for i in data.segments],
+    }
 
 
 @final
@@ -74,13 +77,13 @@ class CeleryVideoSummaryTaskQueue(SummaryTaskPort):
 
     def get_task_status(
         self, task_id: str
-    ) -> Result[tuple[str, list[dict[str, object]] | None], str]:
+    ) -> Result[tuple[str, dict[str, object] | None], str]:
         try:
             async_result = celery_app.AsyncResult(task_id)
             status = async_result.status
             if async_result.successful():
-                segments = async_result.get()
-                return Ok((status, segments))
+                data = async_result.get()
+                return Ok((status, data))
             return Ok((status, None))
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))

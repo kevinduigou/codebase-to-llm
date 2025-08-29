@@ -31,7 +31,7 @@ def extract_key_insights_task(
     owner_id: str,
     target_language: str = "English",
     number_of_key_insights: int = 5,
-) -> list[dict[str, str]]:  # pragma: no cover - worker
+) -> dict[str, object]:  # pragma: no cover - worker
     external_repo = UrlExternalSourceRepository()
     llm_adapter = OpenAILLMAdapter()
     model_repo = SqlAlchemyModelRepository(owner_id)
@@ -58,10 +58,13 @@ def extract_key_insights_task(
             result.err() or "Unknown error occurred during key insights extraction"
         )
         raise Exception(error_msg)
-    insights = result.ok()
-    if insights is None:
+    insights_data = result.ok()
+    if insights_data is None:
         raise Exception("No insights extracted")
-    return [i.model_dump() for i in insights]
+    return {
+        "title": insights_data.title,
+        "insights": [i.model_dump() for i in insights_data.insights],
+    }
 
 
 @final
@@ -86,13 +89,13 @@ class CeleryKeyInsightsTaskQueue(KeyInsightsTaskPort):
 
     def get_task_status(
         self, task_id: str
-    ) -> Result[tuple[str, list[dict[str, str]] | None], str]:
+    ) -> Result[tuple[str, dict[str, object] | None], str]:
         try:
             async_result = celery_app.AsyncResult(task_id)
             status = async_result.status
             if async_result.successful():
-                insights = async_result.get()
-                return Ok((status, insights))
+                data = async_result.get()
+                return Ok((status, data))
             return Ok((status, None))
         except Exception as exc:  # noqa: BLE001
             return Err(str(exc))

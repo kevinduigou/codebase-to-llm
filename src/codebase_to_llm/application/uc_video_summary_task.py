@@ -16,5 +16,5 @@ def enqueue_video_summary_generation(
 
 def get_video_summary_status(
     task_id: str, task_port: SummaryTaskPort
-) -> Result[tuple[str, list[dict[str, object]] | None], str]:
+) -> Result[tuple[str, dict[str, object] | None], str]:
     return task_port.get_task_status(task_id)

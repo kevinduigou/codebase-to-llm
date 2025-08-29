@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from typing import cast
 
 from codebase_to_llm.application.ports import (
     SummaryTaskPort,
@@ -121,11 +122,14 @@ def check_video_summary_task(
         raise HTTPException(status_code=400, detail=result.err())
     data = result.ok()
     assert data is not None
-    status, segments = data
+    status, segments_data = data
+    title = None
     parsed = None
-    if segments:
+    if segments_data:
+        title = cast(str | None, segments_data.get("title"))
+        segments_list = cast(list[dict[str, object]], segments_data.get("segments", []))
         parsed = []
-        for s in segments:
+        for s in segments_list:
             begin_ts: object = s.get("begin_timestamp", {})
             end_ts: object = s.get("end_timestamp", {})
             if isinstance(begin_ts, dict):
@@ -156,7 +160,7 @@ def check_video_summary_task(
                     ),
                 )
             )
-    return SummaryTaskStatusResponse(status=status, segments=parsed)
+    return SummaryTaskStatusResponse(status=status, title=title, segments=parsed)
 
 
 @router.post("/video-summaries", response_model=VideoSummaryResponse)

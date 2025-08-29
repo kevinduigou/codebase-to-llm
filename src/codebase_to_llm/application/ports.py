@@ -329,6 +329,18 @@ class AddSubtitleTaskPort(Protocol):
     ) -> Result[tuple[str, str | None, str | None], str]: ...  # pragma: no cover
 
 
+class BurnAssTaskPort(Protocol):
+    """Port for long-running burn ASS subtitle tasks."""
+
+    def enqueue_burn_ass(
+        self, video_file_id: str, output_filename: str, owner_id: str
+    ) -> Result[str, str]: ...  # pragma: no cover
+
+    def get_task_status(
+        self, task_id: str
+    ) -> Result[tuple[str, str | None], str]: ...  # pragma: no cover
+
+
 class BurnAssSubtitlePort(Protocol):
     """Port for burning ASS subtitles into MKV videos."""
 

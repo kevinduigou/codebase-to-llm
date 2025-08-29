@@ -13,6 +13,7 @@ from typing_extensions import final
 from pydantic import BaseModel
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
+import pysubs2
 
 from codebase_to_llm.application.ports import AddSubtitleTaskPort
 from codebase_to_llm.application.uc_add_file import AddFileUseCase
@@ -274,7 +275,7 @@ def _srt_to_ass_time(srt_time: str) -> str:
     return f"{h}:{m}:{s}.{cs:02d}"
 
 
-def format_ass(
+def format_ass_with_pysubs2(
     subtitles: list[dict[str, str | int]],
     style_name: str = "Default",
     font_name: str = "Inter",
@@ -283,51 +284,86 @@ def format_ass(
     margins: tuple[int, int, int] = (60, 60, 50),
     preset: str = "outline",
 ) -> str:
-    """Convert subtitles to ASS format with proper styling"""
-    ml, mr, mv = margins
-    text_color_ass = _ass_color_from_hex(text_color, "00")
-    outline_color = _ass_color_from_hex("202020", "00")
-    back_color = _ass_color_from_hex("000000", "60")
+    """Convert subtitles to ASS format using pysubs2 for proper formatting"""
+    # Create a new SSAFile
+    subs = pysubs2.SSAFile()
 
+    # Convert hex color to pysubs2.Color format
+    def hex_to_pysubs2_color(hex_color: str) -> pysubs2.Color:
+        """Convert hex color (RRGGBB) to pysubs2.Color"""
+        hex_color = hex_color.lstrip("#")
+        if len(hex_color) != 6:
+            hex_color = "FFFFFF"  # Default to white
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+        return pysubs2.Color(r, g, b)
+
+    ml, mr, mv = margins
+    primary_color = hex_to_pysubs2_color(text_color)
+    outline_color = hex_to_pysubs2_color("202020")  # Dark gray outline
+
+    # Create style based on preset
     if preset == "boxed":
-        style_line = (
-            f"Style: {style_name},FontName={font_name},FontSize={font_size},"
-            f"PrimaryColour={text_color_ass},BackColour={back_color},"
-            f"BorderStyle=3,Outline=0,Shadow=0,"
-            f"Alignment=2,WrapStyle=2,ScaleBorderAndShadow=1,"
-            f"MarginL={ml},MarginR={mr},MarginV={mv}"
+        style = pysubs2.SSAStyle(
+            fontname=font_name,
+            fontsize=font_size,
+            primarycolor=primary_color,
+            outlinecolor=outline_color,
+            backcolor=pysubs2.Color(0, 0, 0),  # Black background
+            borderstyle=3,  # Opaque box
+            outline=0,
+            shadow=0,
+            alignment=pysubs2.Alignment.BOTTOM_CENTER,
+            marginl=ml,
+            marginr=mr,
+            marginv=mv,
         )
     else:
         # Default: modern outline + subtle shadow
-        style_line = (
-            f"Style: {style_name},FontName={font_name},FontSize={font_size},"
-            f"PrimaryColour={text_color_ass},OutlineColour={outline_color},"
-            f"BorderStyle=1,Outline=2,Shadow=1,"
-            f"Alignment=2,WrapStyle=2,ScaleBorderAndShadow=1,"
-            f"MarginL={ml},MarginR={mr},MarginV={mv}"
+        style = pysubs2.SSAStyle(
+            fontname=font_name,
+            fontsize=font_size,
+            primarycolor=primary_color,
+            outlinecolor=outline_color,
+            borderstyle=1,  # Outline + drop shadow
+            outline=2,
+            shadow=1,
+            alignment=pysubs2.Alignment.BOTTOM_CENTER,
+            marginl=ml,
+            marginr=mr,
+            marginv=mv,
         )
 
-    ass_content = f"""[Script Info]
-Title: Generated Subtitles
-ScriptType: v4.00+
+    # Add the style to the subtitle file
+    subs.styles[style_name] = style
 
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-{style_line}
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
-
+    # Convert subtitles to pysubs2 events
     for sub in subtitles:
-        start_time = _srt_to_ass_time(str(sub["start"]))
-        end_time = _srt_to_ass_time(str(sub["end"]))
-        text = str(sub["text"]).replace("\n", "\\N")  # ASS uses \N for line breaks
-        ass_content += (
-            f"Dialogue: 0,{start_time},{end_time},{style_name},,0,0,0,,{text}\n"
+        # Convert SRT time format to milliseconds
+        def srt_time_to_ms(srt_time: str) -> int:
+            """Convert SRT time format (HH:MM:SS,mmm) to milliseconds"""
+            time_part, ms_part = srt_time.split(",")
+            h, m, s = map(int, time_part.split(":"))
+            ms = int(ms_part)
+            return (h * 3600 + m * 60 + s) * 1000 + ms
+
+        start_ms = srt_time_to_ms(str(sub["start"]))
+        end_ms = srt_time_to_ms(str(sub["end"]))
+        text = str(sub["text"])
+
+        # Create SSAEvent
+        event = pysubs2.SSAEvent(
+            start=start_ms,
+            end=end_ms,
+            text=text,
+            style=style_name,
         )
 
-    return ass_content
+        subs.append(event)
+
+    # Return the ASS content as string
+    return subs.to_string("ass")
 
 
 def translate_text(client: OpenAI, text: str, target_language: str) -> str:
@@ -775,7 +811,7 @@ def add_subtitle_to_video(
                 ass_path = os.path.join(tmpdir, "subtitles.ass")
                 with open(ass_path, "w", encoding="utf-8") as f:
                     f.write(
-                        format_ass(
+                        format_ass_with_pysubs2(
                             subtitles,
                             style_name="Default",
                             font_name="Inter",

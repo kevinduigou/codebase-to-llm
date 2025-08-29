@@ -64,6 +64,30 @@ def before_scenario(context: Any, scenario: Any) -> None:
     context.delete_association_response = None
     context.get_deleted_association_response = None
 
+    # Black box workflow test variables
+    context.test_video_path = None
+    context.upload_response = None
+    context.upload_data = None
+    context.uploaded_video_file_id = None
+    context.video_with_subtitles_file_id = None
+    context.burn_request_response = None
+    context.burn_task_data = None
+    context.burn_task_id = None
+    context.burn_task_status_response = None
+    context.completed_burn_task_data = None
+    context.final_video_file_id = None
+    context.download_response = None
+    context.downloaded_video_content = None
+    context.delete_response = None
+
+    # Subtitle modification variables
+    context.get_subtitle_response = None
+    context.subtitle_data = None
+    context.original_subtitle_content = None
+    context.modified_subtitle_content = None
+    context.update_subtitle_response = None
+    context.updated_subtitle_data = None
+
     # Response objects
     context.create_response = None
     context.get_response = None

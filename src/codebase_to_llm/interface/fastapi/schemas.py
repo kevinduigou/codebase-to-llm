@@ -302,3 +302,32 @@ class AssFileResponse(BaseModel):
 
 class AssFileUpdateRequest(BaseModel):
     content: str
+
+    @classmethod
+    def validate_ass_content(cls, content: str) -> str:
+        """Validate ASS subtitle content format"""
+        if not content or not content.strip():
+            raise ValueError("ASS content cannot be empty")
+
+        # Check for required ASS sections
+        required_sections = ["[Script Info]", "[V4+ Styles]", "[Events]"]
+        for section in required_sections:
+            if section not in content:
+                raise ValueError(f"Missing required ASS section: {section}")
+
+        # Basic format validation
+        lines = content.strip().split("\n")
+        if len(lines) < 10:  # Minimum lines for a valid ASS file
+            raise ValueError("ASS content appears to be too short or malformed")
+
+        # Check for at least one dialogue line
+        has_dialogue = any(line.strip().startswith("Dialogue:") for line in lines)
+        if not has_dialogue:
+            raise ValueError("ASS content must contain at least one Dialogue line")
+
+        return content
+
+    def __init__(self, **data):
+        if "content" in data:
+            data["content"] = self.validate_ass_content(data["content"])
+        super().__init__(**data)
